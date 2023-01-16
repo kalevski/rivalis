@@ -1,0 +1,12 @@
+lib
+build
+node_modules
+.parcel-cache
+
+demos/phaser-plus-demo/public/*
+!demos/phaser-plus-demo/public/README.md
+!demos/phaser-plus-demo/public/assets
+
+demos/realtime-demo/public/*
+!demos/realtime-demo/public/README.md
+!demos/realtime-demo/public/assets

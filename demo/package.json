@@ -1,0 +1,21 @@
+{
+    "name": "@rivalis/demo",
+    "private": true,
+    "scripts": {
+        "dev": "concurrently npm:dev:server npm:dev:client",
+        "dev:server": "nodemon -w src -e ts --exec \"ts-node src/server/index.ts\"",
+        "dev:client": "parcel watch --no-cache --dist-dir build ./src/client/index.html"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme"
+}

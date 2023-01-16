@@ -1,0 +1,52 @@
+{
+    "name": "@rivalis/core",
+    "version": "5.0.0",
+    "description": "NodeJS framework for building real-time applications",
+    "source": "src/main.js",
+    "main": "lib/main.js",
+    "module": "lib/module.js",
+    "types": "lib/main.d.ts",
+    "scripts": {
+        "dev": "nodemon -e js -w src --exec \"npm run build\"",
+        "build": "npm run build:src && npm run build:tsd",
+        "build:src": "parcel build --no-source-maps --no-cache",
+        "build:tsd": "tsc -d --allowJs --emitDeclarationOnly --types @toolcase/base,@toolcase/logging,@types/ws --target es5 --lib ES2015 --outDir ./lib src/*.js"
+    },
+    "peerDependencies": {
+        "@toolcase/base": "1.x",
+        "@toolcase/logging": "0.x",
+        "ws": "8.x"
+    },
+    "targets": {
+        "types": false,
+        "main": {
+            "optimize": true
+        },
+        "module": {
+            "optimize": true
+        }
+    },
+    "keywords": ["realtime", "websockets", "networking", "multiplayer", "netcode", "rivalis"],
+    "directories": {
+        "lib": "lib"
+    },
+    "files": [
+        "lib"
+    ],
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme"
+}

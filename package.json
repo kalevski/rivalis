@@ -1,0 +1,27 @@
+{
+    "name": "@rivalis/root",
+    "private": true,
+    "scripts": {
+        "build": "npm run build --workspaces --if-present",
+        "demo": "npm run dev -w @rivalis/demo"
+    },
+    "workspaces": [
+        "core",
+        "browser",
+        "demo"
+    ],
+    "devDependencies": {
+        "@types/express": "^4.17.15",
+        "@types/ws": "^8.5.3",
+        "concurrently": "^7.6.0",
+        "express": "^4.18.2",
+        "nodemon": "^2.0.20",
+        "parcel": "^2.8.2",
+        "process": "^0.11.10",
+        "ts-node": "^10.9.1",
+        "typescript": "^4.9.4"
+    },
+    "dependencies": {
+        "@toolcase/base": "^1.0.3"
+    }
+}
