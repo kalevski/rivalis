@@ -31,11 +31,11 @@ Rivalis is free & open-source framework for building real-time applications and 
  - [**@rivalis/browser**](https://github.com/kalevski/rivalis/tree/main/browser)
 
 ## 🚀 Run demo project
-- Clone the repository `git clone git@github.com:rivalis/rivalis.git`.
+- Clone the repository `git clone git@github.com:kalevski/rivalis.git`.
 - Install project dependencies using `npm install`
 - Build the project using `npm run build`
 - Run the demo using `npm run demo`
 
  ## License
 
-The project is licensed under [MIT License](https://github.com/rivalis/rivalis/blob/main/LICENSE)
+The project is licensed under [MIT License](https://github.com/kalevski/rivalis/blob/main/LICENSE)
