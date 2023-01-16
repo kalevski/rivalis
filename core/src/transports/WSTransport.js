@@ -104,7 +104,7 @@ class WSTransport extends Transport {
      * @returns {string|null}
      */
     extractTicket(request) {
-        let requestUrl = new URL(request.headers.host + request.url)
+        let requestUrl = new URL('https://kalevski.dev' + request.url)
         return requestUrl.searchParams.get(this.QUERY_TICKET_PARAM) || null
     } 
 

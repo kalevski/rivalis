@@ -1,6 +1,6 @@
 {
     "name": "@rivalis/core",
-    "version": "5.0.0",
+    "version": "5.0.1",
     "description": "NodeJS framework for building real-time applications",
     "source": "src/main.js",
     "main": "lib/main.js",
