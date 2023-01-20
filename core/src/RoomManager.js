@@ -41,6 +41,14 @@ class RoomManager extends Broadcast {
         this.transportLayer = transportLayer
     }
 
+    get count() {
+        return this.rooms.size
+    }
+
+    keys() {
+        return this.rooms.keys()
+    }
+
     /**
      * 
      * @param {string} roomId 

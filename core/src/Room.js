@@ -42,7 +42,7 @@ class Room {
 
     /**
      * @private
-     * @type {Map<string,TopicListener>}
+     * @type {Map<string,import('./main').TopicListener>}
      */
     topics = new Map()
 
@@ -91,7 +91,7 @@ class Room {
      * @param {import('./main').TopicListener} topicListener 
      * @param {any|null} context
      */
-    listen(topic, topicListener, context = null) {
+    bind(topic, topicListener, context = null) {
         if (typeof topic !== 'string') {
             throw new Error(`topic must be a string, ${topic} provided`)
         }
@@ -99,10 +99,21 @@ class Room {
             throw new Error(`topicListener must be a function, ${topicListener} provided`)
         }
         if (this.topics.has(topic)) {
-            throw new Error(`topic ${topic} is already registered`)
+            return false
         }
-
         this.topics.set(topic, topicListener.bind(context === null ? this : context))
+        return true
+    }
+
+    /**
+     * 
+     * @param {string} topic 
+     */
+    unbind(topic) {
+        if (typeof topic !== 'string') {
+            throw new Error(`topic must be a string, ${topic} provided`)
+        }
+        return this.topics.delete(topic)
     }
 
     /**
@@ -196,12 +207,15 @@ class Room {
      */
     handleMessage(actorId, topic, payload) {
         let topicListener = this.topics.get(topic) || null
+        if (topicListener === null) {
+            topicListener = this.topics.get(Room.Any) || null
+        }
         let actor = this.actors.get(actorId) || null
         if (topicListener === null) {
             this.logger.debug(`actor id=${actorId} is kicked, reason: sending message on non existing topic=${topic}`)
             return actor.kick(ERROR.INVALID_MESSAGE)
         }
-        topicListener(actor, payload)
+        topicListener(actor, payload, topic)
     }
 
     /**
@@ -217,5 +231,7 @@ class Room {
 
 
 }
+
+Room.Any = '*'
 
 export default Room

@@ -10,4 +10,9 @@ serializer.define('message', [
     { key: 'payload', type: 'payload', rule: 'repeated' }
 ])
 
+serializer.define('server_message', [
+    { key: 'topic', type: 'string', rule: 'required' },
+    { key: 'payload', type: 'bytes', rule: 'required' }
+])
+
 export default serializer

@@ -84,7 +84,10 @@ class WSTransport extends Transport {
         socket.on('message', (data, isBinary) => {
             if (!isBinary) {
                 this.logger.debug(`actor id=(${actorId}) ticket=(${ticket}) sent non-binary data`)
-                socket.close(4002)
+                return socket.close(4002)
+            }
+            if (CustomLoggerFactory.Instance.level === 'verbose') {
+                this.logger.verbose('message received', data)
             }
             this.transportLayer.handleMessage(actorId, data)
         })

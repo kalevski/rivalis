@@ -4,7 +4,7 @@ import serializer from '../serializer'
 class FirstRoom extends Room {
 
     protected override onCreate(): void {
-        this.listen('message', this.onMessage, this)
+        this.bind(Room.Any, this.onMessage, this)
     }
 
     protected override onJoin(actor: Actor): void {
@@ -19,8 +19,8 @@ class FirstRoom extends Room {
         
     }
 
-    private onMessage(actor: Actor, payload: Uint8Array) {
-        
+    private onMessage(actor: Actor, payload: Uint8Array, topic: string) {
+        console.log('topic', topic, payload)
     }
 
 }

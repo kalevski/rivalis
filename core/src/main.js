@@ -20,6 +20,7 @@ const Clients = {
  * @callback TopicListener
  * @param {Actor} actor
  * @param {Uint8Array} payload
+ * @param {string} topic
  * @returns {void}
  */
 

@@ -3,6 +3,8 @@ import { WebSocket } from 'ws'
 import CustomLoggerFactory from '../CustomLoggerFactory'
 import { decode, encode } from '../serializer'
 
+const EMPTY_PAYLOAD = new Uint8Array()
+
 /**
  * @typedef EventTypes
  * @type {string}
@@ -74,9 +76,9 @@ class WSClient extends Broadcast {
     /**
      * 
      * @param {string} topic 
-     * @param {Uint8Array|string} payload 
+     * @param {Uint8Array|string} [payload] 
      */
-    send(topic, payload) {
+    send(topic, payload = EMPTY_PAYLOAD) {
         if (!this.connected) {
             return this.logger.warning('send fail: connection is not established yet')
         }

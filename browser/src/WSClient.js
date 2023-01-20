@@ -3,6 +3,7 @@ import logging from '@toolcase/logging'
 import { decode, encode } from './serializer'
 
 const encoder = new window.TextEncoder()
+const EMPTY_PAYLOAD = new Uint8Array()
 
 /**
  * @typedef EventTypes
@@ -75,9 +76,9 @@ class WSClient extends Broadcast {
     /**
      * 
      * @param {string} topic 
-     * @param {Uint8Array|string} payload 
+     * @param {Uint8Array|string} [payload] 
      */
-    send(topic, payload) {
+    send(topic, payload = EMPTY_PAYLOAD) {
         if (!this.connected) {
             return this.logger.warning('send fail: connection is not established yet')
         }

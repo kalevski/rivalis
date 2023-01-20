@@ -1,6 +1,6 @@
 import { Serializer } from '@toolcase/base'
 
-const serializer = new Serializer('@toolcase/realtime')
+const serializer = new Serializer('@rivalis/message')
 
 const DATA_MODEL = 'realtime_message'
 
