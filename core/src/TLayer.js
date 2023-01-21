@@ -1,4 +1,4 @@
-import { Broadcast, generateId } from '@toolcase/base'
+import { Broadcast, EventEmitter, generateId } from '@toolcase/base'
 import AuthMiddleware from './AuthMiddleware'
 import CustomLoggerFactory from './CustomLoggerFactory'
 import { decode, encode } from './serializer'
@@ -22,13 +22,10 @@ import { decode, encode } from './serializer'
 /**
  * @callback GetRoomFn
  * @param {string} roomId
- * @returns {Room}
+ * @returns {import('./Room').Room}
  */
 
-/**
- * @extends {Broadcast<EventType,EventFn,any>}
- */
-class TLayer extends Broadcast {
+class TLayer {
 
     logger = CustomLoggerFactory.Instance.getLogger('transport layer')
 
@@ -51,14 +48,20 @@ class TLayer extends Broadcast {
     roomIds = new Map()
 
     /**
+     * @private
+     * @type {EventEmitter<string,any,any>}
+     */
+    emitter = null
+
+    /**
      * 
      * @param {AuthMiddleware} authMiddleware 
      * @param {GetRoomFn} getRoomFn
      */
     constructor(authMiddleware, getRoomFn = null) {
-        super()
         this.authMiddleware = authMiddleware
         this.getRoom = getRoomFn
+        this.emitter = new EventEmitter()
     }
 
     get connections() {
@@ -66,24 +69,22 @@ class TLayer extends Broadcast {
     }
 
     /**
-     * 
-     * @param {EventType} event 
-     * @param {string} actorId 
-     * @param {Message} eventListener 
-     * @param {any} context 
-     * @returns {void}
-     */
-    on = (event, actorId, eventListener, context) => super.on(`${event}:${actorId}`, eventListener, context)
-
-    /**
-     * 
      * @param {EventType} event 
      * @param {string} actorId 
      * @param {EventFn} eventListener 
      * @param {any} context 
      * @returns {void}
      */
-    once = (event, actorId, eventListener, context) => super.once(`${event}:${actorId}`, eventListener, context)
+    on = (event, actorId, eventListener, context) => this.emitter.on(`${event}:${actorId}`, eventListener, context)
+
+    /**
+     * @param {EventType} event 
+     * @param {string} actorId 
+     * @param {EventFn} eventListener 
+     * @param {any} context 
+     * @returns {void}
+     */
+    once = (event, actorId, eventListener, context) => this.emitter.once(`${event}:${actorId}`, eventListener, context)
 
     /**
      * @protected
@@ -92,7 +93,7 @@ class TLayer extends Broadcast {
      * @param {Message} message 
      * @returns {void}
      */
-    emit = (event, actorId, message) => super.emit(`${event}:${actorId}`, actorId, message) 
+    emit = (event, actorId, message) => this.emitter.emit(`${event}:${actorId}`, actorId, message)
 
     /**
      * 
@@ -128,6 +129,7 @@ class TLayer extends Broadcast {
      */
     handleMessage(actorId, message) {
         let data = decode(message)
+        this.logger.verbose('decoded data:', data)
         let roomId = this.roomIds.get(actorId)
         let room = this.getRoom(roomId)
         room.handleMessage(actorId, data.topic, data.payload)

@@ -17,7 +17,8 @@ const EMPTY_PAYLOAD = new Uint8Array()
  */
 
 /**
- * @extends {Broadcast<EventTypes,EventListener,any>}
+ * @class
+ * @augments Broadcast<EventTypes,EventListener,any>
  */
 class WSClient extends Broadcast {
 
@@ -129,12 +130,13 @@ class WSClient extends Broadcast {
      * @protected
      * @param {EventTypes} eventName 
      * @param  {...any} messages 
+     * @returns {boolean}
      */
     emit(eventName, ...messages) {
         if (this.events.listenerCount(eventName) === 0) {
             return this.logger.warning(`event=${eventName} emitted, register listener to handle the event`)
         }
-        super.emit(eventName, ...messages)
+        return super.emit(eventName, ...messages)
     }
 
 }

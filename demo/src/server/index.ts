@@ -21,7 +21,7 @@ application.get('/', (_, response) => {
 })
 
 server.listen(2334, '0.0.0.0', () => {
-    
+    console.log('server started: http://localhost:2334')
 })
 
 
@@ -34,7 +34,7 @@ const rivalis = new Rivalis({
     authMiddleware: new MyAuthMiddleware()
 })
 
-rivalis.logging.level = 'verbose'
+rivalis.logging.level = 'debug'
 
 rivalis.rooms.define('first_room', FirstRoom)
 rivalis.rooms.create('first_room', 'my_first_room')

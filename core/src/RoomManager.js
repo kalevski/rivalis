@@ -8,11 +8,10 @@ import TLayer from './TLayer'
  */
 
 /**
- * @extends {Broadcast<EventTypes,string,any>}
+ * @class
+ * @augments Broadcast<EventTypes,string,any>
  */
 class RoomManager extends Broadcast {
-
-
 
     /**
      * @private

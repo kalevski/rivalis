@@ -208,7 +208,7 @@ class Room {
     handleMessage(actorId, topic, payload) {
         let topicListener = this.topics.get(topic) || null
         if (topicListener === null) {
-            topicListener = this.topics.get(Room.Any) || null
+            topicListener = this.topics.get('*') || null
         }
         let actor = this.actors.get(actorId) || null
         if (topicListener === null) {
@@ -227,11 +227,6 @@ class Room {
         this.onLeave(actor)
         this.actors.delete(actorId)
     }
-
-
-
 }
-
-Room.Any = '*'
 
 export default Room

@@ -1,6 +1,6 @@
 {
     "name": "@rivalis/core",
-    "version": "5.0.2",
+    "version": "5.0.5",
     "description": "NodeJS framework for building real-time applications",
     "source": "src/main.js",
     "main": "lib/main.js",
@@ -9,7 +9,7 @@
     "scripts": {
         "dev": "nodemon -e js -w src --exec \"npm run build\"",
         "build": "npm run build:src && npm run build:tsd",
-        "build:src": "parcel build --no-source-maps --no-cache",
+        "build:src": "parcel build --no-source-maps --no-cache --no-optimize",
         "build:tsd": "tsc -d --allowJs --emitDeclarationOnly --types @toolcase/base,@toolcase/logging,@types/ws --target es5 --lib ES2015 --outDir ./lib src/*.js"
     },
     "peerDependencies": {
@@ -20,10 +20,10 @@
     "targets": {
         "types": false,
         "main": {
-            "optimize": true
+            "optimize": false
         },
         "module": {
-            "optimize": true
+            "optimize": false
         }
     },
     "keywords": ["realtime", "websockets", "networking", "multiplayer", "netcode", "rivalis"],

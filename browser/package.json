@@ -1,6 +1,6 @@
 {
     "name": "@rivalis/browser",
-    "version": "5.0.1",
+    "version": "5.0.4",
     "description": "🔗 Browser client for rivalis server",
     "source": "src/main.js",
     "main": "lib/main.js",
@@ -9,7 +9,7 @@
     "scripts": {
         "dev": "nodemon -e js -w src --exec \"npm run build\"",
         "build": "npm run build:src && npm run build:tsd",
-        "build:src": "parcel build --no-source-maps --no-cache",
+        "build:src": "parcel build --no-source-maps --no-cache --no-optimize",
         "build:tsd": "tsc -d --allowJs --types @toolcase/base,@toolcase/logging --emitDeclarationOnly --target es5 --lib ES2015,DOM,ScriptHost --outDir ./lib src/*.js"
     },
     "peerDependencies": {
@@ -19,10 +19,10 @@
     "targets": {
         "types": false,
         "main": {
-            "optimize": true
+            "optimize": false
         },
         "module": {
-            "optimize": true
+            "optimize": false
         }
     },
     "keywords": ["realtime", "websockets", "networking", "multiplayer", "netcode", "toolcase", "borwser", "rivalis"],

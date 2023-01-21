@@ -2,7 +2,7 @@ import { WSClient } from '@rivalis/browser'
 import serializer from '../serializer'
 
 
-const client = new WSClient('wss://localhost')
+const client = new WSClient('ws://localhost:2334')
 
 client.connect('test')
 client.on('client:connect', (payload, topic) => {
@@ -17,7 +17,7 @@ client.on('client:disconnect', (payload, topic) => {
 
 let button = document.getElementById('send') as HTMLButtonElement
 button.addEventListener('click', (event) => {
-    client.send('distance.update2')
+    client.send('my_message', 'helllooo')
 })
 
 let decodeText = document.getElementById('decode_text') as HTMLTextAreaElement

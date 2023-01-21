@@ -1,10 +1,9 @@
 import { Actor, Room } from '@rivalis/core'
-import serializer from '../serializer'
 
 class FirstRoom extends Room {
 
     protected override onCreate(): void {
-        this.bind(Room.Any, this.onMessage, this)
+        this.bind('my_message', this.onMessage, this)
     }
 
     protected override onJoin(actor: Actor): void {
@@ -20,7 +19,8 @@ class FirstRoom extends Room {
     }
 
     private onMessage(actor: Actor, payload: Uint8Array, topic: string) {
-        console.log('topic', topic, payload)
+        let message = Buffer.from(payload).toString('utf-8')
+        console.log('topic', topic, message)
     }
 
 }
