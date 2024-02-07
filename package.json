@@ -23,6 +23,6 @@
         "typescript": "^5.3.3"
     },
     "dependencies": {
-        "@toolcase/base": "^1.0.14"
+        "@toolcase/base": "^1.0.18"
     }
 }
