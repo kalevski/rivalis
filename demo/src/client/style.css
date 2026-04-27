@@ -1,0 +1,113 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font: 14px/1.4 system-ui, -apple-system, sans-serif;
+    background: #0e0e12;
+    color: #e6e6ea;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+code { font-family: ui-monospace, monospace; background: #2a2a35; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+
+#login {
+    max-width: 380px;
+    margin: 8vh auto;
+    padding: 28px;
+    background: #18181f;
+    border: 1px solid #2a2a35;
+    border-radius: 10px;
+}
+#login h1 { font-size: 24px; margin-bottom: 4px; }
+#login p { color: #888; margin-bottom: 20px; font-size: 13px; }
+#login-form { display: grid; gap: 12px; }
+#login-form label { display: grid; gap: 4px; font-size: 12px; color: #aaa; }
+#login-form input {
+    padding: 9px;
+    background: #0e0e12;
+    border: 1px solid #2a2a35;
+    border-radius: 5px;
+    color: #e6e6ea;
+    font: inherit;
+}
+#login-form input[type=color] { padding: 2px; height: 36px; cursor: pointer; }
+#login-form button {
+    padding: 11px;
+    background: #4a7eff;
+    border: 0;
+    border-radius: 5px;
+    color: white;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+}
+#login-form button:hover { background: #5e8eff; }
+.features { list-style: none; margin-top: 20px; padding-top: 16px; border-top: 1px solid #2a2a35; font-size: 12px; color: #888; }
+.features li { padding: 3px 0; }
+.features li::before { content: "→ "; color: #4a7eff; }
+
+#game { display: flex; flex-direction: column; height: 100vh; }
+#game header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #18181f;
+    border-bottom: 1px solid #2a2a35;
+    flex-shrink: 0;
+}
+#game header #me { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+#game header #me .dot { width: 12px; height: 12px; border-radius: 50%; }
+#game header #conn-status { color: #888; font-size: 12px; margin-left: auto; }
+#game header button {
+    padding: 6px 12px;
+    background: #2a2a35;
+    border: 0;
+    border-radius: 4px;
+    color: #e6e6ea;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+}
+#game header button:hover { background: #3a3a45; }
+
+#game main { display: flex; flex: 1; overflow: hidden; }
+
+#canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; min-width: 0; }
+#canvas { background: #16161e; cursor: crosshair; max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+
+aside { width: 300px; border-left: 1px solid #2a2a35; display: flex; flex-direction: column; background: #18181f; flex-shrink: 0; }
+aside section { padding: 12px 14px; border-bottom: 1px solid #2a2a35; display: flex; flex-direction: column; min-height: 0; }
+aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 10px; }
+
+#presence { max-height: 240px; }
+#presence-list { list-style: none; overflow-y: auto; flex: 1; }
+#presence-list li { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+#presence-list li .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+#presence-list li.me { font-weight: 600; }
+#presence-list li.me::after { content: " (you)"; color: #888; font-weight: normal; font-size: 12px; }
+
+#chat { flex: 1; min-height: 0; }
+#chat-log { list-style: none; overflow-y: auto; flex: 1; margin-bottom: 10px; padding-right: 4px; }
+#chat-log li { padding: 4px 0; word-wrap: break-word; line-height: 1.5; font-size: 13px; }
+#chat-log .name { font-weight: 600; }
+#chat-log .ts { color: #555; font-size: 10px; margin-left: 6px; }
+#chat-log .system { color: #666; font-style: italic; font-size: 12px; }
+#chat-form input {
+    width: 100%;
+    padding: 8px 10px;
+    background: #0e0e12;
+    border: 1px solid #2a2a35;
+    border-radius: 4px;
+    color: #e6e6ea;
+    font: inherit;
+}
+#chat-form input:focus { outline: none; border-color: #4a7eff; }
+
+#game footer { padding: 8px 16px; background: #18181f; border-top: 1px solid #2a2a35; color: #666; font-size: 11px; text-align: center; flex-shrink: 0; }
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a45; }

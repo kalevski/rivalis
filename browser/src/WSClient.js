@@ -65,13 +65,21 @@ class WSClient extends Broadcast {
         this.ws.binaryType = 'arraybuffer'
     }
 
-    disocnnect() {
+    disconnect() {
         if (!this.connected) {
             return
         }
         this.ws.close()
         this.ws = null
         this.emit('client:disconnect', encoder.encode('terminated'))
+    }
+
+    /**
+     * @deprecated misspelling — use {@link WSClient.disconnect} instead.
+     */
+    disocnnect() {
+        this.logger.warning('disocnnect() is deprecated due to a typo, use disconnect() instead')
+        return this.disconnect()
     }
 
     /**

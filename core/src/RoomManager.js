@@ -86,7 +86,7 @@ class RoomManager extends Broadcast {
      */
     create(roomType, roomId = null) {
         if (typeof roomType !== 'string') {
-            throw new Error(`room create error: type=(${type}) must be a string`)
+            throw new Error(`room create error: type=(${roomType}) must be a string`)
         }
         if (!this.defs.has(roomType)) {
             throw new Error(`room create error: type=(${roomType}) is not defined`)

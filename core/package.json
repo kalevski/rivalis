@@ -6,25 +6,21 @@
     "main": "lib/main.js",
     "module": "lib/module.js",
     "types": "lib/main.d.ts",
+    "exports": {
+        ".": {
+            "types": "./lib/main.d.ts",
+            "import": "./lib/module.js",
+            "require": "./lib/main.js"
+        }
+    },
     "scripts": {
-        "dev": "nodemon -e js -w src --exec \"npm run build\"",
-        "build": "npm run build:src && npm run build:tsd",
-        "build:src": "parcel build --no-source-maps --no-cache --no-optimize",
-        "build:tsd": "tsc -d --allowJs --emitDeclarationOnly --types @toolcase/base,@toolcase/logging,@types/ws --target es5 --lib ES2015 --outDir ./lib src/*.js"
+        "dev": "tsup --watch",
+        "build": "tsup"
     },
     "peerDependencies": {
-        "@toolcase/base": "1.x",
-        "@toolcase/logging": "0.x",
+        "@toolcase/base": "2.x",
+        "@toolcase/logging": "2.x",
         "ws": "8.x"
-    },
-    "targets": {
-        "types": false,
-        "main": {
-            "optimize": false
-        },
-        "module": {
-            "optimize": false
-        }
     },
     "keywords": ["realtime", "websockets", "networking", "multiplayer", "netcode", "rivalis"],
     "directories": {

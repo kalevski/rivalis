@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "target": "ES2018",
+        "module": "ESNext",
+        "moduleResolution": "node",
+        "allowJs": true,
+        "checkJs": false,
+        "declaration": true,
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+        "strict": false,
+        "lib": ["ES2018", "DOM", "ScriptHost"],
+        "types": ["@toolcase/base", "@toolcase/logging"]
+    },
+    "include": ["src/**/*"]
+}

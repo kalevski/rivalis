@@ -212,6 +212,10 @@ class Room {
         }
         let actor = this.actors.get(actorId) || null
         if (topicListener === null) {
+            if (actor === null) {
+                this.logger.debug(`message dropped for unknown actor id=${actorId} on topic=${topic}`)
+                return
+            }
             this.logger.debug(`actor id=${actorId} is kicked, reason: sending message on non existing topic=${topic}`)
             return actor.kick(ERROR.INVALID_MESSAGE)
         }

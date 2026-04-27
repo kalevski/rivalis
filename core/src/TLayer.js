@@ -1,6 +1,7 @@
 import { Broadcast, EventEmitter, generateId } from '@toolcase/base'
 import AuthMiddleware from './AuthMiddleware'
 import CustomLoggerFactory from './CustomLoggerFactory'
+import RateLimiter from './RateLimiter'
 import { decode, encode } from './serializer'
 
 /**
@@ -54,13 +55,21 @@ class TLayer {
     emitter = null
 
     /**
-     * 
-     * @param {AuthMiddleware} authMiddleware 
-     * @param {GetRoomFn} getRoomFn
+     * @private
+     * @type {RateLimiter|null}
      */
-    constructor(authMiddleware, getRoomFn = null) {
+    rateLimiter = null
+
+    /**
+     *
+     * @param {AuthMiddleware} authMiddleware
+     * @param {GetRoomFn} getRoomFn
+     * @param {RateLimiter|null} [rateLimiter]
+     */
+    constructor(authMiddleware, getRoomFn = null, rateLimiter = null) {
         this.authMiddleware = authMiddleware
         this.getRoom = getRoomFn
+        this.rateLimiter = rateLimiter
         this.emitter = new EventEmitter()
     }
 
@@ -124,28 +133,64 @@ class TLayer {
 
     /**
      * @private
-     * @param {string} actorId 
-     * @param {Uint8Array} message 
+     * @param {string} actorId
+     * @param {Uint8Array} message
      */
-    handleMessage(actorId, message) {
-        let data = decode(message)
+    async handleMessage(actorId, message) {
+        let data = null
+        try {
+            data = decode(message)
+        } catch (error) {
+            this.logger.error(`actor id=${actorId} sent malformed frame, kicking. reason=${error.message}`)
+            this.roomIds.delete(actorId)
+            return this.kick(actorId, Buffer.from('invalid_message', 'utf-8'))
+        }
+        if (this.rateLimiter !== null) {
+            let allowed = await this.rateLimiter.check(actorId)
+            if (allowed === false) {
+                this.logger.debug(`actor id=${actorId} rate limited, dropping frame`)
+                this.kick(actorId, Buffer.from('rate_limited', 'utf-8'))
+                return
+            }
+        }
         this.logger.verbose('decoded data:', data)
         let roomId = this.roomIds.get(actorId)
         let room = this.getRoom(roomId)
+        if (room === null) {
+            this.logger.warning(`message for actor id=${actorId} dropped: room id=${roomId} no longer exists`)
+            this.roomIds.delete(actorId)
+            return
+        }
         room.handleMessage(actorId, data.topic, data.payload)
     }
 
     /**
      * @private
-     * @param {string} actorId 
+     * @param {string} actorId
      */
     handleClose(actorId) {
         let roomId = this.roomIds.get(actorId)
         let room = this.getRoom(roomId)
         this.roomIds.delete(actorId)
         try {
-            room.handleLeave(actorId)
-        } catch (error) {}
+            if (room !== null) {
+                room.handleLeave(actorId)
+            } else {
+                this.logger.info(`actor id=${actorId} leave: room id=${roomId} already destroyed`)
+            }
+        } catch (error) {
+            this.logger.error(`actor id=${actorId} leave threw in room id=${roomId}: ${error.message}`)
+        } finally {
+            this.emitter.removeAllListeners(`message:${actorId}`)
+            this.emitter.removeAllListeners(`kick:${actorId}`)
+            if (this.rateLimiter !== null) {
+                try {
+                    this.rateLimiter.release(actorId)
+                } catch (error) {
+                    this.logger.warning(`rateLimiter.release threw for actor id=${actorId}: ${error.message}`)
+                }
+            }
+        }
         this.logger.info(`actor id=${actorId} leave room id=${roomId}`)
     }
 

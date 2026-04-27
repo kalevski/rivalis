@@ -1,4 +1,5 @@
 import AuthMiddleware from './AuthMiddleware'
+import RateLimiter from './RateLimiter'
 import Transport from './Transport'
 
 class Config {
@@ -14,8 +15,13 @@ class Config {
     authMiddleware = null
 
     /**
-     * 
-     * @param {Config} config 
+     * @type {RateLimiter|null}
+     */
+    rateLimiter = null
+
+    /**
+     *
+     * @param {Config} config
      */
     constructor(config = {}) {
 
@@ -37,8 +43,13 @@ class Config {
             throw new Error(`config error: authMiddleware must be an instance of AuthMiddleware`)
         }
 
+        if (config.rateLimiter !== undefined && config.rateLimiter !== null && !(config.rateLimiter instanceof RateLimiter)) {
+            throw new Error('config error: rateLimiter must be an instance of RateLimiter')
+        }
+
         this.transports = config.transports
         this.authMiddleware = config.authMiddleware
+        this.rateLimiter = config.rateLimiter ?? null
     }
 
 }

@@ -2,17 +2,53 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@rivalis/demo</title>
+    <title>rivalis arena</title>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-    <button id="send">send message</button>
-    <br />
-    <br />
-    <textarea id="decode_text"></textarea>
-    <br />
-    <button id="decode">decode</button>
+    <div id="login">
+        <h1>rivalis arena</h1>
+        <p>realtime multiplayer demo built on <code>@rivalis/core</code> + <code>@rivalis/browser</code></p>
+        <form id="login-form">
+            <label>name <input id="name" maxlength="20" required value="player"></label>
+            <label>color <input id="color" type="color" value="#4a7eff"></label>
+            <button type="submit">join arena</button>
+        </form>
+        <ul class="features">
+            <li>click on canvas to move &mdash; broadcast to all peers</li>
+            <li>persistent room state &mdash; chat history replayed on join</li>
+            <li>presence &mdash; see who joins and leaves in real time</li>
+        </ul>
+    </div>
+
+    <div id="game" hidden>
+        <header>
+            <span id="me"></span>
+            <span id="conn-status">connecting...</span>
+            <button id="leave">leave</button>
+        </header>
+        <main>
+            <div id="canvas-wrap">
+                <canvas id="canvas" width="800" height="600"></canvas>
+            </div>
+            <aside>
+                <section id="presence">
+                    <h2>online (<span id="presence-count">0</span>)</h2>
+                    <ul id="presence-list"></ul>
+                </section>
+                <section id="chat">
+                    <h2>chat</h2>
+                    <ul id="chat-log"></ul>
+                    <form id="chat-form">
+                        <input id="chat-input" placeholder="say something..." maxlength="200" required autocomplete="off">
+                    </form>
+                </section>
+            </aside>
+        </main>
+        <footer>click on the canvas to move &middot; messages broadcast to everyone in the room</footer>
+    </div>
+
     <script type="module" src="./index.ts"></script>
 </body>
 </html>

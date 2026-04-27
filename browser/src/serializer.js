@@ -22,7 +22,7 @@ serializer.define(DATA_MODEL, [
  * @param {string} sender 
  * @returns {Uint8Array}
  */
- export const encode = (topic, payload) => {
+export const encode = (topic, payload) => {
     return serializer.encode(DATA_MODEL, {
         topic, payload
     })

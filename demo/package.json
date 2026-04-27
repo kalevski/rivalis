@@ -3,8 +3,9 @@
     "private": true,
     "scripts": {
         "dev": "concurrently npm:dev:server npm:dev:client",
-        "dev:server": "nodemon -w src -e ts --exec \"ts-node src/server/index.ts\"",
-        "dev:client": "parcel watch --no-cache --dist-dir build ./src/client/index.html"
+        "dev:server": "nodemon -w src/server -e ts --exec \"ts-node src/server/index.ts\"",
+        "dev:client": "vite",
+        "build": "vite build"
     },
     "repository": {
         "type": "git",

@@ -52,10 +52,10 @@ class Actor {
     }
 
     /**
-     * 
-     * @param {Uint8Array|string} [payload] 
+     *
+     * @param {Uint8Array|string} [payload]
      */
-    kick(payload) {
+    kick(payload = '') {
         this.room.kick(this, payload)
     }
 
