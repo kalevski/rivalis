@@ -1,0 +1,55 @@
+name: Publish landing page
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - 'landing-page/**'
+            - 'package.json'
+            - 'package-lock.json'
+            - '.github/workflows/landing-page.yml'
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+concurrency:
+    group: landing-page
+    cancel-in-progress: false
+
+jobs:
+    build-and-publish:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout source
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Build static site
+              run: npm run build -w @rivalis/landing-page
+
+            - name: Add .nojekyll and CNAME
+              run: |
+                  touch landing-page/out/.nojekyll
+
+            - name: Publish to public branch
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+                  cd landing-page/out
+                  git init -q -b public
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git add -A
+                  git commit -q -m "Publish landing page from ${GITHUB_SHA::7}"
+                  git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+                  git push -f origin public

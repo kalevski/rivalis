@@ -22,10 +22,8 @@ class CounterRoom extends Room<ActorData> {
     }
 
     protected override onJoin(actor: Actor<ActorData>): void {
-        setImmediate(() => {
-            const state: CounterStateEvent = { value: this.value, by: null }
-            actor.send('counter:state', encode(state))
-        })
+        const state: CounterStateEvent = { value: this.value, by: null }
+        actor.send('counter:state', encode(state))
     }
 
     private onChange(actor: Actor<ActorData>, payload: Uint8Array): void {

@@ -1,6 +1,6 @@
 {
     "name": "@rivalis/browser",
-    "version": "5.0.6",
+    "version": "6.0.0",
     "description": "🔗 Browser client for rivalis server",
     "source": "src/main.ts",
     "main": "lib/main.js",

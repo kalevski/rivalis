@@ -1,14 +1,14 @@
-:root {
-    color-scheme: dark;
-    --bg: #0e0e14;
-    --panel: #16161e;
-    --border: #2a2a36;
-    --text: #e6e6f0;
-    --muted: #8a8a99;
-    --accent: #4a7eff;
-    --danger: #ff7e7e;
-    --success: #7eff7e;
-}
+/*
+ * Layout-only — visual chrome (colors, borders, shadows, typography)
+ * comes entirely from @toolcase/react-components and its default
+ * (light) theme. This file owns:
+ *   - the app shell grid
+ *   - the per-room layout (chat scroll area, counter sizing, ttt grid)
+ *   - the gaps between toolcase components
+ *
+ * No CSS custom properties for color — toolcase's `--tc-*` and Bootstrap's
+ * `--bs-*` already drive every painted surface.
+ */
 
 * { box-sizing: border-box; }
 
@@ -18,11 +18,11 @@ html, body, #root {
 }
 
 body {
-    background: var(--bg);
-    color: var(--text);
     font-family: system-ui, -apple-system, sans-serif;
     font-size: 14px;
 }
+
+/* --------------------------- App shell -------------------------- */
 
 .app {
     display: grid;
@@ -34,206 +34,247 @@ body {
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 12px 20px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.1));
+    background: var(--bs-body-bg, #fff);
 }
 
-.topbar .brand {
-    font-weight: 600;
-    letter-spacing: 0.5px;
-}
-
-.topbar .nav {
+.topbar-nav {
     display: flex;
     gap: 8px;
-    flex: 1;
 }
 
-.topbar .nav button {
-    background: transparent;
-    color: var(--muted);
-    border: 1px solid transparent;
-    padding: 6px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font: inherit;
+.topbar-identity {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
-
-.topbar .nav button:hover { color: var(--text); border-color: var(--border); }
-.topbar .nav button[aria-pressed="true"] {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-}
-
-.topbar .me { display: flex; align-items: center; gap: 8px; color: var(--muted); }
-.topbar .me .dot { width: 10px; height: 10px; border-radius: 50%; }
 
 .content {
     overflow: auto;
-    padding: 24px;
+    padding: 32px 24px;
     display: flex;
     justify-content: center;
 }
 
 .room {
     width: 100%;
-    max-width: 800px;
+    max-width: 960px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
-.status {
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 16px;
+.status-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
 }
-.status.connected { color: var(--success); }
-.status.rejected { color: var(--danger); }
+
+/* ---------------------------- Login ---------------------------- */
 
 .login-shell {
+    min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
+    padding: 24px;
+    background: var(--bs-body-bg, #fff);
 }
 
 .login-card {
     width: 100%;
-    max-width: 360px;
-    padding: 28px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    max-width: 420px;
 }
 
-.login-card h1 { margin: 0 0 8px; font-size: 20px; }
-.login-card p { margin: 0 0 20px; color: var(--muted); }
-
-.login-card label { display: block; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
-.login-card input[type="text"] {
-    display: block;
-    width: 100%;
-    margin-top: 4px;
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font: inherit;
-}
-.login-card input[type="color"] {
-    margin-top: 4px;
-    width: 60px;
-    height: 30px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: transparent;
-    cursor: pointer;
+.login-brand {
+    margin-bottom: 8px;
 }
 
-.btn {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font: inherit;
-    font-weight: 500;
-    cursor: pointer;
-}
-.btn:hover { filter: brightness(1.1); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-.btn.ghost:hover { color: var(--text); }
-.btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
-
-.panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 20px;
-}
-
-.panel + .panel { margin-top: 16px; }
-
-h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
-
-.row { display: flex; gap: 12px; align-items: center; }
-
-/* counter */
-.counter-display {
-    font-size: 64px;
-    font-weight: 700;
-    text-align: center;
-    margin: 16px 0;
-    font-variant-numeric: tabular-nums;
-}
-.counter-by { text-align: center; color: var(--muted); margin-bottom: 16px; min-height: 1em; }
-.counter-buttons { display: flex; gap: 12px; justify-content: center; }
-.counter-buttons .btn {
-    width: 60px;
-    height: 60px;
-    font-size: 24px;
-    border-radius: 10px;
-}
-
-/* lobby */
-.presence-list { list-style: none; padding: 0; margin: 0; }
-.presence-list li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
-.presence-list .dot { width: 8px; height: 8px; border-radius: 50%; }
-.presence-list .me { font-weight: 600; }
-.chat-log {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 12px;
-    height: 300px;
-    overflow-y: auto;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg);
-    padding: 12px;
-}
-.chat-log li { padding: 2px 0; }
-.chat-log .name { font-weight: 600; margin-right: 4px; }
-.chat-log .system { color: var(--muted); font-style: italic; font-size: 12px; }
-.chat-form { display: flex; gap: 8px; }
-.chat-form input {
-    flex: 1;
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font: inherit;
-}
-
-/* ttt */
-.ttt-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 80px);
-    grid-template-rows: repeat(3, 80px);
-    gap: 4px;
-    justify-content: center;
+.login-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     margin: 20px 0;
 }
+
+/* ---------------------------- Lobby ---------------------------- */
+
+.room-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+@media (max-width: 720px) {
+    .room-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.presence-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.presence-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.presence-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    min-width: 0;
+}
+
+.chat-log {
+    height: 360px;
+    overflow-y: auto;
+    padding: 12px;
+    border: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.1));
+    border-radius: 8px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--bs-body-bg, #fff);
+}
+
+.chat-message {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+}
+
+.chat-name {
+    font-weight: 600;
+}
+
+.chat-system {
+    text-align: center;
+    padding: 2px 0;
+}
+
+.chat-form {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.chat-input {
+    flex: 1;
+}
+
+/* --------------------------- Counter --------------------------- */
+
+.counter-display {
+    font-size: 96px;
+    font-weight: 700;
+    text-align: center;
+    margin: 16px 0 8px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+.counter-by {
+    text-align: center;
+    margin-bottom: 24px;
+    min-height: 1.2em;
+}
+
+.counter-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    padding-bottom: 16px;
+}
+
+.counter-buttons button {
+    width: 72px;
+    height: 72px;
+    font-size: 24px;
+}
+
+/* ----------------------- Tic-Tac-Toe --------------------------- */
+
+.ttt-players {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.ttt-player {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ttt-info {
+    display: flex;
+    justify-content: center;
+    margin: 12px 0 20px;
+    min-height: 32px;
+}
+
+.ttt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 96px);
+    grid-template-rows: repeat(3, 96px);
+    gap: 6px;
+    justify-content: center;
+    margin: 0 auto 20px;
+}
+
 .ttt-cell {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 36px;
+    background: var(--bs-body-bg, #fff);
+    border: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.15));
+    border-radius: 8px;
+    font-size: 44px;
     font-weight: 700;
     cursor: pointer;
-    color: var(--text);
+    color: inherit;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background 120ms ease, border-color 120ms ease;
 }
-.ttt-cell:disabled { cursor: not-allowed; opacity: 0.6; }
-.ttt-cell.empty:not(:disabled):hover { background: #1f1f2a; }
-.ttt-info { text-align: center; min-height: 1.5em; color: var(--muted); }
-.ttt-info.your-turn { color: var(--success); font-weight: 600; }
-.ttt-info.winner { color: var(--accent); font-weight: 600; }
-.ttt-players { display: flex; gap: 24px; justify-content: center; margin-bottom: 16px; }
-.ttt-player { display: flex; align-items: center; gap: 8px; }
-.ttt-player .dot { width: 10px; height: 10px; border-radius: 50%; }
-.ttt-player .symbol { font-weight: 700; }
+
+.ttt-cell:disabled { cursor: not-allowed; }
+.ttt-cell.empty:not(:disabled):hover {
+    background: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.04));
+}
+.ttt-cell.filled-X { color: var(--bs-primary, #4a7eff); }
+.ttt-cell.filled-O { color: var(--bs-info, #06b6d4); }
+
+.ttt-actions {
+    display: flex;
+    justify-content: center;
+    padding-bottom: 8px;
+}
+
+/* ------------------------------ Arena -------------------------------- */
+
+.arena-canvas {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    /* Phaser's Scale.FIT keeps the 800x600 aspect ratio inside whatever
+       width we give the container. The canvas it injects is positioned
+       absolutely inside this box. */
+    aspect-ratio: 800 / 600;
+}
+
+.arena-canvas canvas {
+    display: block;
+    border-radius: 8px;
+}

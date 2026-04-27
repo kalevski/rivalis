@@ -25,7 +25,8 @@ class Rivalis<TActorData = Record<string, unknown>> {
             this.config.authMiddleware,
             this.getRoomByID,
             this.config.rateLimiter,
-            this.logging
+            this.logging,
+            this.config.maxTopicLength
         )
         this.rooms = new RoomManager<TActorData>(this.transportLayer, this.logging)
 
@@ -81,9 +82,15 @@ class Rivalis<TActorData = Record<string, unknown>> {
             }
         })
 
+        // B-9: hoist the timer id so the success path can clear it.
+        // Without this, a successful disposal still leaves a timer
+        // pending for `timeoutMs` ms that fires a rejected promise into
+        // the void. `unref` keeps the process from being held alive,
+        // but the work is wasted and the rejection is dropped.
+        let timeoutTimer: NodeJS.Timeout | null = null
         const timeout = new Promise<never>((_, reject) => {
-            const timer = setTimeout(() => reject(new Error('shutdown_timeout')), timeoutMs)
-            timer.unref?.()
+            timeoutTimer = setTimeout(() => reject(new Error('shutdown_timeout')), timeoutMs)
+            timeoutTimer.unref?.()
         })
 
         try {
@@ -92,6 +99,10 @@ class Rivalis<TActorData = Record<string, unknown>> {
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error)
             logger.warning(`shutdown finished with error: ${reason}`)
+        } finally {
+            if (timeoutTimer !== null) {
+                clearTimeout(timeoutTimer)
+            }
         }
     }
 

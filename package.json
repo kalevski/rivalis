@@ -9,7 +9,8 @@
         "handshake",
         "core",
         "browser",
-        "demo"
+        "demo",
+        "landing-page"
     ],
     "devDependencies": {
         "@types/express": "^5.0.1",

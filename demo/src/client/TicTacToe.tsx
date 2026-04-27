@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Heading, Text, Button } from '@toolcase/react-components'
+import {
+    Avatar,
+    Badge,
+    Button,
+    Heading,
+    SectionCard,
+    Tag,
+    Text
+} from '@toolcase/react-components'
 import {
     decode,
     encode,
@@ -21,6 +29,12 @@ const EMPTY_STATE: TttState = {
     status: 'waiting',
     winner: null,
     players: []
+}
+
+const initialOf = (name: string): string => {
+    const trimmed = name.trim()
+    if (trimmed.length === 0) return '?'
+    return trimmed.slice(0, 2).toUpperCase()
 }
 
 export default function TicTacToe({ identity }: Props) {
@@ -54,53 +68,64 @@ export default function TicTacToe({ identity }: Props) {
     const finished = game.status === 'finished'
     const waiting = game.status === 'waiting'
 
-    let info = ''
-    let infoCls = ''
-    if (state === 'rejected' && reason === 'room_full') {
-        info = 'room is full (already 2 players)'
-    } else if (state === 'rejected' && reason === 'room_not_joinable') {
-        info = 'a game is already in progress — try again later'
+    let infoNode: React.ReactNode = null
+    if (state === 'rejected') {
+        infoNode = null // status bar handles it
     } else if (waiting) {
-        info = `waiting for opponent... (${game.players.length}/2)`
+        infoNode = (
+            <Badge variant="secondary">Waiting for opponent… ({game.players.length}/2)</Badge>
+        )
     } else if (finished) {
-        if (game.winner === 'draw') info = 'draw'
-        else info = `${game.winner} wins`
-        infoCls = 'winner'
+        if (game.winner === 'draw') {
+            infoNode = <Badge variant="secondary" size="lg">Draw</Badge>
+        } else {
+            infoNode = <Badge variant="success" size="lg">{game.winner} wins</Badge>
+        }
     } else if (yourTurn) {
-        info = 'your turn'
-        infoCls = 'your-turn'
+        infoNode = <Badge variant="success" size="lg">Your turn</Badge>
     } else if (game.youSymbol !== null) {
-        info = `waiting for ${game.turn}...`
+        infoNode = <Badge variant="info">Waiting for {game.turn}…</Badge>
     } else {
-        info = 'spectating'
+        infoNode = <Badge variant="secondary">Spectating</Badge>
     }
 
     return (
         <div className="room">
             <Heading as="h1">Tic-Tac-Toe</Heading>
-            <Text variant="muted">2-player turn-based game. Demonstrates room capacity (<code>maxActors=2</code>, third connection closes with <code>room_full</code>) and the <code>joinable</code> flag (room closes to new joins while a game is in progress).</Text>
+            <Text as="p" variant="muted">
+                Two-player turn-based game. Demonstrates room capacity (maxActors=2 closes a third
+                connection with room_full) and the joinable flag (room closes to new joins while a
+                game is in progress).
+            </Text>
             <StatusBar state={state} reason={reason} />
 
-            <div className="panel">
+            <SectionCard title="Match" icon="grid-3x3">
                 <div className="ttt-players">
                     {game.players.map((p) => (
                         <div className="ttt-player" key={p.id}>
-                            <span className="dot" style={{ background: p.color }} />
-                            <span>{p.name}{p.id === game.youId ? ' (you)' : ''}</span>
-                            <span className="symbol">[{p.symbol}]</span>
+                            <Avatar
+                                size="small"
+                                style={{ background: p.color, color: '#fff' }}
+                            >
+                                {initialOf(p.name)}
+                            </Avatar>
+                            <Text>{p.name}{p.id === game.youId ? ' (you)' : ''}</Text>
+                            <Tag variant={p.symbol === 'X' ? 'primary' : 'info'}>{p.symbol}</Tag>
                         </div>
                     ))}
                 </div>
 
-                <div className={`ttt-info ${infoCls}`}>{info}</div>
+                <div className="ttt-info">{infoNode}</div>
 
                 <div className="ttt-grid">
                     {game.board.map((cell, i) => (
                         <button
                             key={i}
-                            className={`ttt-cell ${cell === null ? 'empty' : ''}`}
+                            className={`ttt-cell ${cell === null ? 'empty' : `filled-${cell}`}`}
                             onClick={() => place(i)}
                             disabled={!yourTurn || cell !== null}
+                            type="button"
+                            aria-label={`cell ${i + 1}`}
                         >
                             {cell ?? ''}
                         </button>
@@ -108,11 +133,11 @@ export default function TicTacToe({ identity }: Props) {
                 </div>
 
                 {finished && (
-                    <div className="row" style={{ justifyContent: 'center' }}>
-                        <Button onClick={reset} variant="primary">play again</Button>
+                    <div className="ttt-actions">
+                        <Button onClick={reset} variant="primary">Play again</Button>
                     </div>
                 )}
-            </div>
+            </SectionCard>
         </div>
     )
 }

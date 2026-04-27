@@ -1,4 +1,4 @@
-export const ROOMS = ['lobby', 'counter', 'ttt'] as const
+export const ROOMS = ['lobby', 'counter', 'ttt', 'arena'] as const
 export type RoomId = (typeof ROOMS)[number]
 
 const encoder = new TextEncoder()
@@ -55,4 +55,35 @@ export type TttState = {
     status: TttStatus
     winner: TttOutcome
     players: TttPlayer[]
+}
+
+// ---- arena -------------------------------------------------------------
+// Real-time 2D playfield. The server runs a fixed-rate simulation and
+// broadcasts authoritative positions; clients send WASD/arrow input
+// flags only when key state changes, so the inbound rate stays well
+// under the default token bucket (30 frames/sec) without opting out.
+
+export const ARENA_WIDTH = 800
+export const ARENA_HEIGHT = 600
+export const ARENA_PLAYER_RADIUS = 16
+export const ARENA_TICK_HZ = 30
+
+export type ArenaInput = {
+    up: boolean
+    down: boolean
+    left: boolean
+    right: boolean
+}
+
+export type ArenaPlayerState = {
+    id: string
+    x: number
+    y: number
+    name: string
+    color: string
+}
+
+export type ArenaState = {
+    youId: string
+    players: ArenaPlayerState[]
 }

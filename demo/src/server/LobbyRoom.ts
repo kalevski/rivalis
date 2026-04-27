@@ -27,12 +27,8 @@ class LobbyRoom extends Room<ActorData> {
     }
 
     protected override onJoin(actor: Actor<ActorData>): void {
-        // WSTransport registers the per-actor message listener after grantAccess
-        // returns. Defer the initial state send so it isn't lost.
-        setImmediate(() => {
-            const state: LobbyState = { youId: actor.id, history: this.history }
-            actor.send('lobby:state', encode(state))
-        })
+        const state: LobbyState = { youId: actor.id, history: this.history }
+        actor.send('lobby:state', encode(state))
     }
 
     private onChat(actor: Actor<ActorData>, payload: Uint8Array): void {

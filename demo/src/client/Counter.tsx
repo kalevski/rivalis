@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Heading, Text, Button } from '@toolcase/react-components'
+import {
+    Heading,
+    IconButton,
+    SectionCard,
+    Text
+} from '@toolcase/react-components'
 import {
     decode,
     encode,
@@ -32,34 +37,44 @@ export default function Counter({ identity }: Props) {
         client.send('change', encode(cmd))
     }
 
+    const disabled = state !== 'connected'
+
     return (
         <div className="room">
             <Heading as="h1">Counter</Heading>
-            <Text variant="muted">Server-authoritative shared integer. Anyone can increment or decrement; the server broadcasts the new value with the actor that caused the change.</Text>
+            <Text as="p" variant="muted">
+                Server-authoritative shared integer. Anyone can increment or decrement;
+                the server broadcasts the new value with the actor that caused the change.
+            </Text>
             <StatusBar state={state} reason={reason} />
 
-            <div className="panel">
+            <SectionCard title="Shared counter" icon="hash">
                 <div className="counter-display">{value}</div>
-                <div className="counter-by">{by ? `last change by ${by}` : ' '}</div>
-                <div className="counter-buttons">
-                    <Button
-                        onClick={() => change(-1)}
-                        disabled={state !== 'connected'}
-                        variant="secondary"
-                        size="large"
-                    >
-                        −
-                    </Button>
-                    <Button
-                        onClick={() => change(1)}
-                        disabled={state !== 'connected'}
-                        variant="primary"
-                        size="large"
-                    >
-                        +
-                    </Button>
+                <div className="counter-by">
+                    <Text as="span" variant="muted">
+                        {by ? `Last change by ${by}` : ' '}
+                    </Text>
                 </div>
-            </div>
+                <div className="counter-buttons">
+                    <IconButton
+                        icon="dash-lg"
+                        size="large"
+                        variant="secondary"
+                        outline
+                        label="Decrement"
+                        onClick={() => change(-1)}
+                        disabled={disabled}
+                    />
+                    <IconButton
+                        icon="plus-lg"
+                        size="large"
+                        variant="primary"
+                        label="Increment"
+                        onClick={() => change(1)}
+                        disabled={disabled}
+                    />
+                </div>
+            </SectionCard>
         </div>
     )
 }

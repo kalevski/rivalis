@@ -1,37 +1,69 @@
 import type { Logger } from '@toolcase/logging'
 import Actor from './Actor'
+import KickReason from './KickReason'
 import type RoomManager from './RoomManager'
 import type TLayer from './TLayer'
 import type { ForEachFn, TopicListener } from './types'
 
-const ERROR = {
-    INVALID_MESSAGE: 'invalid_message',
-    ROOM_DESTROYED: 'room_destroyed'
-}
-
 const PRESENCE_JOIN_TOPIC = '__presence:join'
 const PRESENCE_LEAVE_TOPIC = '__presence:leave'
 
-class Room<TActorData = Record<string, unknown>> {
+/**
+ * Topics starting with this prefix are reserved for framework-internal
+ * events (currently `__presence:join` / `__presence:leave`). User code
+ * cannot `bind` / `unbind` them — see `Room.bind`.
+ */
+const RESERVED_TOPIC_PREFIX = '__'
+
+/**
+ * The single magic topic name used internally for the wildcard fallback.
+ * Userland goes through `bindAny` / `unbindAny` rather than addressing
+ * this string directly.
+ */
+const WILDCARD_TOPIC = '*'
+
+/**
+ * Decides how a `Room` reacts to an inbound frame whose topic matches
+ * neither a `bind`-registered listener nor the `bindAny` wildcard.
+ *
+ * - `'kick'` (default, back-compat) — disconnect the actor with
+ *   `invalid_message`. Right for strict version-locked clients.
+ * - `'drop'` — silently ignore the frame. Right when client / server
+ *   may be at slightly different versions and forward-compat matters.
+ */
+export type UnknownTopicPolicy = 'drop' | 'kick'
+
+abstract class Room<TActorData = Record<string, unknown>> {
 
     readonly id: string
 
     /**
-     * Opt-in: when `true`, the room auto-broadcasts `__presence:join` and
-     * `__presence:leave` whenever an actor joins or leaves. The payload is
-     * JSON `{ id, data }`. Subclasses enable with `protected override presence = true`.
+     * Opt-in: when `true`, the room auto-broadcasts `__presence:join`
+     * and `__presence:leave` whenever an actor joins or leaves. The
+     * payload is JSON of whatever `presencePayload(actor)` returns
+     * (default `{ id, data }`). Subclasses enable with
+     * `protected override presence = true`.
      */
     protected presence: boolean = false
 
     /**
-     * Maximum number of joined actors. `null` means unlimited. When reached,
-     * `TLayer.grantAccess` rejects new joins with reason `room_full`.
+     * What to do when an inbound frame arrives on an unbound topic.
+     * Override per-room with `protected override unknownTopicPolicy = 'drop'`
+     * for graceful client / server version skew handling.
+     */
+    protected unknownTopicPolicy: UnknownTopicPolicy = 'kick'
+
+    /**
+     * Maximum number of joined actors. `null` means unlimited. When
+     * reached, `TLayer.grantAccess` rejects new joins with reason
+     * `room_full`.
      */
     maxActors: number | null = null
 
     /**
-     * Whether new actors may join. Set to `false` to temporarily refuse joins
-     * (e.g. game in progress). Rejection reason is `room_not_joinable`.
+     * Whether new actors may join. Set to `false` to temporarily
+     * refuse joins (e.g. game in progress). Rejection reason is
+     * `room_not_joinable`.
      */
     joinable: boolean = true
 
@@ -42,6 +74,8 @@ class Room<TActorData = Record<string, unknown>> {
     private transportLayer: TLayer<TActorData> | null = null
 
     private topics: Map<string, TopicListener<TActorData>> = new Map()
+
+    private wildcardListener: TopicListener<TActorData> | null = null
 
     private actors: Map<string, Actor<TActorData>> = new Map()
 
@@ -66,25 +100,81 @@ class Room<TActorData = Record<string, unknown>> {
 
     protected onDestroy(): void {}
 
-    protected bind(topic: string, topicListener: TopicListener<TActorData>, context: unknown = null): boolean {
-        if (typeof topic !== 'string') {
-            throw new Error(`topic must be a string, ${topic} provided`)
-        }
+    /**
+     * Hook for the presence broadcast payload. Default returns
+     * `{ id: actor.id, data: actor.data }`. Override to scrub
+     * server-only fields out of `data` before it is broadcast to
+     * other actors in the room.
+     */
+    protected presencePayload(actor: Actor<TActorData>): unknown {
+        return { id: actor.id, data: actor.data }
+    }
+
+    /**
+     * Register a listener for an inbound topic. Throws on:
+     *   - non-string topic,
+     *   - topic that begins with the reserved `__` prefix,
+     *   - the literal `'*'` topic (use `bindAny` instead),
+     *   - a topic that is already bound (silent overwrite was a footgun).
+     */
+    protected bind(topic: string, topicListener: TopicListener<TActorData>, context: unknown = null): void {
+        this.assertBindableTopic(topic)
         if (typeof topicListener !== 'function') {
             throw new Error(`topicListener must be a function, ${topicListener} provided`)
         }
         if (this.topics.has(topic)) {
-            return false
+            throw new Error(`topic "${topic}" is already bound`)
         }
         this.topics.set(topic, topicListener.bind(context === null ? this : context) as TopicListener<TActorData>)
+    }
+
+    /**
+     * Remove a previously-bound topic listener. Returns whether
+     * anything was actually removed. Throws on the same reserved /
+     * wildcard topic names as `bind`.
+     */
+    protected unbind(topic: string): boolean {
+        this.assertBindableTopic(topic)
+        return this.topics.delete(topic)
+    }
+
+    /**
+     * Register a single fallback listener that receives any inbound
+     * frame whose topic was not matched by an explicit `bind`. The
+     * listener's third argument is the actual topic string. Useful
+     * for protocols where the topic space is dynamic (e.g. a chat
+     * room with arbitrary channel names). Only one wildcard listener
+     * may be registered at a time.
+     */
+    protected bindAny(topicListener: TopicListener<TActorData>, context: unknown = null): void {
+        if (typeof topicListener !== 'function') {
+            throw new Error(`topicListener must be a function, ${topicListener} provided`)
+        }
+        if (this.wildcardListener !== null) {
+            throw new Error('a wildcard listener is already bound; call unbindAny() first')
+        }
+        this.wildcardListener = topicListener.bind(context === null ? this : context) as TopicListener<TActorData>
+    }
+
+    /** Remove the wildcard listener. Returns whether one was registered. */
+    protected unbindAny(): boolean {
+        if (this.wildcardListener === null) {
+            return false
+        }
+        this.wildcardListener = null
         return true
     }
 
-    protected unbind(topic: string): boolean {
+    private assertBindableTopic(topic: string): void {
         if (typeof topic !== 'string') {
             throw new Error(`topic must be a string, ${topic} provided`)
         }
-        return this.topics.delete(topic)
+        if (topic.startsWith(RESERVED_TOPIC_PREFIX)) {
+            throw new Error(`topic prefix "${RESERVED_TOPIC_PREFIX}" is reserved for framework events, got: ${topic}`)
+        }
+        if (topic === WILDCARD_TOPIC) {
+            throw new Error('topic "*" is reserved; use bindAny() / unbindAny() instead')
+        }
     }
 
     send(actor: Actor<TActorData>, topic: string, payload: Uint8Array | string): void {
@@ -133,10 +223,19 @@ class Room<TActorData = Record<string, unknown>> {
 
     /** @internal */
     handleDestroy(): void {
-        this.each(actor => actor.kick(ERROR.ROOM_DESTROYED))
-        this.onDestroy()
+        this.each(actor => actor.kick(KickReason.ROOM_DESTROYED))
+        // B-6: a throwing user onDestroy would otherwise short-circuit
+        // the cleanup below, leaving live actor / topic / listener
+        // tables on a "destroyed" room. Run cleanup unconditionally.
+        try {
+            this.onDestroy()
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error)
+            this.logger?.error(`onDestroy threw: ${reason}`)
+        }
         this.actors.clear()
         this.topics.clear()
+        this.wildcardListener = null
         this.transportLayer = null
         this.manager = null
         this.logger?.info('destroyed')
@@ -147,42 +246,90 @@ class Room<TActorData = Record<string, unknown>> {
     handleJoin(actorId: string, data: TActorData | null = null): void {
         const actor = new Actor<TActorData>(actorId, data, this)
         this.actors.set(actorId, actor)
-        this.onJoin(actor)
+        try {
+            this.onJoin(actor)
+        } catch (error) {
+            // Don't let a user-thrown onJoin leave a half-initialised actor
+            // in the room's map. Drop it before propagating so TLayer can
+            // unwind its own bookkeeping.
+            this.actors.delete(actorId)
+            throw error
+        }
         if (this.presence) {
-            this.broadcast(PRESENCE_JOIN_TOPIC, JSON.stringify({ id: actorId, data }))
+            // B-5: a throwing `presencePayload` (custom override) or a
+            // non-serialisable `data` field (circular ref / BigInt) would
+            // otherwise leave the actor in `this.actors` while TLayer's
+            // outer catch wipes its own bookkeeping — the room and TLayer
+            // would disagree. The join itself succeeded; treat the
+            // broadcast failure as a soft error and log loudly.
+            try {
+                this.broadcast(PRESENCE_JOIN_TOPIC, JSON.stringify(this.presencePayload(actor)))
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error)
+                this.logger?.error(`presence:join broadcast failed for actor id=${actorId}: ${reason}`)
+            }
         }
     }
 
     /** @internal */
     handleMessage(actorId: string, topic: string, payload: Uint8Array): void {
-        let topicListener = this.topics.get(topic) ?? null
-        if (topicListener === null) {
-            topicListener = this.topics.get('*') ?? null
-        }
         const actor = this.actors.get(actorId) ?? null
         if (actor === null) {
             this.logger?.debug(`message dropped for unknown actor id=${actorId} on topic=${topic}`)
             return
         }
+        const topicListener = this.topics.get(topic) ?? this.wildcardListener
         if (topicListener === null) {
-            this.logger?.debug(`actor id=${actorId} is kicked, reason: sending message on non existing topic=${topic}`)
-            return actor.kick(ERROR.INVALID_MESSAGE)
+            if (this.unknownTopicPolicy === 'drop') {
+                this.logger?.debug(`actor id=${actorId} sent unbound topic=${topic}, dropped (policy=drop)`)
+                return
+            }
+            this.logger?.debug(`actor id=${actorId} kicked: unbound topic=${topic}`)
+            return actor.kick(KickReason.INVALID_MESSAGE)
         }
-        topicListener(actor, payload, topic)
+        // B-1: a synchronous throw out of user code would otherwise
+        // bubble up through `TLayer.handleMessage` (async) as an
+        // unhandled rejection — and unhandled rejections crash modern
+        // Node by default. Log loudly so the server author still sees
+        // the bug; the actor stays connected because the framework
+        // can't tell whether the throw came from malformed client input
+        // or from a server-side bug.
+        try {
+            topicListener(actor, payload, topic)
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error)
+            this.logger?.error(`topic listener for "${topic}" threw for actor id=${actorId}: ${reason}`)
+        }
     }
 
     /** @internal */
     handleLeave(actorId: string): void {
+        // Remove the actor BEFORE onLeave runs, so any `each` / `broadcast`
+        // from inside the user-supplied onLeave naturally excludes the
+        // leaver. The `actor` reference passed to onLeave remains valid
+        // (we hold it on the stack); only the room's actor map no longer
+        // contains it. Same ordering applies whether `presence` is on or
+        // off — previously the two paths disagreed about when the leaver
+        // disappeared from broadcasts.
         const actor = this.actors.get(actorId)
-        if (actor !== undefined) {
+        this.actors.delete(actorId)
+        if (actor === undefined) {
+            return
+        }
+        try {
             this.onLeave(actor)
-            if (this.presence) {
-                this.actors.delete(actorId)
-                this.broadcast(PRESENCE_LEAVE_TOPIC, JSON.stringify({ id: actorId, data: actor.data }))
-                return
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error)
+            this.logger?.error(`onLeave threw for actor id=${actorId}: ${reason}`)
+        }
+        if (this.presence) {
+            try {
+                this.broadcast(PRESENCE_LEAVE_TOPIC, JSON.stringify(this.presencePayload(actor)))
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error)
+                this.logger?.error(`presence:leave broadcast failed for actor id=${actorId}: ${reason}`)
             }
         }
-        this.actors.delete(actorId)
     }
 }
 

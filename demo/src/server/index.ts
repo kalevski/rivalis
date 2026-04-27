@@ -7,6 +7,7 @@ import ArenaAuthMiddleware, { type ActorData } from './AuthMiddleware'
 import LobbyRoom from './LobbyRoom'
 import CounterRoom from './CounterRoom'
 import TttRoom from './TttRoom'
+import ArenaRoom from './ArenaRoom'
 
 const PORT = 2334
 const BUILD_DIR = path.join(process.cwd(), './build')
@@ -40,7 +41,10 @@ rivalis.rooms.create('counter', 'counter')
 rivalis.rooms.define('ttt', TttRoom)
 rivalis.rooms.create('ttt', 'ttt')
 
-console.log('rooms ready: lobby, counter, ttt')
+rivalis.rooms.define('arena', ArenaRoom)
+rivalis.rooms.create('arena', 'arena')
+
+console.log('rooms ready: lobby, counter, ttt, arena')
 
 process.on('SIGINT', async () => {
     console.log('\nshutting down...')

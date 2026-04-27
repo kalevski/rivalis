@@ -1,5 +1,14 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Heading, Text } from '@toolcase/react-components'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import {
+    Avatar,
+    Badge,
+    EmptyState,
+    Heading,
+    IconButton,
+    Input,
+    SectionCard,
+    Text
+} from '@toolcase/react-components'
 import {
     decode,
     encode,
@@ -21,13 +30,23 @@ type Props = { identity: ActorIdentity }
 
 const decoder = new TextDecoder()
 
+const initialOf = (name: string): string => {
+    const trimmed = name.trim()
+    if (trimmed.length === 0) return '?'
+    const parts = trimmed.split(/\s+/)
+    if (parts.length >= 2) {
+        return (parts[0]![0]! + parts[1]![0]!).toUpperCase()
+    }
+    return trimmed.slice(0, 2).toUpperCase()
+}
+
 export default function Lobby({ identity }: Props) {
     const { client, state, reason } = useRoom('lobby', identity)
     const [meId, setMeId] = useState<string>('')
     const [members, setMembers] = useState<Map<string, Member>>(new Map())
     const [entries, setEntries] = useState<Entry[]>([])
     const [draft, setDraft] = useState('')
-    const logRef = useRef<HTMLUListElement | null>(null)
+    const logRef = useRef<HTMLDivElement | null>(null)
 
     useEffect(() => {
         if (!client) return
@@ -83,57 +102,99 @@ export default function Lobby({ identity }: Props) {
         setDraft('')
     }
 
-    const myMember: Member | null = members.get(meId) ?? null
-    const otherMembers = [...members.values()].filter((m) => m.id !== meId)
-    const memberList = myMember ? [myMember, ...otherMembers] : otherMembers
+    const memberList = useMemo(() => {
+        const all = [...members.values()]
+        const me = all.find((m) => m.id === meId)
+        const others = all.filter((m) => m.id !== meId)
+        return me ? [me, ...others] : others
+    }, [members, meId])
 
     return (
         <div className="room">
             <Heading as="h1">Lobby</Heading>
-            <Text variant="muted">Open chat with auto-presence (uses <code>presence: true</code> on the server-side Room).</Text>
+            <Text as="p" variant="muted">
+                Open chat with auto-presence — uses presence: true on the server-side Room.
+            </Text>
             <StatusBar state={state} reason={reason} />
 
-            <div className="panel">
-                <h2>Online ({members.size})</h2>
-                <ul className="presence-list">
-                    {memberList.map((m) => (
-                        <li key={m.id} className={m.id === meId ? 'me' : ''}>
-                            <span className="dot" style={{ background: m.color }} />
-                            <span>{m.name}{m.id === meId ? ' (you)' : ''}</span>
-                        </li>
-                    ))}
-                </ul>
-            </div>
+            <div className="room-grid">
+                <SectionCard
+                    title="Online"
+                    icon="people"
+                    action={<Badge variant="secondary" pill>{members.size}</Badge>}
+                >
+                    {memberList.length === 0 ? (
+                        <Text as="p" variant="muted">No one here yet.</Text>
+                    ) : (
+                        <ul className="presence-list">
+                            {memberList.map((m) => (
+                                <li key={m.id}>
+                                    <Avatar
+                                        name={m.name}
+                                        size="default"
+                                        status="online"
+                                        style={{ background: m.color, color: '#fff' }}
+                                    >
+                                        {initialOf(m.name)}
+                                    </Avatar>
+                                    <div className="presence-meta">
+                                        <Text>{m.name}</Text>
+                                        {m.id === meId && (
+                                            <Text as="span" variant="muted" size="small"> (you)</Text>
+                                        )}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </SectionCard>
 
-            <div className="panel">
-                <h2>Chat</h2>
-                <ul className="chat-log" ref={logRef}>
-                    {entries.map((entry, i) => {
-                        if (entry.kind === 'system') {
-                            return <li key={i} className="system">{entry.text}</li>
-                        }
-                        const ev = entry.event
-                        return (
-                            <li key={i}>
-                                <span className="name" style={{ color: ev.color }}>{ev.name}:</span>
-                                <span> {ev.text}</span>
-                            </li>
-                        )
-                    })}
-                </ul>
-                <form className="chat-form" onSubmit={send}>
-                    <input
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        maxLength={200}
-                        placeholder="say something..."
-                        disabled={state !== 'connected'}
-                        autoComplete="off"
-                    />
-                    <button type="submit" className="btn" disabled={state !== 'connected' || !draft.trim()}>
-                        send
-                    </button>
-                </form>
+                <SectionCard title="Chat" icon="chat-dots">
+                    <div className="chat-log" ref={logRef}>
+                        {entries.length === 0 ? (
+                            <EmptyState icon="chat-square-text">
+                                <Text as="p" variant="muted">No messages yet — say hi!</Text>
+                            </EmptyState>
+                        ) : (
+                            entries.map((entry, i) => {
+                                if (entry.kind === 'system') {
+                                    return (
+                                        <div key={i} className="chat-system">
+                                            <Text as="span" variant="muted" size="small">
+                                                {entry.text}
+                                            </Text>
+                                        </div>
+                                    )
+                                }
+                                const ev = entry.event
+                                return (
+                                    <div key={i} className="chat-message">
+                                        <span className="chat-name" style={{ color: ev.color }}>{ev.name}</span>
+                                        <Text as="span">{ev.text}</Text>
+                                    </div>
+                                )
+                            })
+                        )}
+                    </div>
+                    <form className="chat-form" onSubmit={send}>
+                        <Input
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            maxLength={200}
+                            placeholder="Say something…"
+                            disabled={state !== 'connected'}
+                            autoComplete="off"
+                            className="chat-input"
+                        />
+                        <IconButton
+                            icon="send"
+                            type="submit"
+                            variant="primary"
+                            label="Send"
+                            disabled={state !== 'connected' || !draft.trim()}
+                        />
+                    </form>
+                </SectionCard>
             </div>
         </div>
     )

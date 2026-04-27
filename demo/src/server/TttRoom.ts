@@ -48,8 +48,8 @@ class TttRoom extends Room<ActorData> {
             this.startGame()
         }
 
-        setImmediate(() => this.sendStateTo(actor))
-        setImmediate(() => this.broadcastState())
+        this.sendStateTo(actor)
+        this.broadcastState()
     }
 
     protected override onLeave(actor: Actor<ActorData>): void {
