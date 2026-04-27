@@ -1,0 +1,27 @@
+{
+    "name": "@rivalis/handshake",
+    "version": "5.0.6",
+    "private": true,
+    "description": "Wire-format and protocol primitives shared between @rivalis/core and @rivalis/browser",
+    "source": "src/main.ts",
+    "main": "lib/main.js",
+    "module": "lib/module.js",
+    "types": "lib/main.d.ts",
+    "exports": {
+        ".": {
+            "types": "./lib/main.d.ts",
+            "import": "./lib/module.js",
+            "require": "./lib/main.js"
+        }
+    },
+    "scripts": {
+        "dev": "tsup --watch",
+        "build": "tsup"
+    },
+    "peerDependencies": {
+        "@toolcase/serializer": "2.x"
+    },
+    "files": [
+        "lib"
+    ]
+}

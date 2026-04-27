@@ -1,22 +1,22 @@
 import { defineConfig } from 'tsup'
 
-const external = ['ws', '@toolcase/base', '@toolcase/logging']
+const external = ['ws', '@toolcase/base', '@toolcase/logging', '@toolcase/serializer']
 
 export default defineConfig([
     {
-        entry: { main: 'src/main.js' },
+        entry: { main: 'src/main.ts' },
         format: 'cjs',
         outDir: 'lib',
         target: 'node18',
         platform: 'node',
         clean: true,
         sourcemap: false,
-        dts: true,
+        dts: { resolve: ['@rivalis/handshake'] },
         outExtension: () => ({ js: '.js' }),
         external
     },
     {
-        entry: { module: 'src/main.js' },
+        entry: { module: 'src/main.ts' },
         format: 'esm',
         outDir: 'lib',
         target: 'node18',

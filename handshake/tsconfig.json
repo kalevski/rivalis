@@ -2,7 +2,7 @@
     "extends": "../tsconfig.base.json",
     "compilerOptions": {
         "target": "ES2018",
-        "lib": ["ES2018", "DOM", "ScriptHost"],
+        "lib": ["ES2018"],
         "types": []
     },
     "include": ["src/**/*"]

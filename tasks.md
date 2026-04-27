@@ -10,14 +10,14 @@ Tasks are ordered by category; within a category, prefer top-down. Each task lis
 
 The current source is JS + JSDoc, with `.d.ts` emitted by `tsc --allowJs`. The goal is real `.ts` source that produces the *same* public API and equivalent or better `.d.ts` output.
 
-### A1. Add a real `tsconfig.json` per workspace [ ]
+### A1. Add a real `tsconfig.json` per workspace [x]
 - Create `core/tsconfig.json`, `browser/tsconfig.json`, `demo/tsconfig.json`, plus a root `tsconfig.base.json` for shared options.
 - Replace inline `tsc -d --allowJs --emitDeclarationOnly --target es5 --lib ES2015 ...` flags in `core/package.json` and `browser/package.json` `build:tsd` scripts.
 - Targets: `ES2020` for core (NodeJS 18+ baseline), `ES2018` for browser. Drop `--target es5` — the codebase already uses class fields and async/await.
 - Enable `strict`, `noImplicitOverride`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`.
 - **Accept:** running `npx tsc --noEmit -p core` and `-p browser` reports zero errors after migration.
 
-### A2. Migrate `core/src/*.js` → `*.ts` [ ]
+### A2. Migrate `core/src/*.js` → `*.ts` [x]
 File-by-file order (smallest blast radius first):
 1. `Actor.js` — leaf, only imports `Room`.
 2. `AuthMiddleware.js` — pure abstract.
@@ -35,12 +35,12 @@ File-by-file order (smallest blast radius first):
 - Replace `Object<string,any>` with `Record<string, unknown>` (or a generic where the user supplies the type — see A4).
 - **Accept:** `npm run build -w @rivalis/core` produces `lib/main.js`, `lib/module.js`, and `lib/main.d.ts` whose exported symbol names match the pre-migration output (diff the `.d.ts`).
 
-### A3. Migrate `browser/src/*.js` → `*.ts` [ ]
+### A3. Migrate `browser/src/*.js` → `*.ts` [x]
 - `WSClient.js`, `serializer.js`, `main.js`.
 - `serializer.js` is duplicated with `core/src/serializer.js` — see B7 about extracting it before migration.
 - **Accept:** the demo client (`demo/src/client/index.ts`) imports `WSClient` and compiles unchanged.
 
-### A4. Add generic types where data is currently `any` [ ]
+### A4. Add generic types where data is currently `any` [x]
 Without breaking the API, add optional generic parameters with `unknown` or `Record<string, unknown>` defaults so existing untyped callers keep working:
 - `Room<TActorData = Record<string, unknown>>` → `Actor<TActorData>` exposes typed `data`.
 - `AuthMiddleware<TActorData = Record<string, unknown>>` so `extractPayload` returns `TActorData | null`.
@@ -48,17 +48,9 @@ Without breaking the API, add optional generic parameters with `unknown` or `Rec
 - `WSClient` event payloads — consider a typed event map keyed by topic (opt-in via generic).
 - **Accept:** the demo (`MyAuthMiddleware`, `FirstRoom`) compiles with no `any` after consumers add the generic parameter; without the parameter, behavior is unchanged.
 
-### A5. Replace JSDoc-only callbacks with proper types [ ]
+### A5. Replace JSDoc-only callbacks with proper types [x]
 - `TopicListener`, `EventFn`, `GetRoomFn`, `ForEachFn` — currently JSDoc `@callback`. Convert to exported `type` aliases.
 - **Accept:** all four are importable from `@rivalis/core` and the existing JSDoc references in user code resolve to the same shape.
-
-### A6. Decide and document the build pipeline [ ]
-Parcel's library mode + tsc-only-for-types is unusual. Evaluate alternatives now that source is TS:
-- Option A: keep Parcel for bundling, switch tsc to also emit JS into a separate dir (currently `--emitDeclarationOnly`).
-- Option B: move to `tsc` only (no Parcel) — produces straightforward CJS/ESM with simpler debugging.
-- Option C: `tsup` (esbuild-based) — single tool, fast, dual CJS/ESM output, declaration generation built in.
-- **Recommendation:** Option C. Smallest config, fastest build, and removes the Parcel + tsc dual pipeline.
-- **Accept:** documented decision in `CLAUDE.md` and `core/README.md`; one tool drives the build.
 
 ---
 
@@ -161,7 +153,7 @@ Parcel's library mode + tsc-only-for-types is unusual. Evaluate alternatives now
 - `core/src/transports/WSTransport.js` uses `4001`, `4002`, `4003` inline. Define `CloseCode = { INVALID_TICKET: 4001, INVALID_FRAME: 4002, KICKED: 4003 } as const` and export it from `@rivalis/core`.
 - **Accept:** browser `WSClient` can map `CloseEvent.code` → human-readable reason via the same enum.
 
-### C9. The singleton logger factory blocks multiple `Rivalis` instances [ ]
+### C9. The singleton logger factory blocks multiple `Rivalis` instances [x]
 - `CustomLoggerFactory.Instance` is a module singleton. Two `Rivalis` instances in the same process share log levels and reporters — fine for prod, painful for tests.
 - Inject the logger factory through `Config` (`config.logging?: LoggerFactory`); fall back to the singleton.
 - **Accept:** unit tests can spin up isolated `Rivalis` instances with different log levels without cross-talk.
@@ -170,20 +162,15 @@ Parcel's library mode + tsc-only-for-types is unusual. Evaluate alternatives now
 
 ## D. Product / feature gaps
 
-### D1. Room presence: broadcast join/leave by default [ ]
+### D1. Room presence: broadcast join/leave by default [x]
 - Almost every realtime app needs "user joined" / "user left" events. Today the room author wires this manually.
 - Add opt-in `Room` config: `{ presence: true }` — auto-broadcasts `__presence:join` and `__presence:leave` with the actor's `data`.
 - **Accept:** flipping the flag eliminates the boilerplate in `FirstRoom` and similar apps.
 
-### D2. Room capacity and joinable flag [ ]
+### D2. Room capacity and joinable flag [x]
 - No way to cap a room or temporarily refuse joins (e.g. game in progress).
 - Add `room.maxActors` (number | null) and `room.joinable` (bool). `TLayer.grantAccess` rejects with a structured reason.
 - **Accept:** an 11th actor attempting to join a 10-cap room is rejected with code/reason `room_full`.
-
-### D3. Matchmaking / room-create REST hook [ ]
-- `RoomManager.create()` is server-internal only. Real apps need an HTTP endpoint to create rooms on demand (matchmaking).
-- Provide a thin helper: `rivalis.createMatchmakingHandler(express.Router)` that accepts `{ type, options }` and returns `{ roomId, ticket }`.
-- **Accept:** demo includes a `POST /matchmake` example.
 
 ### D4. Multi-room actors [ ]
 - Today an actor belongs to exactly one room (encoded in `roomIds: Map<actorId, roomId>`). Many use cases want one socket subscribed to multiple rooms (lobby + game + global chat).
@@ -194,11 +181,6 @@ Parcel's library mode + tsc-only-for-types is unusual. Evaluate alternatives now
 - Many use cases want server-authoritative shared state with diff-based broadcast. Today every app rolls this manually on top of `bind`/`broadcast`.
 - Optional `Room.state` object with a `mark(key)` API; framework diffs and broadcasts on tick.
 - **Accept:** documented as a v6 feature; spike a prototype on a branch first.
-
-### D6. Pluggable wire format [ ]
-- Hardcoded `{ topic, payload }` schema using `@toolcase/base`. Some users may prefer JSON or MessagePack.
-- Extract `Codec` interface; default to current binary; allow injection via `Config.codec`.
-- **Accept:** swapping codec on both server and browser client works end-to-end with the demo.
 
 ### D7. Observability hooks [ ]
 - No metrics, no tracing. Add an `Observer` interface with `onConnect`, `onDisconnect`, `onMessage`, `onRoomCreate`, `onRoomDestroy`, `onError`.
@@ -213,11 +195,6 @@ Parcel's library mode + tsc-only-for-types is unusual. Evaluate alternatives now
 ---
 
 ## E. Tooling, tests, and DX
-
-### E1. Add a test runner (none exists today) [ ]
-- Use `vitest` (works with both TS source and ESM, fast). Place tests in `core/test/` and `browser/test/`.
-- Cover: `Room` topic dispatch, `TLayer.grantAccess` happy/sad paths, `RoomManager.create/define/destroy`, serializer round-trip, `WSTransport` integration test using a real `ws` client.
-- **Accept:** `npm test` runs in CI; coverage report > 70% on `core`.
 
 ### E2. Add a linter and formatter [ ]
 - `eslint` (typescript-eslint, no-floating-promises, no-misused-promises, prefer-const) + `prettier`.

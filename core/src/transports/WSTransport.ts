@@ -1,58 +1,38 @@
-import { IncomingMessage } from 'http'
-import { WebSocketServer, WebSocket } from 'ws'
-import CloseCode from '../CloseCode'
+import type { IncomingMessage } from 'http'
+import { WebSocketServer, WebSocket, type ServerOptions } from 'ws'
+import { CloseCode } from '@rivalis/handshake'
 import CustomLoggerFactory from '../CustomLoggerFactory'
-import TLayer from '../TLayer'
+import type TLayer from '../TLayer'
 import Transport from '../Transport'
+
+type HeartbeatOptions = { intervalMs?: number; missThreshold?: number }
+
+export type WSTransportOptions = {
+    heartbeat?: false | HeartbeatOptions
+    maxBufferedBytes?: number
+}
+
+type SocketWithHeartbeat = WebSocket & { missedPings?: number }
 
 class WSTransport extends Transport {
 
-    /** @private */
-    logger = CustomLoggerFactory.Instance.getLogger('transport:websocket')
+    private logger = CustomLoggerFactory.Instance.getLogger('transport:websocket')
 
-    /**
-     * @readonly
-     * @private
-     */
-    QUERY_TICKET_PARAM = 'ticket'
+    private loggerFactory = CustomLoggerFactory.Instance
 
-    /**
-     * @private
-     * @type {WebSocketServer}
-     */
-    ws = null
+    private readonly QUERY_TICKET_PARAM: string = 'ticket'
 
-    /**
-     * @private
-     * @type {TLayer}
-     */
-    transportLayer = null
+    private ws: WebSocketServer | null = null
 
-    /**
-     * @private
-     * @type {{ intervalMs: number, missThreshold: number } | null}
-     */
-    heartbeat = null
+    private transportLayer: TLayer<any> | null = null
 
-    /**
-     * @private
-     * @type {NodeJS.Timeout | null}
-     */
-    heartbeatTimer = null
+    private heartbeat: { intervalMs: number; missThreshold: number } | null = null
 
-    /**
-     * @private
-     * @type {number}
-     */
-    maxBufferedBytes = 1024 * 1024
+    private heartbeatTimer: NodeJS.Timeout | null = null
 
-    /**
-     *
-     * @param {import('ws').ServerOptions} options
-     * @param {string|null} [queryTicketParam]
-     * @param {{ heartbeat?: false | { intervalMs?: number, missThreshold?: number }, maxBufferedBytes?: number }} [transportOptions]
-     */
-    constructor(options, queryTicketParam = null, transportOptions = {}) {
+    private maxBufferedBytes: number = 1024 * 1024
+
+    constructor(options: ServerOptions, queryTicketParam: string | null = null, transportOptions: WSTransportOptions = {}) {
         super()
         if (typeof queryTicketParam === 'string') {
             this.QUERY_TICKET_PARAM = queryTicketParam
@@ -64,7 +44,7 @@ class WSTransport extends Transport {
             this.maxBufferedBytes = transportOptions.maxBufferedBytes
         }
 
-        let heartbeatConfig = transportOptions?.heartbeat
+        const heartbeatConfig = transportOptions?.heartbeat
         if (heartbeatConfig !== false) {
             this.heartbeat = {
                 intervalMs: heartbeatConfig?.intervalMs ?? 30000,
@@ -75,54 +55,50 @@ class WSTransport extends Transport {
         }
     }
 
-    /**
-     * 
-     * @param {TLayer} transportLayer 
-     */
-    onInitialize(transportLayer) {
+    override onInitialize(transportLayer: TLayer<any>): void {
         this.transportLayer = transportLayer
-        this.ws.off('connection', this.handleReject)
-        this.ws.on('connection', this.handleConnect)
+        this.loggerFactory = transportLayer.logging
+        this.logger = transportLayer.logging.getLogger('transport:websocket')
+        this.ws?.off('connection', this.handleReject)
+        this.ws?.on('connection', this.handleConnect)
         this.logger.info('initialized')
     }
 
-    /** @override */
-    get sockets() {
+    override get sockets(): number {
         return this.ws !== null ? this.ws.clients.size : 0
     }
 
-    /**
-     * @private
-     * @param {WebSocket} socket 
-     * @param {IncomingMessage} request 
-     */
-    handleReject = (socket, request) => socket.close(CloseCode.INVALID_TICKET)
+    private handleReject = (socket: WebSocket, _request: IncomingMessage): void => {
+        socket.close(CloseCode.INVALID_TICKET)
+    }
 
-    /**
-     * @private
-     * @param {WebSocket} socket 
-     * @param {IncomingMessage} request 
-     */
-    handleConnect = async (socket, request) => {
-        
-        let ticket = this.extractTicket(request)
+    private handleConnect = async (socket: WebSocket, request: IncomingMessage): Promise<void> => {
+        const ticket = this.extractTicket(request)
         if (ticket === null) {
             this.logger.debug('client disconected, invalid ticket', ticket)
             return socket.close(CloseCode.INVALID_TICKET)
         }
 
-        /** @type {string} */
-        let actorId = null
-        try {
-            actorId = await this.transportLayer.grantAccess(ticket)
-        } catch (error) {
-            this.logger.debug(`grant access failure, ticket is not accepted, ticket=${ticket}, reason=${error.message}`)
+        if (this.transportLayer === null) {
             return socket.close(CloseCode.INVALID_TICKET)
         }
 
+        let actorId: string
+        try {
+            actorId = await this.transportLayer.grantAccess(ticket)
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error)
+            this.logger.debug(`grant access failure, ticket is not accepted, ticket=${ticket}, reason=${reason}`)
+            if (reason === 'room_full' || reason === 'room_not_joinable') {
+                return socket.close(CloseCode.ROOM_REJECTED, reason)
+            }
+            return socket.close(CloseCode.INVALID_TICKET)
+        }
+
+        const heartbeatSocket = socket as SocketWithHeartbeat
         if (this.heartbeat !== null) {
-            socket.missedPings = 0
-            socket.on('pong', () => { socket.missedPings = 0 })
+            heartbeatSocket.missedPings = 0
+            socket.on('pong', () => { heartbeatSocket.missedPings = 0 })
         }
 
         socket.on('message', (data, isBinary) => {
@@ -130,13 +106,13 @@ class WSTransport extends Transport {
                 this.logger.debug(`actor id=(${actorId}) ticket=(${ticket}) sent non-binary data`)
                 return socket.close(CloseCode.INVALID_FRAME)
             }
-            if (CustomLoggerFactory.Instance.level === 'verbose') {
+            if (this.loggerFactory.level === 'verbose') {
                 this.logger.verbose('message received', data)
             }
-            this.transportLayer.handleMessage(actorId, data)
+            this.transportLayer?.handleMessage(actorId, data as Uint8Array)
         })
 
-        socket.once('close', () => this.transportLayer.handleClose(actorId))
+        socket.once('close', () => this.transportLayer?.handleClose(actorId))
         this.transportLayer.on('message', actorId, (_, message) => {
             if (socket.readyState !== WebSocket.OPEN) {
                 return
@@ -148,39 +124,33 @@ class WSTransport extends Transport {
             socket.send(message)
         })
         this.transportLayer.on('kick', actorId, (_, message) => {
-            socket.close(CloseCode.KICKED, message)
+            socket.close(CloseCode.KICKED, Buffer.from(message))
         })
     }
 
-    /**
-     * @private
-     * @param {IncomingMessage} request 
-     * @returns {string|null}
-     */
-    extractTicket(request) {
-        let queryString = request.url.split('?')[1] || ''
-        let params = new URLSearchParams(queryString)
-        return params.get(this.QUERY_TICKET_PARAM) || null
+    private extractTicket(request: IncomingMessage): string | null {
+        const queryString = request.url?.split('?')[1] ?? ''
+        const params = new URLSearchParams(queryString)
+        return params.get(this.QUERY_TICKET_PARAM)
     }
 
-    /**
-     * @private
-     */
-    runHeartbeat = () => {
+    private runHeartbeat = (): void => {
         if (this.ws === null || this.heartbeat === null) {
             return
         }
-        for (let socket of this.ws.clients) {
-            if ((socket.missedPings ?? 0) >= this.heartbeat.missThreshold) {
+        for (const socket of this.ws.clients) {
+            const heartbeatSocket = socket as SocketWithHeartbeat
+            if ((heartbeatSocket.missedPings ?? 0) >= this.heartbeat.missThreshold) {
                 this.logger.debug('terminating idle socket: missed pong threshold reached')
                 socket.terminate()
                 continue
             }
-            socket.missedPings = (socket.missedPings ?? 0) + 1
+            heartbeatSocket.missedPings = (heartbeatSocket.missedPings ?? 0) + 1
             try {
                 socket.ping()
             } catch (error) {
-                this.logger.warning(`heartbeat ping failed: ${error.message}`)
+                const reason = error instanceof Error ? error.message : String(error)
+                this.logger.warning(`heartbeat ping failed: ${reason}`)
             }
         }
     }
@@ -188,10 +158,8 @@ class WSTransport extends Transport {
     /**
      * Stop accepting new connections, terminate live sockets, and shut
      * down the underlying WebSocketServer. Idempotent.
-     *
-     * @returns {Promise<void>}
      */
-    dispose() {
+    override dispose(): Promise<void> {
         if (this.ws === null) {
             return Promise.resolve()
         }
@@ -199,16 +167,17 @@ class WSTransport extends Transport {
             clearInterval(this.heartbeatTimer)
             this.heartbeatTimer = null
         }
-        let server = this.ws
+        const server = this.ws
         this.ws = null
         server.off('connection', this.handleConnect)
         server.off('connection', this.handleReject)
         server.on('connection', this.handleReject)
-        for (let client of server.clients) {
+        for (const client of server.clients) {
             try {
                 client.close(CloseCode.KICKED, 'server_shutdown')
             } catch (error) {
-                this.logger.warning(`failed to close client during dispose: ${error.message}`)
+                const reason = error instanceof Error ? error.message : String(error)
+                this.logger.warning(`failed to close client during dispose: ${reason}`)
             }
         }
         return new Promise((resolve) => {

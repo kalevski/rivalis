@@ -1,113 +1,239 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    color-scheme: dark;
+    --bg: #0e0e14;
+    --panel: #16161e;
+    --border: #2a2a36;
+    --text: #e6e6f0;
+    --muted: #8a8a99;
+    --accent: #4a7eff;
+    --danger: #ff7e7e;
+    --success: #7eff7e;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+    height: 100%;
+    margin: 0;
+}
 
 body {
-    font: 14px/1.4 system-ui, -apple-system, sans-serif;
-    background: #0e0e12;
-    color: #e6e6ea;
-    min-height: 100vh;
-    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 14px;
 }
 
-code { font-family: ui-monospace, monospace; background: #2a2a35; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+.app {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+}
 
-#login {
-    max-width: 380px;
-    margin: 8vh auto;
-    padding: 28px;
-    background: #18181f;
-    border: 1px solid #2a2a35;
-    border-radius: 10px;
-}
-#login h1 { font-size: 24px; margin-bottom: 4px; }
-#login p { color: #888; margin-bottom: 20px; font-size: 13px; }
-#login-form { display: grid; gap: 12px; }
-#login-form label { display: grid; gap: 4px; font-size: 12px; color: #aaa; }
-#login-form input {
-    padding: 9px;
-    background: #0e0e12;
-    border: 1px solid #2a2a35;
-    border-radius: 5px;
-    color: #e6e6ea;
-    font: inherit;
-}
-#login-form input[type=color] { padding: 2px; height: 36px; cursor: pointer; }
-#login-form button {
-    padding: 11px;
-    background: #4a7eff;
-    border: 0;
-    border-radius: 5px;
-    color: white;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    margin-top: 4px;
-}
-#login-form button:hover { background: #5e8eff; }
-.features { list-style: none; margin-top: 20px; padding-top: 16px; border-top: 1px solid #2a2a35; font-size: 12px; color: #888; }
-.features li { padding: 3px 0; }
-.features li::before { content: "→ "; color: #4a7eff; }
-
-#game { display: flex; flex-direction: column; height: 100vh; }
-#game header {
+.topbar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    background: #18181f;
-    border-bottom: 1px solid #2a2a35;
-    flex-shrink: 0;
+    gap: 16px;
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
 }
-#game header #me { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
-#game header #me .dot { width: 12px; height: 12px; border-radius: 50%; }
-#game header #conn-status { color: #888; font-size: 12px; margin-left: auto; }
-#game header button {
-    padding: 6px 12px;
-    background: #2a2a35;
-    border: 0;
-    border-radius: 4px;
-    color: #e6e6ea;
+
+.topbar .brand {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.topbar .nav {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+}
+
+.topbar .nav button {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+    padding: 6px 14px;
+    border-radius: 6px;
     cursor: pointer;
     font: inherit;
-    font-size: 12px;
 }
-#game header button:hover { background: #3a3a45; }
 
-#game main { display: flex; flex: 1; overflow: hidden; }
+.topbar .nav button:hover { color: var(--text); border-color: var(--border); }
+.topbar .nav button[aria-pressed="true"] {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
 
-#canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; min-width: 0; }
-#canvas { background: #16161e; cursor: crosshair; max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.topbar .me { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.topbar .me .dot { width: 10px; height: 10px; border-radius: 50%; }
 
-aside { width: 300px; border-left: 1px solid #2a2a35; display: flex; flex-direction: column; background: #18181f; flex-shrink: 0; }
-aside section { padding: 12px 14px; border-bottom: 1px solid #2a2a35; display: flex; flex-direction: column; min-height: 0; }
-aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 10px; }
+.content {
+    overflow: auto;
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+}
 
-#presence { max-height: 240px; }
-#presence-list { list-style: none; overflow-y: auto; flex: 1; }
-#presence-list li { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
-#presence-list li .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-#presence-list li.me { font-weight: 600; }
-#presence-list li.me::after { content: " (you)"; color: #888; font-weight: normal; font-size: 12px; }
-
-#chat { flex: 1; min-height: 0; }
-#chat-log { list-style: none; overflow-y: auto; flex: 1; margin-bottom: 10px; padding-right: 4px; }
-#chat-log li { padding: 4px 0; word-wrap: break-word; line-height: 1.5; font-size: 13px; }
-#chat-log .name { font-weight: 600; }
-#chat-log .ts { color: #555; font-size: 10px; margin-left: 6px; }
-#chat-log .system { color: #666; font-style: italic; font-size: 12px; }
-#chat-form input {
+.room {
     width: 100%;
+    max-width: 800px;
+}
+
+.status {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+}
+.status.connected { color: var(--success); }
+.status.rejected { color: var(--danger); }
+
+.login-shell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 360px;
+    padding: 28px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.login-card h1 { margin: 0 0 8px; font-size: 20px; }
+.login-card p { margin: 0 0 20px; color: var(--muted); }
+
+.login-card label { display: block; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+.login-card input[type="text"] {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
     padding: 8px 10px;
-    background: #0e0e12;
-    border: 1px solid #2a2a35;
-    border-radius: 4px;
-    color: #e6e6ea;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
     font: inherit;
 }
-#chat-form input:focus { outline: none; border-color: #4a7eff; }
+.login-card input[type="color"] {
+    margin-top: 4px;
+    width: 60px;
+    height: 30px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+}
 
-#game footer { padding: 8px 16px; background: #18181f; border-top: 1px solid #2a2a35; color: #666; font-size: 11px; text-align: center; flex-shrink: 0; }
+.btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+}
+.btn:hover { filter: brightness(1.1); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn.ghost:hover { color: var(--text); }
+.btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
 
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #3a3a45; }
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.panel + .panel { margin-top: 16px; }
+
+h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+
+.row { display: flex; gap: 12px; align-items: center; }
+
+/* counter */
+.counter-display {
+    font-size: 64px;
+    font-weight: 700;
+    text-align: center;
+    margin: 16px 0;
+    font-variant-numeric: tabular-nums;
+}
+.counter-by { text-align: center; color: var(--muted); margin-bottom: 16px; min-height: 1em; }
+.counter-buttons { display: flex; gap: 12px; justify-content: center; }
+.counter-buttons .btn {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+    border-radius: 10px;
+}
+
+/* lobby */
+.presence-list { list-style: none; padding: 0; margin: 0; }
+.presence-list li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.presence-list .dot { width: 8px; height: 8px; border-radius: 50%; }
+.presence-list .me { font-weight: 600; }
+.chat-log {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px;
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    padding: 12px;
+}
+.chat-log li { padding: 2px 0; }
+.chat-log .name { font-weight: 600; margin-right: 4px; }
+.chat-log .system { color: var(--muted); font-style: italic; font-size: 12px; }
+.chat-form { display: flex; gap: 8px; }
+.chat-form input {
+    flex: 1;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font: inherit;
+}
+
+/* ttt */
+.ttt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 80px);
+    grid-template-rows: repeat(3, 80px);
+    gap: 4px;
+    justify-content: center;
+    margin: 20px 0;
+}
+.ttt-cell {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 36px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ttt-cell:disabled { cursor: not-allowed; opacity: 0.6; }
+.ttt-cell.empty:not(:disabled):hover { background: #1f1f2a; }
+.ttt-info { text-align: center; min-height: 1.5em; color: var(--muted); }
+.ttt-info.your-turn { color: var(--success); font-weight: 600; }
+.ttt-info.winner { color: var(--accent); font-weight: 600; }
+.ttt-players { display: flex; gap: 24px; justify-content: center; margin-bottom: 16px; }
+.ttt-player { display: flex; align-items: center; gap: 8px; }
+.ttt-player .dot { width: 10px; height: 10px; border-radius: 50%; }
+.ttt-player .symbol { font-weight: 700; }

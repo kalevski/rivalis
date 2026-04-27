@@ -3,10 +3,10 @@
     "private": true,
     "scripts": {
         "build": "npm run build --workspaces --if-present",
-        "demo": "npm run dev -w @rivalis/demo",
-        "check:wire": "node scripts/check-wire-sync.mjs"
+        "demo": "npm run dev -w @rivalis/demo"
     },
     "workspaces": [
+        "handshake",
         "core",
         "browser",
         "demo"

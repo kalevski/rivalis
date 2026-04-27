@@ -3,8 +3,10 @@ import http from 'http'
 import express from 'express'
 
 import { Rivalis, Transports } from '@rivalis/core'
-import ArenaAuthMiddleware from './AuthMiddleware'
-import ArenaRoom from './ArenaRoom'
+import ArenaAuthMiddleware, { type ActorData } from './AuthMiddleware'
+import LobbyRoom from './LobbyRoom'
+import CounterRoom from './CounterRoom'
+import TttRoom from './TttRoom'
 
 const PORT = 2334
 const BUILD_DIR = path.join(process.cwd(), './build')
@@ -20,7 +22,7 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`ws    → ws://localhost:${PORT}`)
 })
 
-const rivalis = new Rivalis({
+const rivalis = new Rivalis<ActorData>({
     transports: [
         new Transports.WSTransport({ server })
     ],
@@ -29,7 +31,19 @@ const rivalis = new Rivalis({
 
 rivalis.logging.level = 'info'
 
-rivalis.rooms.define('arena', ArenaRoom)
-rivalis.rooms.create('arena', 'arena')
+rivalis.rooms.define('lobby', LobbyRoom)
+rivalis.rooms.create('lobby', 'lobby')
 
-console.log(`arena room ready (id="arena")`)
+rivalis.rooms.define('counter', CounterRoom)
+rivalis.rooms.create('counter', 'counter')
+
+rivalis.rooms.define('ttt', TttRoom)
+rivalis.rooms.create('ttt', 'ttt')
+
+console.log('rooms ready: lobby, counter, ttt')
+
+process.on('SIGINT', async () => {
+    console.log('\nshutting down...')
+    await rivalis.shutdown()
+    process.exit(0)
+})

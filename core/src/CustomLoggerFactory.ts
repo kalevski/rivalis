@@ -1,6 +1,9 @@
-import { ConsoleLogReporter, Level, LoggerFactory } from '@toolcase/logging'
+import { ConsoleLogReporter, LoggerFactory } from '@toolcase/logging'
 
 class CustomLoggerFactory extends LoggerFactory {
+
+    static Instance: CustomLoggerFactory
+
     constructor() {
         super([
             new ConsoleLogReporter()

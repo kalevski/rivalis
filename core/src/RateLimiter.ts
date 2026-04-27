@@ -10,25 +10,11 @@
  */
 class RateLimiter {
 
-    /**
-     * Decide whether the actor is allowed to send another message right
-     * now. Called once per inbound frame.
-     *
-     * @param {string} actorId
-     * @returns {boolean | Promise<boolean>}
-     */
-    check(actorId) {
+    check(_actorId: string): boolean | Promise<boolean> {
         return true
     }
 
-    /**
-     * Called when an actor disconnects so the implementation can free
-     * any per-actor state.
-     *
-     * @param {string} actorId
-     * @returns {void}
-     */
-    release(actorId) {}
+    release(_actorId: string): void {}
 
 }
 

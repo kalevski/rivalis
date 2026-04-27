@@ -2,7 +2,7 @@
     "name": "@rivalis/browser",
     "version": "5.0.6",
     "description": "🔗 Browser client for rivalis server",
-    "source": "src/main.js",
+    "source": "src/main.ts",
     "main": "lib/main.js",
     "module": "lib/module.js",
     "types": "lib/main.d.ts",
@@ -19,7 +19,11 @@
     },
     "peerDependencies": {
         "@toolcase/base": "2.x",
-        "@toolcase/logging": "2.x"
+        "@toolcase/logging": "2.x",
+        "@toolcase/serializer": "2.x"
+    },
+    "devDependencies": {
+        "@rivalis/handshake": "*"
     },
     "keywords": ["realtime", "websockets", "networking", "multiplayer", "netcode", "toolcase", "borwser", "rivalis"],
     "directories": {

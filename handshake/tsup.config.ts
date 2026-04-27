@@ -1,6 +1,6 @@
 import { defineConfig } from 'tsup'
 
-const external = ['@toolcase/base', '@toolcase/logging', '@toolcase/serializer']
+const external = ['@toolcase/serializer']
 
 export default defineConfig([
     {
@@ -8,10 +8,9 @@ export default defineConfig([
         format: 'cjs',
         outDir: 'lib',
         target: 'es2018',
-        platform: 'browser',
         clean: true,
         sourcemap: false,
-        dts: { resolve: ['@rivalis/handshake'] },
+        dts: true,
         outExtension: () => ({ js: '.js' }),
         external
     },
@@ -20,7 +19,6 @@ export default defineConfig([
         format: 'esm',
         outDir: 'lib',
         target: 'es2018',
-        platform: 'browser',
         clean: false,
         sourcemap: false,
         dts: false,
