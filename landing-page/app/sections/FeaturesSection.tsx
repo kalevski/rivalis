@@ -1,12 +1,55 @@
 'use client'
 
-import { Card, Icon, Heading, Text } from '@toolcase/react-components'
+import { PinnedFeatureShowcase, FeatureCard, Icon, Heading, Text, ConfigPreview } from '@toolcase/react-components'
 
 type Feature = {
     icon: string
     title: string
     body: string
 }
+
+const pillars = [
+    {
+        eyebrow: 'Core model',
+        icon: <Icon name={'door-open' as never} />,
+        title: 'Rooms & Actors',
+        description: 'Model your game or app as rooms full of actors with a clean onCreate / onJoin / onLeave / onDestroy lifecycle.'
+    },
+    {
+        eyebrow: 'Messaging',
+        icon: <Icon name={'broadcast-pin' as never} />,
+        title: 'Topic-based messaging',
+        description: 'Bind a topic to a handler, broadcast to all actors, or unicast to one — no manual switch statements required.'
+    },
+    {
+        eyebrow: 'Security',
+        icon: <Icon name={'shield-lock' as never} />,
+        title: 'Pluggable auth middleware',
+        description: 'Validate a ticket (JWT, session token, anything) and attach typed actor data that flows everywhere.'
+    },
+    {
+        eyebrow: 'Transport',
+        icon: <Icon name={'plug' as never} />,
+        title: 'Transport abstraction',
+        description: 'Ships with a WebSocket transport and a four-method base class — add WebTransport, TCP, or anything else.'
+    }
+]
+
+const configMedia = (
+    <ConfigPreview
+        entries={[
+            { key: 'transport', value: 'WSTransport', live: true },
+            { key: 'rateLimiter.tokensPerSecond', value: 60 },
+            { key: 'rateLimiter.maxTokens', value: 120 },
+            { key: 'heartbeatIntervalMs', value: 10000 },
+            { key: 'maxTopicLength', value: 64 },
+            { key: 'maxPayloadBytes', value: 65536 },
+            { key: 'presence', value: true, live: true },
+            { key: 'allowedOrigins', value: '*' },
+        ]}
+        liveLabel="active"
+    />
+)
 
 const features: Feature[] = [
     {
@@ -115,7 +158,7 @@ export function FeaturesSection() {
     return (
         <section id="features" className="section">
             <div className="section__head">
-                <span className="section__eyebrow">/// FEATURES</span>
+                <span className="section__eyebrow">FEATURES</span>
                 <Heading as="h2" gradient>
                     Everything a multiplayer server needs.
                 </Heading>
@@ -123,15 +166,23 @@ export function FeaturesSection() {
                     Twenty production concerns Rivalis solves so you do not have to.
                 </Text>
             </div>
-            <div className="grid grid--4">
+
+            <PinnedFeatureShowcase
+                eyebrow="CORE"
+                title="Four pillars, zero boilerplate."
+                description="Every rivalis server is built from the same four primitives. Compose them once and all the production concerns — auth, rate limiting, heartbeats, backpressure — come along for free."
+                items={pillars}
+                media={configMedia}
+            />
+
+            <div className="grid grid--4" style={{ marginTop: 64 }}>
                 {features.map((f) => (
-                    <Card key={f.title} className="feature-card">
-                        <div className="feature-card__icon">
-                            <Icon name={f.icon} />
-                        </div>
-                        <h3 className="feature-card__title">{f.title}</h3>
-                        <p className="feature-card__body">{f.body}</p>
-                    </Card>
+                    <FeatureCard
+                        key={f.title}
+                        icon={<Icon name={f.icon as never} />}
+                        title={f.title}
+                        description={f.body}
+                    />
                 ))}
             </div>
         </section>

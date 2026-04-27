@@ -13,8 +13,8 @@ const items: CoolNavItem[] = [
 export function Nav() {
     return (
         <CoolNav
-            theme="dark"
-            brand={<Brand primaryText="rivalis" secondaryText="/io" color="#ff3df0" label="MIT" />}
+            theme="light"
+            brand={<Brand primaryText="RIVALIS" secondaryText="" color="#f44336" label="MIT" />}
             items={items}
             loginLabel="GitHub"
             loginHref="https://github.com/kalevski/rivalis"

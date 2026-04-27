@@ -1,6 +1,6 @@
 'use client'
 
-import { Heading, Text } from '@toolcase/react-components'
+import { PinnedFeatureShowcase, FeatureCard, Heading, Text, CdnMap } from '@toolcase/react-components'
 
 type UseCase = {
     title: string
@@ -37,45 +37,60 @@ const apps: UseCase[] = [
     { title: 'Multiplayer simulations', body: 'Training, telepresence, and digital twins where multiple operators share state.' }
 ]
 
-function Tile({ title, body }: UseCase) {
-    return (
-        <article className="usecase">
-            <h3 className="usecase__title">{title}</h3>
-            <p className="usecase__body">{body}</p>
-        </article>
-    )
-}
+const gameItems = [
+    { eyebrow: 'Competitive', title: 'Arena & PvP', description: 'Rooms with presence and tick-rate broadcasting for shooters, battle-royale, and .io games.' },
+    { eyebrow: 'Casual', title: 'Party & board games', description: 'Turn-based and party games — one room per match, server-authoritative state, no client trust needed.' },
+    { eyebrow: 'Scale', title: 'MMO zones', description: 'Partition a world into zone-rooms; actors hop between them as they move through the world.' },
+    { eyebrow: 'Esports', title: 'Tournament brackets', description: 'Persistent bracket rooms broadcast updates while sub-rooms run individual matches simultaneously.' }
+]
+
+const cdnMapMedia = (
+    <CdnMap
+        nodes={[
+            { top: '18%', left: '12%', variant: 'primary', label: 'US West' },
+            { top: '22%', left: '30%', variant: 'accent', label: 'US East' },
+            { top: '28%', left: '48%', variant: 'primary', label: 'EU West' },
+            { top: '20%', left: '60%', variant: 'accent', label: 'EU Central' },
+            { top: '25%', left: '75%', variant: 'primary', label: 'SE Asia' },
+            { top: '40%', left: '68%', variant: 'accent', label: 'AP South' },
+            { top: '60%', left: '32%', variant: 'primary', label: 'SA East' },
+            { top: '65%', left: '52%', variant: 'accent', label: 'Africa' },
+        ]}
+        height={260}
+    />
+)
 
 export function UseCasesSection() {
     return (
-        <section id="use-cases" className="section">
-            <div className="section__head">
-                <span className="section__eyebrow">/// USE CASES</span>
-                <Heading as="h2" gradient>
-                    What you can build.
-                </Heading>
-                <Text as="p" variant="muted">
-                    Anywhere multiple humans (or bots) need to share state in real time.
-                </Text>
-            </div>
+        <div className="section--alt">
+            <section id="use-cases" className="section--alt">
+                <div className="section-inner">
+                    <div className="section__head">
+                        <span className="section__eyebrow">USE CASES</span>
+                        <Heading as="h2" gradient>
+                            What you can build.
+                        </Heading>
+                        <Text as="p" variant="muted">
+                            Anywhere multiple humans (or bots) need to share state in real time.
+                        </Text>
+                    </div>
 
-            <div className="section__head" style={{ marginBottom: 24, marginTop: 24 }}>
-                <span className="section__eyebrow">/// MULTIPLAYER GAMES</span>
-            </div>
-            <div className="grid grid--4">
-                {games.map((g) => (
-                    <Tile key={g.title} {...g} />
-                ))}
-            </div>
+                    <PinnedFeatureShowcase
+                        eyebrow="MULTIPLAYER GAMES"
+                        title="Game servers, without the framework tax."
+                        description="Deploy rivalis anywhere Node.js runs. One server process handles hundreds of concurrent rooms — no sidecar, no managed cloud, no CCU bill."
+                        items={gameItems}
+                        media={cdnMapMedia}
+                    />
 
-            <div className="section__head" style={{ marginBottom: 24, marginTop: 64 }}>
-                <span className="section__eyebrow">/// REAL-TIME APPLICATIONS</span>
-            </div>
-            <div className="grid grid--4">
-                {apps.map((a) => (
-                    <Tile key={a.title} {...a} />
-                ))}
-            </div>
-        </section>
+                    <p className="use-cases__label">Real-time applications</p>
+                    <div className="grid grid--4" style={{ marginTop: 20 }}>
+                        {apps.map((a) => (
+                            <FeatureCard key={a.title} title={a.title} description={a.body} inline />
+                        ))}
+                    </div>
+                </div>
+            </section>
+        </div>
     )
 }

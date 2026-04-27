@@ -35,6 +35,11 @@ export function HeroSection() {
                 { label: 'Wire format', value: 'binary', helper: 'topic + payload' },
                 { label: 'License', value: 'MIT', helper: 'free forever' }
             ]}
+            metrics={[
+                { label: 'overhead', value: '~0ms', helper: 'in-process room routing' },
+                { label: 'protocol', value: 'binary', helper: 'typed frames, no JSON parsing' },
+                { label: 'license', value: 'MIT', helper: 'use it · fork it · ship it' }
+            ]}
             bgIcons={[
                 'controller',
                 'lightning-charge',

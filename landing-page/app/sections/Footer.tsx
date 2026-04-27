@@ -1,16 +1,40 @@
+'use client'
+
+import { PageFooter, Brand } from '@toolcase/react-components'
+
 export function Footer() {
     return (
-        <footer className="footer">
-            <div>
-                rivalis · MIT licensed · built by{' '}
-                <a href="https://github.com/kalevski" target="_blank" rel="noopener noreferrer">
-                    @kalevski
-                </a>{' '}
-                ·{' '}
-                <a href="https://github.com/kalevski/rivalis" target="_blank" rel="noopener noreferrer">
-                    GitHub
-                </a>
-            </div>
-        </footer>
+        <PageFooter
+            brand={<Brand primaryText="RIVALIS" secondaryText="" color="#f44336" label="MIT" />}
+            tagline="Multiplayer & real-time, without the boilerplate."
+            description="Open-source Node.js framework for building real-time apps and multiplayer game servers. Free forever under the MIT license."
+            menus={[
+                {
+                    heading: 'Framework',
+                    links: [
+                        { label: '@rivalis/core', href: 'https://github.com/kalevski/rivalis', external: true },
+                        { label: '@rivalis/browser', href: 'https://github.com/kalevski/rivalis', external: true },
+                        { label: 'Changelog', href: 'https://github.com/kalevski/rivalis/releases', external: true }
+                    ]
+                },
+                {
+                    heading: 'Resources',
+                    links: [
+                        { label: 'Documentation', href: 'https://github.com/kalevski/rivalis#readme', external: true },
+                        { label: 'Quick start', href: '#quick-start' },
+                        { label: 'Examples', href: 'https://github.com/kalevski/rivalis/tree/main/demo', external: true }
+                    ]
+                },
+                {
+                    heading: 'Community',
+                    links: [
+                        { label: 'GitHub', href: 'https://github.com/kalevski/rivalis', external: true },
+                        { label: 'Issues', href: 'https://github.com/kalevski/rivalis/issues', external: true },
+                        { label: 'Author', href: 'https://github.com/kalevski', external: true }
+                    ]
+                }
+            ]}
+            legalText="© 2026 rivalis. Released under the MIT License."
+        />
     )
 }

@@ -3,6 +3,7 @@ import { HeroSection } from './sections/HeroSection'
 import { FeaturesSection } from './sections/FeaturesSection'
 import { UseCasesSection } from './sections/UseCasesSection'
 import { QuickStartSection } from './sections/QuickStartSection'
+import { ComparisonSection } from './sections/ComparisonSection'
 import { CTASection } from './sections/CTASection'
 import { Footer } from './sections/Footer'
 
@@ -12,8 +13,9 @@ export default function Page() {
             <Nav />
             <HeroSection />
             <FeaturesSection />
-            <UseCasesSection />
             <QuickStartSection />
+            <UseCasesSection />
+            <ComparisonSection />
             <CTASection />
             <Footer />
         </main>
