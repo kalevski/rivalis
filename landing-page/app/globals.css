@@ -1,0 +1,149 @@
+/* Rivalis brand palette
+ * Primary: vivid violet (replaces default red/black)
+ * Accent:  electric cyan
+ * Surface: warm off-white with a faint violet tint
+ */
+:root,
+[data-bs-theme='light'] {
+    --rv-violet-50: #f5f1ff;
+    --rv-violet-100: #ece3ff;
+    --rv-violet-300: #c4a8ff;
+    --rv-violet-500: #8b5cf6;
+    --rv-violet-600: #7c3aed;
+    --rv-violet-700: #6d28d9;
+
+    --rv-cyan-300: #67e8f9;
+    --rv-cyan-500: #06b6d4;
+    --rv-cyan-600: #0891b2;
+
+    --rv-pink-500: #ec4899;
+
+    --rv-ink-900: #1e1b3a;
+    --rv-ink-700: #3b3666;
+    --rv-ink-500: #6b6691;
+    --rv-ink-300: #b9b4d6;
+
+    --rv-surface-0: #fbfaff;
+    --rv-surface-1: #f4f0ff;
+    --rv-surface-2: #ece6ff;
+
+    /* Bootstrap theme remap */
+    --bs-primary: var(--rv-violet-600);
+    --bs-primary-rgb: 124, 58, 237;
+    --bs-primary-text-emphasis: var(--rv-violet-700);
+    --bs-primary-bg-subtle: var(--rv-violet-100);
+    --bs-primary-border-subtle: var(--rv-violet-300);
+
+    --bs-danger: var(--rv-violet-600);
+    --bs-danger-rgb: 124, 58, 237;
+    --bs-danger-text-emphasis: var(--rv-violet-700);
+    --bs-danger-bg-subtle: var(--rv-violet-100);
+    --bs-danger-border-subtle: var(--rv-violet-300);
+
+    --bs-info: var(--rv-cyan-500);
+    --bs-info-rgb: 6, 182, 212;
+    --bs-info-text-emphasis: var(--rv-cyan-600);
+
+    --bs-warning: var(--rv-pink-500);
+    --bs-warning-rgb: 236, 72, 153;
+    --bs-warning-text-emphasis: #be185d;
+
+    --bs-secondary: var(--rv-ink-700);
+    --bs-secondary-rgb: 59, 54, 102;
+    --bs-secondary-color: var(--rv-ink-500);
+    --bs-secondary-color-rgb: 107, 102, 145;
+    --bs-secondary-bg: var(--rv-surface-1);
+    --bs-secondary-bg-rgb: 244, 240, 255;
+
+    --bs-tertiary-bg: var(--rv-surface-1);
+    --bs-tertiary-bg-rgb: 244, 240, 255;
+    --bs-tertiary-color: var(--rv-ink-500);
+    --bs-tertiary-color-rgb: 107, 102, 145;
+
+    --bs-body-color: var(--rv-ink-900);
+    --bs-body-color-rgb: 30, 27, 58;
+    --bs-body-bg: var(--rv-surface-0);
+    --bs-body-bg-rgb: 251, 250, 255;
+
+    --bs-emphasis-color: var(--rv-ink-900);
+    --bs-emphasis-color-rgb: 30, 27, 58;
+    --bs-heading-color: var(--rv-ink-900);
+
+    --bs-link-color: var(--rv-violet-600);
+    --bs-link-color-rgb: 124, 58, 237;
+    --bs-link-hover-color: var(--rv-violet-700);
+
+    --bs-border-color: var(--rv-surface-2);
+}
+
+/* Heading text + gradient */
+body .component-heading {
+    --heading-text: var(--rv-ink-900);
+}
+body .component-heading.component-heading--gradient {
+    background: linear-gradient(135deg, var(--rv-violet-600) 0%, var(--rv-pink-500) 50%, var(--rv-cyan-500) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Pinned showcase decorative tweaks */
+body .component-pinned-feature-showcase__title {
+    color: var(--rv-ink-900);
+}
+body .component-pinned-feature-showcase__description {
+    color: var(--rv-ink-500);
+}
+body .component-pinned-feature-showcase__eyebrow,
+body .component-pinned-feature-showcase__item-eyebrow {
+    color: var(--rv-violet-600);
+}
+body .component-pinned-feature-showcase__item-icon {
+    color: var(--rv-violet-600);
+}
+body .component-pinned-feature-showcase__item-title {
+    color: var(--rv-ink-900);
+}
+body .component-pinned-feature-showcase__item-description {
+    color: var(--rv-ink-500);
+}
+
+/* Pipeline numbers + icons */
+body [class*='pipeline'] [class*='__num'],
+body [class*='pipeline'] [class*='__icon'] {
+    color: var(--rv-violet-600);
+}
+
+/* Feature card icons */
+body .component-feature-card [class*='__icon'],
+body .component-feature-card svg {
+    color: var(--rv-violet-600);
+}
+body .component-feature-card [class*='__eyebrow'] {
+    color: var(--rv-cyan-600);
+}
+
+/* Bootstrap-text utilities used by components */
+body .text-muted,
+body [class*='--muted'] {
+    color: var(--rv-ink-500) !important;
+}
+
+/* Hero background icons — subtle violet tint instead of grey */
+body [class*='hero'] [class*='bg-icons'] i,
+body [class*='hero'] [class*='bg-icons'] svg {
+    color: var(--rv-violet-300);
+    opacity: 0.35;
+}
+
+/* Code snippet — keep readable on the new surface */
+body .component-code-snippet,
+body [class*='code-snippet'] {
+    --code-bg: var(--rv-ink-900);
+    --code-fg: #e9e6ff;
+}
+
+/* Section bg-tertiary becomes a faint violet wash */
+body .bg-body-tertiary {
+    background: linear-gradient(180deg, var(--rv-surface-1) 0%, var(--rv-surface-0) 100%) !important;
+}

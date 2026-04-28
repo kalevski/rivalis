@@ -29,6 +29,11 @@ export function HeroSection() {
                 outline: true,
                 onClick: goTo('https://github.com/kalevski/rivalis', true)
             }}
+            metrics={[
+                { label: 'frame cap', value: '64 KiB', helper: 'per inbound message, tunable' },
+                { label: 'rate limit', value: '30 / s', helper: 'token bucket per actor' },
+                { label: 'heartbeat', value: '30 s', helper: 'two-miss disconnect' }
+            ]}
             bgIcons={[
                 'controller',
                 'lightning-charge',

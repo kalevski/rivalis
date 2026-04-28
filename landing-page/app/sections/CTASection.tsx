@@ -26,7 +26,7 @@ export function CTASection() {
                                         <CoolButton variant="primary" size="large">Star on GitHub</CoolButton>
                                     </a>
                                     <a href="https://github.com/kalevski/rivalis#readme" target="_blank" rel="noopener noreferrer">
-                                        <CoolButton variant="primary" outline size="large">Read the docs</CoolButton>
+                                        <CoolButton variant="primary" size="large">Read the docs</CoolButton>
                                     </a>
                                 </div>
                             </div>

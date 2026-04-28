@@ -13,7 +13,7 @@ export function Nav() {
     return (
         <CoolNav
             theme="light"
-            brand={<Brand primaryText="RIVALIS" secondaryText="" color="#f44336" label="MIT" />}
+            brand={<Brand primaryText="RIVALIS" secondaryText="" color="#7c3aed" label="MIT" />}
             items={items}
             loginLabel="GitHub"
             loginHref="https://github.com/kalevski/rivalis"

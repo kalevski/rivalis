@@ -1,43 +1,43 @@
 'use client'
 
-import { FeatureCard, Icon, Heading, Badge } from '@toolcase/react-components'
+import { PinnedFeatureShowcase, Icon } from '@toolcase/react-components'
 
-type Feature = {
-    icon: string
-    title: string
-    body: string
-}
-
-const features: Feature[] = [
+const features = [
     {
-        icon: 'door-open',
+        eyebrow: 'Core model',
+        icon: <Icon name={'door-open' as never} />,
         title: 'Rooms & Actors',
-        body: 'Model your game as rooms full of actors with a clean lifecycle. Two concepts, one mental model.'
+        description: 'Model your game as rooms full of actors with a clean lifecycle. Two concepts, one mental model.'
     },
     {
-        icon: 'broadcast-pin',
+        eyebrow: 'Messaging',
+        icon: <Icon name={'broadcast-pin' as never} />,
         title: 'Topic-based messaging',
-        body: 'Bind a topic to a handler, broadcast or unicast — no manual switch statements.'
+        description: 'Bind a topic to a handler, broadcast or unicast — no manual switch statements.'
     },
     {
-        icon: 'shield-lock',
+        eyebrow: 'Security',
+        icon: <Icon name={'shield-lock' as never} />,
         title: 'Pluggable auth',
-        body: 'Validate any ticket — JWT, session token, anything — and attach typed actor data.'
+        description: 'Validate any ticket — JWT, session token, anything — and attach typed actor data.'
     },
     {
-        icon: 'box-seam',
+        eyebrow: 'Wire format',
+        icon: <Icon name={'box-seam' as never} />,
         title: 'Binary wire protocol',
-        body: 'A typed { topic, payload } format keeps clients and servers in lockstep.'
+        description: 'A typed { topic, payload } format keeps clients and servers in lockstep.'
     },
     {
-        icon: 'code-square',
+        eyebrow: 'Developer experience',
+        icon: <Icon name={'code-square' as never} />,
         title: 'TypeScript-first',
-        body: 'Strict types end-to-end. Actor data, room handlers, and the wire format share generics.'
+        description: 'Strict types end-to-end. Actor data, room handlers, and the wire format share generics.'
     },
     {
-        icon: 'power',
+        eyebrow: 'License',
+        icon: <Icon name={'power' as never} />,
         title: 'Free & open source',
-        body: 'MIT licensed. Free forever, even for commercial games. Your server, your rules.'
+        description: 'MIT licensed. Free forever, even for commercial games. Your server, your rules.'
     }
 ]
 
@@ -45,24 +45,12 @@ export function FeaturesSection() {
     return (
         <section id="why-rivalis" className="py-5">
             <div className="container py-md-5">
-                <div className="text-center mx-auto mb-5" style={{ maxWidth: 760 }}>
-                    <Badge variant="danger" pill size="sm">WHY RIVALIS</Badge>
-                    <Heading as="h2" gradient>
-                        Everything you need for multiplayer.
-                    </Heading>
-                </div>
-
-                <div className="row g-4">
-                    {features.map((f) => (
-                        <div key={f.title} className="col-12 col-sm-6 col-lg-4">
-                            <FeatureCard
-                                icon={<Icon name={f.icon as never} />}
-                                title={f.title}
-                                description={f.body}
-                            />
-                        </div>
-                    ))}
-                </div>
+                <PinnedFeatureShowcase
+                    eyebrow="WHY RIVALIS"
+                    title="Everything you need for multiplayer."
+                    description="Rooms, actors, auth, and a binary protocol — out of the box. Heartbeats, rate limits, and reconnect come along for free."
+                    items={features}
+                />
             </div>
         </section>
     )

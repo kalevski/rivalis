@@ -1,28 +1,28 @@
 'use client'
 
-import { FeatureCard, Heading, Text, Badge } from '@toolcase/react-components'
+import { Pipeline, Heading, Text, Badge, Icon } from '@toolcase/react-components'
 
-type UseCase = {
-    eyebrow: string
-    title: string
-    body: string
-}
-
-const useCases: UseCase[] = [
+const steps = [
     {
-        eyebrow: 'Multiplayer',
+        num: '01',
+        icon: <Icon name={'controller' as never} />,
         title: 'Game servers',
-        body: 'Arena, .io, party, MMO zones, turn-based — rooms with presence and tick-rate broadcasts.'
+        sub: 'Arena, .io, party, MMO zones, turn-based — rooms with presence and tick-rate broadcasts.',
+        state: 'complete' as const
     },
     {
-        eyebrow: 'Collaborative',
+        num: '02',
+        icon: <Icon name={'people' as never} />,
         title: 'Live apps',
-        body: 'Whiteboards, editors, dashboards, chat — every interaction is a topic frame.'
+        sub: 'Whiteboards, editors, dashboards, chat — every interaction is a topic frame.',
+        state: 'live' as const
     },
     {
-        eyebrow: 'Operational',
+        num: '03',
+        icon: <Icon name={'broadcast' as never} />,
         title: 'Real-time ops',
-        body: 'Auctions, IoT panels, dispatch, live polls — server-authoritative state with rate limiting.'
+        sub: 'Auctions, IoT panels, dispatch, live polls — server-authoritative state with rate limiting.',
+        state: 'default' as const
     }
 ]
 
@@ -40,17 +40,7 @@ export function UseCasesSection() {
                     </Text>
                 </div>
 
-                <div className="row g-4">
-                    {useCases.map((u) => (
-                        <div key={u.title} className="col-12 col-md-4">
-                            <FeatureCard
-                                eyebrow={u.eyebrow}
-                                title={u.title}
-                                description={u.body}
-                            />
-                        </div>
-                    ))}
-                </div>
+                <Pipeline steps={steps} />
             </div>
         </section>
     )

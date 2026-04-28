@@ -28,7 +28,7 @@ export function Footer() {
                     links: [
                         { label: 'GitHub', href: 'https://github.com/kalevski/rivalis', external: true },
                         { label: 'Issues', href: 'https://github.com/kalevski/rivalis/issues', external: true },
-                        { label: 'Author', href: 'https://github.com/kalevski', external: true }
+                        { label: 'Author', href: 'https://kalevski.dev', external: true }
                     ]
                 }
             ]}

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import Script from 'next/script'
 import '@toolcase/react-components/style.css'
+import './globals.css'
 
 const siteUrl = 'https://rivalis.io'
 const title = 'Rivalis — Open-source real-time framework for Node.js'
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
         'game networking',
         'real-time nodejs'
     ],
-    authors: [{ name: 'kalevski', url: 'https://github.com/kalevski' }],
+    authors: [{ name: 'kalevski', url: 'https://kalevski.dev' }],
     creator: 'kalevski',
     robots: {
         index: true,

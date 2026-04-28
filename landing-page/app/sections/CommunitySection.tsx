@@ -25,7 +25,7 @@ const links: Link[] = [
     {
         icon: 'person',
         label: 'Author',
-        href: 'https://github.com/kalevski',
+        href: 'https://kalevski.dev',
         helper: 'Built by @kalevski'
     }
 ]
@@ -55,7 +55,7 @@ export function CommunitySection() {
                                     <Heading as="h3">{l.label}</Heading>
                                     <Text as="p" variant="muted" size="small">{l.helper}</Text>
                                     <a href={l.href} target="_blank" rel="noopener noreferrer">
-                                        <CoolButton variant="primary" outline>Open</CoolButton>
+                                        <CoolButton variant="primary">Open</CoolButton>
                                     </a>
                                 </div>
                             </Card>
