@@ -27,12 +27,54 @@ const ws = new WSClient('wss://your-server.com', { reconnect: true })
 ws.on('client:connect', () => console.log('connected'))
 ws.on('move', (payload) => renderMove(payload))
 
-ws.connect('alice')
+ws.connect('game-1|alice')
 ws.send('move', JSON.stringify({ x: 12, y: 34 }))`
+
+const authCode = `import { AuthMiddleware, type AuthResult } from '@rivalis/core'
+
+type PlayerData = { name: string; score: number }
+
+export class GameAuthMiddleware extends AuthMiddleware<PlayerData> {
+
+    override async authenticate(ticket: string): Promise<AuthResult<PlayerData> | null> {
+        const [roomId, name] = ticket.split('|')
+        if (!roomId || !name || name.length > 20) {
+            return null
+        }
+        return {
+            data: { name, score: 0 },
+            roomId
+        }
+    }
+}`
+
+const serverInitCode = `import http from 'http'
+import { Rivalis, Transports } from '@rivalis/core'
+import { GameAuthMiddleware } from './GameAuthMiddleware'
+import { GameRoom } from './GameRoom'
+
+const server = http.createServer()
+
+const rivalis = new Rivalis({
+    transports: [new Transports.WSTransport({ server })],
+    authMiddleware: new GameAuthMiddleware()
+})
+
+rivalis.rooms.define('game', GameRoom)
+rivalis.rooms.create('game', 'game-1')
+
+server.listen(2334, () => console.log('ws → ws://localhost:2334'))
+
+process.on('SIGINT', async () => {
+    await rivalis.shutdown()
+    process.exit(0)
+})`
 
 type Tab = { key: string; label: string; code: string; language: CodeSnippetLanguage }
 const tabs: Tab[] = [
     { key: 'server', label: 'Server — GameRoom.ts', code: serverCode, language: 'typescript' },
+    { key: 'auth', label: 'Auth — GameAuthMiddleware.ts', code: authCode, language: 'typescript' },
+    { key: 'init', label: 'Init — index.ts', code: serverInitCode, language: 'typescript' },
     { key: 'client', label: 'Client — client.ts', code: clientCode, language: 'typescript' }
 ]
 
