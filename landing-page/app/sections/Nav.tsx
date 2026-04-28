@@ -6,6 +6,7 @@ import type { CoolNavItem } from '@toolcase/react-components'
 const items: CoolNavItem[] = [
     { label: 'Features', href: '#why-rivalis' },
     { label: 'Use cases', href: '#use-cases' },
+    { label: 'AI skill', href: '#ai-skill' },
     { label: 'Docs', href: 'https://github.com/kalevski/rivalis#readme', target: '_blank' }
 ]
 

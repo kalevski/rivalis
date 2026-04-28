@@ -4,6 +4,7 @@ import { QuickStartSection } from './sections/QuickStartSection'
 import { FeaturesSection } from './sections/FeaturesSection'
 import { UseCasesSection } from './sections/UseCasesSection'
 import { ComparisonSection } from './sections/ComparisonSection'
+import { SkillSection } from './sections/SkillSection'
 import { CommunitySection } from './sections/CommunitySection'
 import { CTASection } from './sections/CTASection'
 import { Footer } from './sections/Footer'
@@ -17,6 +18,7 @@ export default function Page() {
             <FeaturesSection />
             <UseCasesSection />
             <ComparisonSection />
+            <SkillSection />
             <CommunitySection />
             <CTASection />
             <Footer />
