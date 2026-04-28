@@ -10,3 +10,4 @@ demos/phaser-plus-demo/public/*
 demos/realtime-demo/public/*
 !demos/realtime-demo/public/README.md
 !demos/realtime-demo/public/assets
+.DS_Store
