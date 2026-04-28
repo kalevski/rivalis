@@ -99,6 +99,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
                     strategy="afterInteractive"
                 />
+                <Script
+                    src="https://www.googletagmanager.com/gtag/js?id=G-RMH58ZPF7J"
+                    strategy="afterInteractive"
+                />
+                <Script id="google-analytics" strategy="afterInteractive">
+                    {`
+                        window.dataLayer = window.dataLayer || [];
+                        function gtag(){dataLayer.push(arguments);}
+                        gtag('js', new Date());
+                        gtag('config', 'G-RMH58ZPF7J');
+                    `}
+                </Script>
             </body>
         </html>
     )
