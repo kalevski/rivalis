@@ -20,6 +20,253 @@ Skip when the user is using `socket.io`, raw `ws`, `colyseus`, or any other real
 
 `Client socket → Transport → TLayer → RoomManager → Room → Actor handlers`. Subclass `Room` (override `onCreate` / `onJoin` / `onLeave` / `onDestroy`, `bind` topics to handlers, `broadcast` / `send` / `kick` to fan out). Subclass `AuthMiddleware` (one method: `authenticate(ticket)` returns `{ data, roomId } | null`). Construct one `Rivalis` with an array of transports, an auth middleware, and optional rate limiter. **Rooms are not auto-created on connect** — call `rivalis.rooms.define(name, Class)` then `rivalis.rooms.create(name, id)` before any actor whose ticket maps to `id` connects, otherwise auth succeeds and `TLayer.grantAccess` rejects with `room id=... does not exist`.
 
+## Project scaffolding (monorepo layout)
+
+Rivalis apps are split across **at least two** runtimes — Node server and browser client. Use **npm workspaces** so the wire-format types live in one place and both sides stay in sync. Pick a layout based on what you're building:
+
+| Building | Workspaces | Notes |
+|---|---|---|
+| Chat / lobby / dashboard / collab tool | `{project}/server` + `{project}/app` | DOM-heavy UI. React / Vue / Svelte. |
+| Real-time game (canvas, WebGL, Phaser) | `{project}/server` + `{project}/game` | Render loop owns the frame. UI overlay optional. |
+| Hybrid (game + lobby UI) | `{project}/server` + `{project}/app` + `{project}/game` | Lobby in `app`, match in `game`. Both import `@rivalis/browser`. |
+
+Always add a third workspace `{project}/protocol` for **shared wire types and constants** — topic names, command/event shapes, `encode` / `decode` helpers, room id unions. Both `server` and `app` / `game` import it. Without it, you end up retyping `LobbyChatEvent` on each side and they drift.
+
+### Directory layout
+
+```
+{project}/
+├── package.json                  # root, private, workspaces array
+├── tsconfig.base.json            # shared compiler options
+├── protocol/
+│   ├── package.json              # name: @{project}/protocol
+│   ├── tsconfig.json
+│   └── src/
+│       ├── index.ts              # re-exports
+│       ├── topics.ts             # 'lobby:state' | 'chat' | ...
+│       └── messages.ts           # ChatCommand, ChatEvent, ...
+├── server/
+│   ├── package.json              # name: @{project}/server
+│   ├── tsconfig.json
+│   └── src/
+│       ├── index.ts              # http + Rivalis bootstrap
+│       ├── AuthMiddleware.ts
+│       └── rooms/
+│           └── LobbyRoom.ts
+└── app/                          # or game/
+    ├── package.json              # name: @{project}/app
+    ├── tsconfig.json
+    ├── vite.config.ts
+    ├── index.html
+    └── src/
+        ├── main.tsx
+        └── useRoom.ts
+```
+
+### Root `package.json`
+
+```json
+{
+    "name": "@{project}/root",
+    "private": true,
+    "workspaces": ["protocol", "server", "app"],
+    "scripts": {
+        "dev": "concurrently -n server,app -c blue,green npm:dev:server npm:dev:app",
+        "dev:server": "npm run dev -w @{project}/server",
+        "dev:app": "npm run dev -w @{project}/app",
+        "build": "npm run build --workspaces --if-present"
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2",
+        "typescript": "^5.8.3"
+    }
+}
+```
+
+For a game project, swap `app` → `game` in `workspaces` and the script names.
+
+### `tsconfig.base.json`
+
+```json
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true
+    }
+}
+```
+
+Each workspace `tsconfig.json` extends this. Server overrides `module: 'CommonJS'` under `ts-node` so `nodemon -e ts --exec "ts-node src/index.ts"` works without ESM ceremony.
+
+### `protocol` workspace
+
+The single source of truth for what flies over the wire. Keep it dependency-free TypeScript so both runtimes consume it.
+
+```ts
+// protocol/src/topics.ts
+export type ServerTopic =
+    | 'lobby:state'
+    | 'chat'
+    | '__presence:join'
+    | '__presence:leave'
+
+export type ClientTopic = 'chat'
+
+// protocol/src/messages.ts
+export type ChatCommand = { text: string }
+export type ChatEvent = { from: string, name: string, text: string, t: number }
+
+// protocol/src/index.ts
+export * from './topics'
+export * from './messages'
+
+const enc = new TextEncoder()
+const dec = new TextDecoder()
+export const encode = <T>(v: T): Uint8Array => enc.encode(JSON.stringify(v))
+export const decode = <T>(b: Uint8Array): T => JSON.parse(dec.decode(b)) as T
+```
+
+```json
+// protocol/package.json
+{
+    "name": "@{project}/protocol",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "main": "src/index.ts",
+    "types": "src/index.ts"
+}
+```
+
+Pointing `main` / `types` at `src/index.ts` lets Vite and ts-node consume the source directly — no build step for an internal package.
+
+### `server` workspace
+
+```json
+// server/package.json
+{
+    "name": "@{project}/server",
+    "private": true,
+    "scripts": {
+        "dev": "nodemon -w src -e ts --exec \"ts-node src/index.ts\"",
+        "build": "tsc -p tsconfig.json"
+    },
+    "dependencies": {
+        "@rivalis/core": "*",
+        "@{project}/protocol": "*"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.9",
+        "ts-node": "^10.9.2",
+        "@types/node": "^22.0.0"
+    }
+}
+```
+
+```ts
+// server/src/index.ts
+import http from 'http'
+import { Rivalis, Transports } from '@rivalis/core'
+import Auth from './AuthMiddleware'
+import LobbyRoom from './rooms/LobbyRoom'
+
+const server = http.createServer()
+const rivalis = new Rivalis({
+    transports: [new Transports.WSTransport({ server })],
+    authMiddleware: new Auth()
+})
+rivalis.rooms.define('lobby', LobbyRoom)
+rivalis.rooms.create('lobby', 'global')
+server.listen(2334)
+
+process.on('SIGINT', async () => { await rivalis.shutdown(); process.exit(0) })
+```
+
+### `app` workspace (DOM / React)
+
+```json
+// app/package.json
+{
+    "name": "@{project}/app",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@rivalis/browser": "*",
+        "@{project}/protocol": "*",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "^4.7.0",
+        "vite": "^6.0.0"
+    }
+}
+```
+
+```ts
+// app/vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+    plugins: [react()],
+    server: {
+        port: 5173,
+        proxy: { '/ws': { target: 'ws://localhost:2334', ws: true } }
+    }
+})
+```
+
+### `game` workspace (canvas / Phaser)
+
+Same shape as `app`, replace deps:
+
+```json
+{
+    "name": "@{project}/game",
+    "private": true,
+    "type": "module",
+    "scripts": { "dev": "vite", "build": "vite build" },
+    "dependencies": {
+        "@rivalis/browser": "*",
+        "@{project}/protocol": "*",
+        "phaser": "^4.0.0"
+    },
+    "devDependencies": { "vite": "^6.0.0" }
+}
+```
+
+Game loop owns the render frame; `WSClient` listens on tick / state topics and updates a scene-local model. Send input flags **on key state changes only** — not every frame — to stay under the default 30 fps token bucket. See *Recipe 4 — Fixed-rate tick simulation*.
+
+### Bootstrapping a new project — the recipe
+
+1. `mkdir {project} && cd {project} && npm init -y` — turn it into the root package.
+2. Set `"private": true`, add `"workspaces": ["protocol", "server", "app"]` (or `"game"`).
+3. `mkdir protocol server app && cd protocol && npm init -y`, repeat for each. Edit each name to `@{project}/<workspace>`, set `"private": true`.
+4. From the root: `npm install @rivalis/core -w @{project}/server` and `npm install @rivalis/browser -w @{project}/app`.
+5. Wire `@{project}/protocol` as a dep on both: `npm install @{project}/protocol -w @{project}/server` and same for `app`. npm resolves the workspace symlink — no publishing needed.
+6. Drop in the `tsconfig.base.json` above; each workspace `tsconfig.json` does `"extends": "../tsconfig.base.json"`.
+7. From the root: `npm run dev` — concurrently runs server (`:2334`) and Vite (`:5173`).
+
+### Pitfalls specific to this layout
+
+- **Don't import server code from `app` / `game`.** Workspace symlinks make it tempting; doing so pulls Node-only deps into the bundle. The protocol package is the only shared surface.
+- **Don't publish `protocol` to npm.** Mark `"private": true`. It's an internal contract, not a public API.
+- **Match `roomId` strings between protocol constants and `rivalis.rooms.create`.** A typo only surfaces at connect time as `room id=... does not exist` from `TLayer.grantAccess`.
+- **One `WSClient` per connection, not per component.** Build a `useRoom` hook (see *React `useRoom` pattern*) that owns the lifecycle and hand the client down.
+- **In dev, point `WSClient` at the server port (`2334`), not the Vite port (`5173`).** Or proxy `/ws` through Vite as shown above; pick one and stick with it.
+
 ## Minimal server (always start here)
 
 ```ts
