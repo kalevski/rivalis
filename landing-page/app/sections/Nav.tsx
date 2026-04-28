@@ -4,9 +4,8 @@ import { CoolNav, Brand } from '@toolcase/react-components'
 import type { CoolNavItem } from '@toolcase/react-components'
 
 const items: CoolNavItem[] = [
-    { label: 'Features', href: '#features' },
+    { label: 'Features', href: '#why-rivalis' },
     { label: 'Use cases', href: '#use-cases' },
-    { label: 'Quick start', href: '#quick-start' },
     { label: 'Docs', href: 'https://github.com/kalevski/rivalis#readme', target: '_blank' }
 ]
 

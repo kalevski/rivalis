@@ -6,8 +6,7 @@ export function Footer() {
     return (
         <PageFooter
             brand={<Brand primaryText="RIVALIS" secondaryText="" color="#f44336" label="MIT" />}
-            tagline="Multiplayer & real-time, without the boilerplate."
-            description="Open-source Node.js framework for building real-time apps and multiplayer game servers. Free forever under the MIT license."
+            tagline="The framework for real-time multiplayer on Node.js."
             menus={[
                 {
                     heading: 'Framework',
@@ -21,7 +20,6 @@ export function Footer() {
                     heading: 'Resources',
                     links: [
                         { label: 'Documentation', href: 'https://github.com/kalevski/rivalis#readme', external: true },
-                        { label: 'Quick start', href: '#quick-start' },
                         { label: 'Examples', href: 'https://github.com/kalevski/rivalis/tree/main/demo', external: true }
                     ]
                 },

@@ -1,80 +1,62 @@
 'use client'
 
-import { Heading, Text, PinnedFeatureShowcase, Icon, Badge, Pipeline } from '@toolcase/react-components'
+import { Heading, Text, Card, Badge, Icon } from '@toolcase/react-components'
 
-const vsItems = [
+type Comparison = {
+    versus: string
+    bullets: string[]
+}
+
+const comparisons: Comparison[] = [
     {
-        eyebrow: 'Wire format',
-        icon: <Icon name={'code-slash' as never} />,
-        title: 'Free-form binary payload',
-        description: 'Design your own encoding — zero annotation overhead. Colyseus requires @type-decorated Schema classes on every synced state field.'
+        versus: 'vs Colyseus',
+        bullets: [
+            'Free-form binary payloads — no @type-decorated Schema classes',
+            'Drop-in to any Node.js http.Server — Express, Fastify, bare HTTP',
+            'Two concepts only — Rooms and Actors, learn the API in an afternoon'
+        ]
     },
     {
-        eyebrow: 'Server integration',
-        icon: <Icon name={'plug' as never} />,
-        title: 'Drop-in Node.js library',
-        description: 'Works with Express, Fastify, or bare http.Server in one line. Colyseus ships its own HTTP server and matchmaker you must route around.'
-    },
-    {
-        eyebrow: 'API surface',
-        icon: <Icon name={'diagram-3' as never} />,
-        title: 'Two concepts only',
-        description: 'Rooms and Actors. Learn the full API in an afternoon. Colyseus adds Presence, Monitor, matchmake(), and Schemas on top.'
-    },
-    {
-        eyebrow: 'Roadmap',
-        icon: <Icon name={'shield-check' as never} />,
-        title: 'MIT, community-driven',
-        description: 'No commercial product shapes open-source priorities. Colyseus Cloud and Arena directly influence the OSS roadmap.'
+        versus: 'vs From scratch',
+        bullets: [
+            'Heartbeats, rate limiting, backpressure, and reconnect — built in',
+            'TypeScript-native, zero hidden runtime dependencies',
+            'Ship in days, not months'
+        ]
     }
 ]
 
-const pipelineMedia = (
-    <Pipeline
-        steps={[
-            { num: '01', title: 'http.Server', sub: 'any Node.js HTTP server', state: 'complete' },
-            { num: '02', title: 'Transport', sub: 'WSTransport (or custom)', state: 'complete' },
-            { num: '03', title: 'AuthMiddleware', sub: 'validate ticket → actor data', state: 'live' },
-            { num: '04', title: 'Room', sub: 'onCreate / onJoin / onLeave', state: 'default' },
-            { num: '05', title: 'Actor', sub: 'typed data, rate-limited', state: 'default' },
-        ]}
-    />
-)
-
 export function ComparisonSection() {
     return (
-        <div className="section--alt">
-            <section id="comparison" className="section--alt">
-                <div className="section-inner">
-                    <div className="section__head">
-                        <span className="section__eyebrow">ALTERNATIVES</span>
-                        <Heading as="h2" gradient>
-                            How rivalis compares.
-                        </Heading>
-                        <Text as="p" variant="muted">
-                            Direct framework alternatives — you write game logic, the framework handles netcode.
-                            rivalis targets the Node.js tier: lightweight, TypeScript-first, zero hidden runtime dependencies.
-                        </Text>
-                    </div>
-
-                    {/* rivalis vs Colyseus spotlight */}
-                    <div className="vs-section">
-                        <div className="vs-header">
-                            <Badge variant="danger">rivalis</Badge>
-                            <span className="vs-separator">vs</span>
-                            <Badge variant="secondary">Colyseus</Badge>
-                            <p className="vs-header__sub">The closest Node.js alternative — here&apos;s what sets them apart</p>
-                        </div>
-                        <PinnedFeatureShowcase
-                            eyebrow="RIVALIS ADVANTAGE"
-                            title="Less to learn. More to own."
-                            description="Colyseus is a capable framework — but it ships opinions about matchmaking, schema serialization, and server infrastructure that you may not want. Rivalis gives you the primitive layer and stays out of the way."
-                            items={vsItems}
-                            media={pipelineMedia}
-                        />
-                    </div>
+        <section id="comparison" className="py-5 bg-body-tertiary">
+            <div className="container py-md-5">
+                <div className="text-center mx-auto mb-5" style={{ maxWidth: 760 }}>
+                    <Badge variant="danger" pill size="sm">HOW RIVALIS COMPARES</Badge>
+                    <Heading as="h2" gradient>
+                        Lightweight by design.
+                    </Heading>
                 </div>
-            </section>
-        </div>
+
+                <div className="row g-4 justify-content-center">
+                    {comparisons.map((c) => (
+                        <div key={c.versus} className="col-12 col-md-6 col-lg-5">
+                            <Card>
+                                <div className="px-3 py-3">
+                                    <Heading as="h3">{c.versus}</Heading>
+                                    <ul className="list-unstyled mt-3 mb-0">
+                                        {c.bullets.map((b) => (
+                                            <li key={b} className="d-flex gap-2 align-items-start mb-2">
+                                                <Icon name={'check2-circle' as never} />
+                                                <Text as="span" variant="muted" size="small">{b}</Text>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </Card>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
     )
 }

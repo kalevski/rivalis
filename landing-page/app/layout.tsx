@@ -2,12 +2,11 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import Script from 'next/script'
 import '@toolcase/react-components/style.css'
-import './globals.css'
 
 const siteUrl = 'https://rivalis.io'
 const title = 'Rivalis — Open-source real-time framework for Node.js'
 const description =
-    'Build multiplayer games and real-time apps on Node.js with Rivalis. Rooms, actors, and a typed binary wire protocol — structured WebSocket backend without the boilerplate. Free, MIT-licensed.'
+    'Build multiplayer games and real-time apps on Node.js. Rooms, actors, and a typed binary protocol — no boilerplate. Free, MIT-licensed.'
 
 export const metadata: Metadata = {
     metadataBase: new URL(siteUrl),
