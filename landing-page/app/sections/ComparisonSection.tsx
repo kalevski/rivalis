@@ -11,17 +11,17 @@ const comparisons: Comparison[] = [
     {
         versus: 'vs Colyseus',
         bullets: [
-            'Free-form binary payloads — no @type-decorated Schema classes',
-            'Drop-in to any Node.js http.Server — Express, Fastify, bare HTTP',
-            'Two concepts only — Rooms and Actors, learn the API in an afternoon'
+            'Colyseus auto-syncs state via Schema classes — great when you want the framework to own state.',
+            'Rivalis gives you raw binary frames — great when you want full control over the wire.',
+            'Two concepts (Rooms + Actors), zero schema decorators, drops into any http.Server.'
         ]
     },
     {
         versus: 'vs From scratch',
         bullets: [
-            'Heartbeats, rate limiting, backpressure, and reconnect — built in',
-            'TypeScript-native, zero hidden runtime dependencies',
-            'Ship in days, not months'
+            'Heartbeats, token-bucket rate limits, backpressure, exponential-backoff reconnect — built in',
+            'Origin allow-lists for CSWSH protection on by default',
+            'TypeScript-native, zero hidden runtime dependencies — ship in days, not months'
         ]
     }
 ]
@@ -35,6 +35,9 @@ export function ComparisonSection() {
                     <Heading as="h2" gradient>
                         Lightweight by design.
                     </Heading>
+                    <Text as="p" variant="muted">
+                        Both work. Pick by philosophy — not features.
+                    </Text>
                 </div>
 
                 <div className="row g-4 justify-content-center">
@@ -55,6 +58,12 @@ export function ComparisonSection() {
                             </Card>
                         </div>
                     ))}
+                </div>
+
+                <div className="text-center mx-auto mt-4" style={{ maxWidth: 760 }}>
+                    <Text as="p" variant="muted" size="small">
+                        Both are MIT. Both are Node.js. Try both — neither is wrong.
+                    </Text>
                 </div>
             </div>
         </section>

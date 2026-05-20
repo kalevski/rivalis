@@ -7,7 +7,7 @@ const steps = [
         num: '01',
         icon: <Icon name={'controller' as never} />,
         title: 'Game servers',
-        sub: 'Arena, .io, party, MMO zones, turn-based — rooms with presence and tick-rate broadcasts.',
+        sub: 'Phaser, PixiJS, Three.js, Babylon.js — arena, .io, party, MMO zones, turn-based with presence and tick-rate broadcasts.',
         state: 'complete' as const
     },
     {

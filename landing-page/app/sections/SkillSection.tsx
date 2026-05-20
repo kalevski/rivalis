@@ -26,7 +26,7 @@ export function SkillSection() {
                         Teach your AI to write Rivalis.
                     </Heading>
                     <Text as="p" variant="muted">
-                        Rivalis ships a single-file skill manifest at <code>{SKILL_URL}</code>. Load it into Claude Code, Cursor, or any agent with a custom-instructions slot, and the assistant will know the recipes, pitfalls, close codes, and security defaults — so the code it generates actually compiles and follows the framework rules.
+                        Rivalis ships a single-file skill manifest at <code>{SKILL_URL}</code>. Load it into Claude Code, Cursor, or any agent with a custom-instructions slot, and the assistant will know the recipes, pitfalls, close codes, and security defaults — so the code it generates actually compiles and follows the framework rules. Same approach Phaser uses with its own AI skill files — load once, the assistant follows the rules.
                     </Text>
                     <div className="d-flex justify-content-center gap-2 flex-wrap mt-4">
                         <a href="/SKILL.md" target="_blank" rel="noopener noreferrer">

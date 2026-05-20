@@ -37,7 +37,13 @@ const features = [
         eyebrow: 'License',
         icon: <Icon name={'power' as never} />,
         title: 'Free & open source',
-        description: 'MIT licensed. Free forever, even for commercial games. Your server, your rules.'
+        description: 'MIT licensed. Free forever, even for commercial games. No per-seat, no per-CCU. Your server, your rules.'
+    },
+    {
+        eyebrow: 'Hardening',
+        icon: <Icon name={'shield-check' as never} />,
+        title: 'Origin allow-lists',
+        description: 'CSWSH protection on by default — tunable per transport. 64 KiB frame cap, 30/s token-bucket rate limit, 30 s heartbeat with two-miss disconnect.'
     }
 ]
 
@@ -48,7 +54,7 @@ export function FeaturesSection() {
                 <PinnedFeatureShowcase
                     eyebrow="WHY RIVALIS"
                     title="Everything you need for multiplayer."
-                    description="Rooms, actors, auth, and a binary protocol — out of the box. Heartbeats, rate limits, and reconnect come along for free."
+                    description="Rooms, actors, auth, and a binary protocol — out of the box. Heartbeats, token-bucket rate limits, exponential-backoff reconnect, and origin allow-lists come along for free."
                     items={features}
                 />
             </div>

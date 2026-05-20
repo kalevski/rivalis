@@ -16,9 +16,9 @@ const goTo = (href: string, external = false) => () => {
 export function HeroSection() {
     return (
         <Hero
-            eyebrow="OPEN SOURCE · MIT · NODE.JS"
-            title="Ship multiplayer faster."
-            description="Build real-time multiplayer experiences with Rivalis. Open-source framework for Node.js with rooms, actors, and a typed binary wire protocol — built-in."
+            eyebrow="v0.x · OPEN SOURCE · MIT · NODE.JS"
+            title="Stop writing WebSocket plumbing."
+            description="Build real-time multiplayer for Phaser, PixiJS, Three.js, or any browser game. Open-source Node.js framework — rooms, actors, typed binary protocol. Free for commercial use, forever."
             primaryAction={{
                 label: 'Get started',
                 variant: 'primary',
@@ -30,9 +30,9 @@ export function HeroSection() {
                 onClick: goTo('https://github.com/kalevski/rivalis', true)
             }}
             metrics={[
-                { label: 'frame cap', value: '64 KiB', helper: 'per inbound message, tunable' },
-                { label: 'rate limit', value: '30 / s', helper: 'token bucket per actor' },
-                { label: 'heartbeat', value: '30 s', helper: 'two-miss disconnect' }
+                { label: 'core', value: 'Rooms + Actors', helper: '2 concepts, 1 mental model' },
+                { label: 'reconnect', value: 'exp-backoff', helper: 'browser client, automatic' },
+                { label: 'origin', value: 'allow-list', helper: 'CSWSH protection on by default' }
             ]}
             bgIcons={[
                 'controller',

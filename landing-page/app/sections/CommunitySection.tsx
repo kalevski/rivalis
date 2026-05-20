@@ -17,6 +17,12 @@ const links: Link[] = [
         helper: 'Source code · star · fork'
     },
     {
+        icon: 'chat-square-text',
+        label: 'Send feedback',
+        href: 'https://github.com/kalevski/rivalis/issues/new?labels=feedback&title=Feedback%3A+',
+        helper: 'API ergonomics — what feels off, missing, or weird'
+    },
+    {
         icon: 'bug',
         label: 'Issues',
         href: 'https://github.com/kalevski/rivalis/issues',
@@ -40,13 +46,13 @@ export function CommunitySection() {
                         Built in the open.
                     </Heading>
                     <Text as="p" variant="muted">
-                        Rivalis is free and open source under the MIT license. Star the repo, file issues, or send a PR.
+                        Rivalis is early but stable. The author is actively looking for feedback on API ergonomics — anything that feels off, missing, or weird. Open an issue or DM.
                     </Text>
                 </div>
 
                 <div className="row g-4 justify-content-center">
                     {links.map((l) => (
-                        <div key={l.label} className="col-12 col-sm-6 col-lg-4">
+                        <div key={l.label} className="col-12 col-sm-6 col-lg-3">
                             <Card>
                                 <div className="px-3 py-3 text-center">
                                     <div className="mb-3">

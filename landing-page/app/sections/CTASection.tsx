@@ -12,14 +12,14 @@ export function CTASection() {
                             <div className="text-center px-3 py-4">
                                 <div className="d-flex justify-content-center gap-2 flex-wrap mb-3">
                                     <Badge variant="info" pill>OPEN SOURCE</Badge>
-                                    <Badge variant="success" pill>MIT</Badge>
+                                    <Badge variant="success" pill>MIT · FREE FOR COMMERCIAL</Badge>
                                     <Badge variant="warning" pill>NODE.JS</Badge>
                                 </div>
                                 <Heading as="h2" gradient>
                                     Build something that talks back.
                                 </Heading>
                                 <Text as="p" variant="muted">
-                                    Star the repo, ship a prototype, file an issue.
+                                    Read the docs. Clone a demo. Ship a prototype this weekend.
                                 </Text>
                                 <div className="d-flex justify-content-center gap-2 flex-wrap mt-4">
                                     <a href="https://github.com/kalevski/rivalis" target="_blank" rel="noopener noreferrer">
