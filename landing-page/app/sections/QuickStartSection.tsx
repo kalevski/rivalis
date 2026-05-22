@@ -1,9 +1,11 @@
 'use client'
 
-import { Badge, Heading, Text, TabSections, CodeSnippet } from '@toolcase/react-components'
+import { useState } from 'react'
+import { Badge, Heading, Text, CodeSnippet } from '@toolcase/react-components'
 import type { CodeSnippetLanguage } from '@toolcase/react-components'
 
-const serverCode = `import { Room, type Actor } from '@rivalis/core'
+const serverCode = `// GameRoom.ts
+import { Room, type Actor } from '@rivalis/core'
 
 type PlayerData = { name: string; score: number }
 
@@ -20,7 +22,8 @@ export class GameRoom extends Room<PlayerData> {
     }
 }`
 
-const clientCode = `import { WSClient } from '@rivalis/browser'
+const clientCode = `// client.ts
+import { WSClient } from '@rivalis/browser'
 
 const ws = new WSClient('wss://your-server.com', { reconnect: true })
 
@@ -30,7 +33,8 @@ ws.on('move', (payload) => renderMove(payload))
 ws.connect('game-1|alice')
 ws.send('move', JSON.stringify({ x: 12, y: 34 }))`
 
-const authCode = `import { AuthMiddleware, type AuthResult } from '@rivalis/core'
+const authCode = `// GameAuthMiddleware.ts
+import { AuthMiddleware, type AuthResult } from '@rivalis/core'
 
 type PlayerData = { name: string; score: number }
 
@@ -48,7 +52,8 @@ export class GameAuthMiddleware extends AuthMiddleware<PlayerData> {
     }
 }`
 
-const serverInitCode = `import http from 'http'
+const serverInitCode = `// index.ts
+import http from 'http'
 import { Rivalis, Transports } from '@rivalis/core'
 import { GameAuthMiddleware } from './GameAuthMiddleware'
 import { GameRoom } from './GameRoom'
@@ -72,13 +77,16 @@ process.on('SIGINT', async () => {
 
 type Tab = { key: string; label: string; code: string; language: CodeSnippetLanguage }
 const tabs: Tab[] = [
-    { key: 'server', label: 'Server — GameRoom.ts', code: serverCode, language: 'typescript' },
-    { key: 'auth', label: 'Auth — GameAuthMiddleware.ts', code: authCode, language: 'typescript' },
-    { key: 'init', label: 'Init — index.ts', code: serverInitCode, language: 'typescript' },
-    { key: 'client', label: 'Client — client.ts', code: clientCode, language: 'typescript' }
+    { key: 'server', label: 'GameRoom.ts', code: serverCode, language: 'typescript' },
+    { key: 'auth', label: 'GameAuthMiddleware.ts', code: authCode, language: 'typescript' },
+    { key: 'init', label: 'index.ts', code: serverInitCode, language: 'typescript' },
+    { key: 'client', label: 'client.ts', code: clientCode, language: 'typescript' }
 ]
 
 export function QuickStartSection() {
+    const [activeKey, setActiveKey] = useState<string>(tabs[0].key)
+    const active = tabs.find((t) => t.key === activeKey) ?? tabs[0]
+
     return (
         <section id="code-preview" className="py-5">
             <div className="container py-md-5">
@@ -94,14 +102,30 @@ export function QuickStartSection() {
 
                 <div className="row justify-content-center">
                     <div className="col-12 col-lg-10">
-                        <TabSections
-                            defaultActiveKey="server"
-                            items={tabs.map((t) => ({
-                                key: t.key,
-                                label: t.label,
-                                content: <CodeSnippet code={t.code} language={t.language} />
-                            }))}
-                        />
+                        <div className="component component-tab-sections">
+                            <div className="component-tab-sections__header">
+                                <div className="component-tab-sections__tabs" role="tablist">
+                                    {tabs.map((t) => {
+                                        const isActive = t.key === activeKey
+                                        return (
+                                            <button
+                                                key={t.key}
+                                                type="button"
+                                                role="tab"
+                                                aria-selected={isActive}
+                                                className={`component-tab-sections__tab${isActive ? ' component-tab-sections__tab--active' : ''}`}
+                                                onClick={() => setActiveKey(t.key)}
+                                            >
+                                                <span className="component-tab-sections__tab-label">{t.label}</span>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                            <div className="component-tab-sections__body" role="tabpanel">
+                                <CodeSnippet code={active.code} language={active.language} />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

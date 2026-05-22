@@ -18,14 +18,14 @@ const brandContent = (
 export function Footer() {
     return (
         <PageFooter
-            brand={<Brand primaryText={brandContent} secondaryText="" color="#f44336" label="MIT" />}
+            brand={<Brand primaryText={brandContent} />}
             tagline="The framework for real-time multiplayer on Node.js."
             menus={[
                 {
                     heading: 'Framework',
                     links: [
-                        { label: '@rivalis/core', href: 'https://github.com/kalevski/rivalis', external: true },
-                        { label: '@rivalis/browser', href: 'https://github.com/kalevski/rivalis', external: true },
+                        { label: '@rivalis/core', href: 'https://www.npmjs.com/package/@rivalis/core', external: true },
+                        { label: '@rivalis/browser', href: 'https://www.npmjs.com/package/@rivalis/browser', external: true },
                         { label: 'Changelog', href: 'https://github.com/kalevski/rivalis/releases', external: true }
                     ]
                 },

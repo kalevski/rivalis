@@ -13,10 +13,13 @@ const goTo = (href: string, external = false) => () => {
     }
 }
 
+const bsIcon = (name: string) =>
+    `https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/${name}.svg`
+
 export function HeroSection() {
     return (
         <Hero
-            eyebrow="v0.x · OPEN SOURCE · MIT · NODE.JS"
+            eyebrow="OPEN SOURCE · MIT · NODE.JS"
             title="Stop writing WebSocket plumbing."
             description="Build real-time multiplayer for Phaser, PixiJS, Three.js, or any browser game. Open-source Node.js framework — rooms, actors, typed binary protocol. Free for commercial use, forever."
             primaryAction={{
@@ -35,14 +38,14 @@ export function HeroSection() {
                 { label: 'origin', value: 'allow-list', helper: 'CSWSH protection on by default' }
             ]}
             bgIcons={[
-                'controller',
-                'lightning-charge',
-                'people',
-                'broadcast',
-                'shield-check',
-                'rocket-takeoff',
-                'diagram-3',
-                'plugin'
+                bsIcon('controller'),
+                bsIcon('lightning-charge'),
+                bsIcon('people'),
+                bsIcon('broadcast'),
+                bsIcon('shield-check'),
+                bsIcon('rocket-takeoff'),
+                bsIcon('diagram-3'),
+                bsIcon('plugin')
             ]}
         />
     )

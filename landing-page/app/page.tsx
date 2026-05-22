@@ -1,6 +1,5 @@
 import { Nav } from './sections/Nav'
 import { HeroSection } from './sections/HeroSection'
-import { QuoteSection } from './sections/QuoteSection'
 import { QuickStartSection } from './sections/QuickStartSection'
 import { FeaturesSection } from './sections/FeaturesSection'
 import { UseCasesSection } from './sections/UseCasesSection'
@@ -16,7 +15,6 @@ export default function Page() {
         <main className="page">
             <Nav />
             <HeroSection />
-            <QuoteSection />
             <QuickStartSection />
             <FeaturesSection />
             <UseCasesSection />

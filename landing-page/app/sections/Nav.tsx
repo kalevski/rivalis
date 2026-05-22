@@ -28,11 +28,10 @@ export function Nav() {
     return (
         <CoolNav
             theme="light"
-            brand={<Brand primaryText={brandContent} secondaryText="" color="#7c3aed" label="MIT" />}
+            brand={<Brand primaryText={brandContent} />}
             items={items}
             loginLabel="GitHub"
-            loginHref="https://github.com/kalevski/rivalis"
-            loginVariant="primary"
+            onLoginClick={() => window.open('https://github.com/kalevski/rivalis', '_blank')}
         />
     )
 }

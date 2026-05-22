@@ -2,7 +2,7 @@
 
 import { Badge, Heading, Text, Card, CodeSnippet, Icon, CoolButton } from '@toolcase/react-components'
 
-const SKILL_URL = 'https://rivalis.kalevski.dev/SKILL.md'
+const SKILL_URL = 'https://rivalis.dev/SKILL.md'
 
 const claudeCodeInstall = `# Install the Rivalis skill into Claude Code
 mkdir -p ~/.claude/skills/rivalis

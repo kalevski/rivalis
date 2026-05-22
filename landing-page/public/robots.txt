@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://rivalis.io/sitemap.xml
+Sitemap: https://rivalis.dev/sitemap.xml
