@@ -1,12 +1,12 @@
-[![logo](https://user-images.githubusercontent.com/10467454/113154097-f834d280-9237-11eb-95a9-bd62cdde4677.png)](https://rivalis.io)
+[![logo](https://user-images.githubusercontent.com/10467454/113154097-f834d280-9237-11eb-95a9-bd62cdde4677.png)](https://rivalis.dev)
 <h3 align="center">Simple, secure and fast real-time application development on top of NodeJS</h3>
 
 ----
 
-[![forthebadge](https://forthebadge.com/images/badges/built-with-love.svg)](https://rivalis.io)
-[![forthebadge](https://forthebadge.com/images/badges/fo-real.svg)](https://rivalis.io)
-[![forthebadge](https://forthebadge.com/images/badges/uses-js.svg)](https://rivalis.io)
-[![forthebadge](https://forthebadge.com/images/badges/open-source.svg)](https://rivalis.io)
+[![forthebadge](https://forthebadge.com/images/badges/built-with-love.svg)](https://rivalis.dev)
+[![forthebadge](https://forthebadge.com/images/badges/fo-real.svg)](https://rivalis.dev)
+[![forthebadge](https://forthebadge.com/images/badges/uses-js.svg)](https://rivalis.dev)
+[![forthebadge](https://forthebadge.com/images/badges/open-source.svg)](https://rivalis.dev)
 
 [![GitHub](https://img.shields.io/github/license/kalevski/rivalis?style=for-the-badge)](https://github.com/kalevski/rivalis/blob/main/LICENSE)
 
