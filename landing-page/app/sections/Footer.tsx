@@ -2,10 +2,23 @@
 
 import { PageFooter, Brand } from '@toolcase/react-components'
 
+const brandContent = (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <img
+            src="/logo.png"
+            alt="Rivalis logo"
+            width={28}
+            height={28}
+            style={{ display: 'block' }}
+        />
+        RIVALIS
+    </span>
+)
+
 export function Footer() {
     return (
         <PageFooter
-            brand={<Brand primaryText="RIVALIS" secondaryText="" color="#f44336" label="MIT" />}
+            brand={<Brand primaryText={brandContent} secondaryText="" color="#f44336" label="MIT" />}
             tagline="The framework for real-time multiplayer on Node.js."
             menus={[
                 {

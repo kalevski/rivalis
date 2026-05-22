@@ -42,6 +42,7 @@ export const metadata: Metadata = {
     alternates: {
         canonical: siteUrl
     },
+    manifest: '/site.webmanifest',
     openGraph: {
         type: 'website',
         url: siteUrl,
@@ -65,7 +66,14 @@ export const metadata: Metadata = {
         creator: '@kalevski',
         images: ['/og.png']
     },
-    icons: { icon: '/favicon.svg' }
+    icons: {
+        icon: [
+            { url: '/favicon.svg', type: 'image/svg+xml' },
+            { url: '/favicon.ico', sizes: 'any' },
+            { url: '/favicon-96x96.png', type: 'image/png', sizes: '96x96' }
+        ],
+        apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }]
+    }
 }
 
 const jsonLd = {

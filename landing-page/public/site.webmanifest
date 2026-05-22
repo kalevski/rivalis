@@ -1,0 +1,69 @@
+{
+    "id": "/",
+    "name": "Rivalis — Real-time framework for Node.js",
+    "short_name": "Rivalis",
+    "description": "Build multiplayer games and real-time apps on Node.js. Rooms, actors, and a typed binary protocol — no boilerplate.",
+    "lang": "en",
+    "dir": "ltr",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": ["standalone", "minimal-ui", "browser"],
+    "orientation": "any",
+    "background_color": "#fbfaff",
+    "theme_color": "#7c3aed",
+    "categories": ["developer", "productivity", "utilities"],
+    "icons": [
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "/web-app-manifest-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/web-app-manifest-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/web-app-manifest-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/web-app-manifest-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/apple-touch-icon.png",
+            "sizes": "180x180",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "GitHub repo",
+            "short_name": "GitHub",
+            "description": "Open Rivalis on GitHub",
+            "url": "https://github.com/kalevski/rivalis"
+        },
+        {
+            "name": "Documentation",
+            "short_name": "Docs",
+            "description": "Read the Rivalis docs",
+            "url": "https://github.com/kalevski/rivalis#readme"
+        }
+    ],
+    "prefer_related_applications": false
+}
