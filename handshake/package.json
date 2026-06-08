@@ -19,7 +19,7 @@
         "build": "tsup"
     },
     "peerDependencies": {
-        "@toolcase/serializer": "2.x"
+        "@toolcase/serializer": "3.x"
     },
     "files": [
         "lib"

@@ -9,22 +9,26 @@
         "handshake",
         "core",
         "browser",
+        "fleet",
         "demo",
         "landing-page"
     ],
     "devDependencies": {
-        "@types/express": "^5.0.1",
-        "@types/node": "^22.14.1",
+        "@types/express": "^5.0.6",
+        "@types/node": "^25.9.2",
         "@types/ws": "^8.18.1",
-        "concurrently": "^9.1.2",
-        "express": "^5.1.0",
-        "nodemon": "^3.1.9",
+        "concurrently": "^10.0.3",
+        "express": "^5.2.1",
+        "nodemon": "^3.1.14",
         "ts-node": "^10.9.2",
-        "tsup": "^8.3.5",
-        "typescript": "^5.8.3",
-        "vite": "^6.0.0"
+        "tsup": "^8.5.1",
+        "typescript": "^6.0.3",
+        "vite": "^8.0.16"
     },
     "dependencies": {
-        "@toolcase/base": "^2.0.0"
+        "@toolcase/base": "^3.0.3"
+    },
+    "overrides": {
+        "postcss": "^8.5.10"
     }
 }

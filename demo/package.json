@@ -5,6 +5,7 @@
         "dev": "concurrently npm:dev:server npm:dev:client",
         "dev:server": "nodemon -w src/server -e ts --exec \"ts-node src/server/index.ts\"",
         "dev:client": "vite",
+        "fleet": "ts-node src/fleet/index.ts",
         "build": "vite build"
     },
     "repository": {
@@ -20,15 +21,15 @@
     },
     "homepage": "https://github.com/kalevski/rivalis#readme",
     "dependencies": {
-        "@toolcase/react-components": "^2.5.6",
-        "@toolcase/serializer": "^2.0.2",
-        "phaser": "^4.0.0",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5"
+        "@toolcase/react-components": "^3.0.5",
+        "@toolcase/serializer": "^3.0.2",
+        "phaser": "^4.1.0",
+        "react": "^19.2.7",
+        "react-dom": "^19.2.7"
     },
     "devDependencies": {
-        "@types/react": "^19.2.14",
+        "@types/react": "^19.2.17",
         "@types/react-dom": "^19.2.3",
-        "@vitejs/plugin-react": "^4.7.0"
+        "@vitejs/plugin-react": "^6.0.2"
     }
 }

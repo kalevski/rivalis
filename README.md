@@ -24,6 +24,7 @@ Rivalis is a free, open-source framework for building real-time applications and
 
 - **Server** ([`@rivalis/core`](./core)) — Node framework: rooms, actors, auth middleware, WebSocket transport, per-actor rate limiting, per-IP connection limiting, configurable frame and topic size caps, graceful shutdown.
 - **Client** ([`@rivalis/browser`](./browser)) — Browser WebSocket client: typed event listeners, exponential-backoff reconnect, ticket-refresh hook for short-lived JWTs, structured `client:kicked` events.
+- **Fleet** ([`@rivalis/fleet`](./fleet)) — Cluster orchestration: instance discovery, least-loaded room placement with acknowledged commands, drain/eviction lifecycle, REST `/v1` + SSE, and a standalone `rivalis-fleet` binary.
 - **Shared protocol** — Single binary wire format (`{ topic, payload: bytes }`) with documented WebSocket close codes. The `@rivalis/handshake` package is bundled into both `core` and `browser` builds — consumers never install it.
 
 ## 🚀 Getting started
@@ -90,6 +91,7 @@ Read on for full options:
 
 - **[@rivalis/core](./core/README.md)** — building servers, rooms, auth, transport tuning
 - **[@rivalis/browser](./browser/README.md)** — the browser client API
+- **[@rivalis/fleet](./fleet/README.md)** — cluster orchestration: discovery, placement, REST/SSE, the `rivalis-fleet` binary
 
 ## 📦 Packages
 
@@ -97,6 +99,7 @@ Read on for full options:
 |---|---|---|
 | [`@rivalis/core`](./core) | Node.js server framework | ✅ |
 | [`@rivalis/browser`](./browser) | Browser WebSocket client | ✅ |
+| [`@rivalis/fleet`](./fleet) | Cluster orchestration (discovery, placement, REST/SSE, binary) | ✅ |
 | `@rivalis/handshake` | Wire-format primitives shared by `core` + `browser` | private (bundled) |
 | `@rivalis/demo` | End-to-end example: Express + Vite + React | private |
 

@@ -1,6 +1,6 @@
 {
     "name": "@rivalis/core",
-    "version": "6.0.0",
+    "version": "6.1.0",
     "description": "NodeJS framework for building real-time applications",
     "source": "src/main.ts",
     "main": "lib/main.js",
@@ -15,18 +15,26 @@
     },
     "scripts": {
         "dev": "tsup --watch",
-        "build": "tsup"
+        "build": "tsup",
+        "test": "npm run build && node --test \"test/**/*.test.mts\""
     },
     "peerDependencies": {
-        "@toolcase/base": "2.x",
-        "@toolcase/logging": "2.x",
-        "@toolcase/serializer": "2.x",
+        "@toolcase/base": "3.x",
+        "@toolcase/logging": "3.x",
+        "@toolcase/serializer": "3.x",
         "ws": "8.x"
     },
     "devDependencies": {
         "@rivalis/handshake": "*"
     },
-    "keywords": ["realtime", "websockets", "networking", "multiplayer", "netcode", "rivalis"],
+    "keywords": [
+        "realtime",
+        "websockets",
+        "networking",
+        "multiplayer",
+        "netcode",
+        "rivalis"
+    ],
     "directories": {
         "lib": "lib"
     },

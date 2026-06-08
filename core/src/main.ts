@@ -34,6 +34,7 @@ export type {
     TicketSource,
     BackpressureDropFn
 } from './transports/WSTransport'
+export type { WSClientOptions, WSClientTicketSource, ClientEventListener } from './clients/WSClient'
 export type { Message } from '@rivalis/handshake'
 
 export {

@@ -38,6 +38,15 @@ abstract class Room<TActorData = Record<string, unknown>> {
     readonly id: string
 
     /**
+     * The definition key this room was created from (the first argument
+     * to `rooms.define` / `rooms.create`). Stamped by `RoomManager.create`
+     * and passed through the constructor, so it is available even for
+     * rooms that existed before an observer attached — `@rivalis/fleet`'s
+     * `FleetAgent` relies on this to report room types in its snapshots.
+     */
+    readonly type: string
+
+    /**
      * Opt-in: when `true`, the room auto-broadcasts `__presence:join`
      * and `__presence:leave` whenever an actor joins or leaves. The
      * payload is JSON of whatever `presencePayload(actor)` returns
@@ -79,8 +88,9 @@ abstract class Room<TActorData = Record<string, unknown>> {
 
     private actors: Map<string, Actor<TActorData>> = new Map()
 
-    constructor(roomId: string, manager: RoomManager<TActorData>, transportLayer: TLayer<TActorData>) {
+    constructor(roomId: string, manager: RoomManager<TActorData>, transportLayer: TLayer<TActorData>, type: string = '') {
         this.id = roomId
+        this.type = type
         this.logger = manager.logging.getLogger(`room=${roomId}`)
         this.manager = manager
         this.transportLayer = transportLayer

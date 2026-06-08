@@ -3,6 +3,7 @@ import { HeroSection } from './sections/HeroSection'
 import { QuickStartSection } from './sections/QuickStartSection'
 import { FeaturesSection } from './sections/FeaturesSection'
 import { UseCasesSection } from './sections/UseCasesSection'
+import { FleetSection } from './sections/FleetSection'
 import { DemoSection } from './sections/DemoSection'
 import { ComparisonSection } from './sections/ComparisonSection'
 import { SkillSection } from './sections/SkillSection'
@@ -18,6 +19,7 @@ export default function Page() {
             <QuickStartSection />
             <FeaturesSection />
             <UseCasesSection />
+            <FleetSection />
             <DemoSection />
             <ComparisonSection />
             <SkillSection />

@@ -13,7 +13,9 @@
         "transpileOnly": true,
         "compilerOptions": {
             "module": "CommonJS",
-            "moduleResolution": "Node"
+            "moduleResolution": "Node",
+            "declaration": false,
+            "rootDir": "src"
         }
     }
 }
