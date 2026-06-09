@@ -1094,7 +1094,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 **Phase 1 tests / exit**
 - [x] `SignalRoom` unit: relay A→only B via `getActor`, host assignment, host-gone fanout, presence (in-process, no real WebRTC). (§10) — `signal/test/signal-room.test.mts`: host assignment, welcome youId/hostId/iceServers, TURN creds via env vars, offer/answer/ice relay to target-only (verbatim payload), host-gone fanout, non-host leave no-host_gone, presence:join/leave broadcasts, unknownTopicPolicy=drop (actor stays connected).
 - [x] `IceConfig` unit: HMAC `username/credential` matches coturn; expiry honored. (§10) — `signal/test/ice-config.test.mts`: no-TURN empty array, STUN-only no-creds, username format, HMAC matches coturn, multi-url array, combined STUN+TURN, 24 h default TTL, fromEnv wiring.
-- [ ] **Loopback**: two peers one process over `node-datachannel`, unchanged `TttRoom`, assert broadcasts arrive — including onJoin-send-before-listener (`pendingEmits` flush). (§10, §4.2)
+- [x] **Loopback**: two peers one process over `node-datachannel`, unchanged `TttRoom`, assert broadcasts arrive — including onJoin-send-before-listener (`pendingEmits` flush). (§10, §4.2) — `node/test/rtc-loopback.test.mts`; InProcessSignalBus relays signal:offer/answer/ice in-process via `createCodec` `to`-field routing; real `NodeDataChannelPeer` connections; suite skipped gracefully when node-datachannel native binary is absent; task 068, 2026-06-09.
 
 ### Phase 2 — Browser peers
 
