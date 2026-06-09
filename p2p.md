@@ -1014,7 +1014,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] Per-transport `authMiddleware?`/`rateLimiter?` override — **defer** per D9 (track only). (§3.6) — deferred design documented in `core/CHANGELOG.md` D9; Phase 4 implementation in task `086-core-low-per-transport-admission-impl.md`; task `043-core-low-per-transport-admission-override.md` closed 2026-06-09.
 
 **Phase 0 exit gate**
-- [ ] Contract-conformance test suite across browser WSClient + node WSClient (initially red = F3 spec). (§10)
+- [x] Contract-conformance test suite across browser WSClient + node WSClient (initially red = F3 spec). (§10) — `core/test/client-conformance.test.mts`; S3 (`connected` during CONNECTING) is the red spec: node WSClient passes (readyState-based), browser WSClient fails (`this.ws !== null`). Suite turns fully green once browser WSClient's `connected` getter is made readyState-based (§3.2).
 - [ ] Existing WS path green; Node-ESM smoke green; demo + fleet build against new imports. (§12 phase 0)
 
 ### Phase 1 — Node↔Node P2P
