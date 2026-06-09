@@ -1,6 +1,15 @@
 import type Actor from './Actor'
 import type Room from './Room'
 
+export type ConnectionContext = {
+    /** Which transport admitted this connection ('ws' | 'webrtc' | custom). */
+    kind: string
+    /** Transport-native peer/remote id (WS: remoteAddress; RTC: signaling peerId). */
+    remoteId?: string
+    /** Opaque, transport-specific extras (origin header, ICE candidate type, …). */
+    meta?: Record<string, unknown>
+}
+
 export type TopicListener<TActorData = Record<string, unknown>> = (
     actor: Actor<TActorData>,
     payload: Uint8Array,

@@ -5,7 +5,7 @@ import CustomLoggerFactory from './CustomLoggerFactory'
 import RateLimiter from './RateLimiter'
 import { decode, encode } from '@rivalis/handshake'
 import KickReason from './KickReason'
-import type { EventFn, EventType, GetRoomFn } from './types'
+import type { ConnectionContext, EventFn, EventType, GetRoomFn } from './types'
 
 /**
  * RFC 6455 caps the close-frame reason at 123 bytes. Truncate the payload
@@ -135,8 +135,8 @@ class TLayer<TActorData = Record<string, unknown>> {
         }
     }
 
-    async grantAccess(ticket: string): Promise<string> {
-        const result = await this.authMiddleware.authenticate(ticket)
+    async grantAccess(ticket: string, context?: ConnectionContext): Promise<string> {
+        const result = await this.authMiddleware.authenticate(ticket, context)
         if (result === null) {
             throw new Error('invalid ticket')
         }

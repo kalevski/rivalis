@@ -1,3 +1,5 @@
+import type { ConnectionContext } from './types'
+
 /**
  * Result of a successful `authenticate` call: the actor-data payload to
  * stamp on the connection, plus the room id the actor should be routed
@@ -31,7 +33,7 @@ export type AuthResult<TActorData> = {
  */
 abstract class AuthMiddleware<TActorData = Record<string, unknown>> {
 
-    abstract authenticate(ticket: string): Promise<AuthResult<TActorData> | null>
+    abstract authenticate(ticket: string, context?: ConnectionContext): Promise<AuthResult<TActorData> | null>
 
     /**
      * @deprecated Implement `authenticate` directly. This method is
@@ -78,7 +80,7 @@ abstract class LegacyAuthMiddleware<TActorData = Record<string, unknown>> extend
 
     abstract override getRoomId(ticket: string): Promise<string>
 
-    override async authenticate(ticket: string): Promise<AuthResult<TActorData> | null> {
+    override async authenticate(ticket: string, _context?: ConnectionContext): Promise<AuthResult<TActorData> | null> {
         const isValid = await this.validateTicket(ticket)
         if (isValid !== true) {
             return null
