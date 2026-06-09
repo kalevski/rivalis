@@ -10,6 +10,7 @@
         "core",
         "browser",
         "fleet",
+        "node",
         "demo",
         "landing-page"
     ],

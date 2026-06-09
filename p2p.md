@@ -847,7 +847,13 @@ without touching the game-logic API.
    clients (`RTCClient` ×2) import the contract from this single location.
    `@rivalis/handshake` remains focused on the wire/frame layer.
    Full rationale in `core/CHANGELOG.md` D3.
-4. **Node WebRTC lib:** `node-datachannel` (recommended) vs `werift` (dev fallback). (§4.5)
+4. **Node WebRTC lib:** ✅ **Decided 2026-06-09 — `node-datachannel` default, `werift` dev/CI fallback.**
+   `node-datachannel` (libdatachannel, prebuilt native binary) is the production default.
+   `werift` (pure TypeScript, no native build) is the dev/CI fallback, selected via
+   `RIVALIS_WEBRTC_BACKEND=werift`. `@roamhq/wrtc` excluded: requires a full libwebrtc
+   media stack (~GB) for a data-channel-only use case (§14 out-of-scope). Both are hidden
+   behind the `RTCPeerLike`/`RTCDataChannelLike` adapter interfaces (`node/src/peer/RTCPeer.ts`)
+   so `RTCTransport`/`RTCClient` are library-agnostic. Full rationale in `node/CHANGELOG.md` D4.
 5. **Host location for v1:** Node host (recommended, authoritative) vs browser-host from the
    start. *Recommend Node-host-first* (phase 1), browser-host phase 3.
 6. **TURN relay:** integrate coturn (recommended) vs pure-JS TURN (dev-only fallback).
@@ -885,7 +891,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] **D1** Core split breaking-ness: `7.0.0` major confirmed — `@rivalis/core/transports/ws` import, no lazy shim. (§3.3, §13.1) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
 - [x] **D2** Kernel ESM safety: convert to lazy loader confirmed — `createRequire(import.meta.url) ?? require` in `handshake/src/serializer.ts`. (§3.3a, §13.2) — decided 2026-06-09; rationale in `handshake/CHANGELOG.md`.
 - [x] **D3** `Client` base location: `@rivalis/core` kernel confirmed — `core/src/Client.ts`, exported from `'@rivalis/core'`. (§3.2, §13.3) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
-- [ ] **D4** Node WebRTC lib: confirm `node-datachannel` default, `werift` dev fallback. (§4.5, §13.4)
+- [x] **D4** Node WebRTC lib: `node-datachannel` default, `werift` dev/CI fallback (`RIVALIS_WEBRTC_BACKEND=werift`). (§4.5, §13.4) — decided 2026-06-09; rationale in `node/CHANGELOG.md`.
 - [ ] **D5** v1 host location: confirm Node-host-first (browser-host → phase 3). (§13.5)
 - [ ] **D6** TURN relay: confirm coturn sidecar (pure-JS STUN dev-only). (§4.3, §13.6)
 - [ ] **D7** Shared codec toolkit home: confirm fold into `@rivalis/handshake` (vs new `@rivalis/wire`). (§3.5, §13.7)
