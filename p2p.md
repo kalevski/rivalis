@@ -833,10 +833,14 @@ without touching the game-logic API.
    shim is dropped: a getter reachable from the neutral kernel entry would carry `ws` /
    `node:crypto` back into browser bundles, defeating the purpose of the split. Migration is a
    one-line import change per affected site (see `core/CHANGELOG.md` for the full migration guide).
-2. **Kernel ESM safety (§3.3a):** convert `handshake`'s top-level serializer import to the
-   lazy loader so `import '@rivalis/core'` works under plain Node ESM (recommended) vs.
-   accept bundler-/CJS-only for the ESM entry. *Recommend convert* — same fix fleet already
-   wrote, closes a latent break.
+2. **Kernel ESM safety (§3.3a):** ✅ **Decided 2026-06-09 — convert to lazy loader.**
+   Apply the `createRequire(import.meta.url) ?? require` discipline in
+   `handshake/src/serializer.ts` so `import '@rivalis/core'` works under plain Node ESM.
+   **Rationale:** same fix fleet already wrote (`fleet/src/wire/serializer.ts:132-142`);
+   closes F5 at its source; option (b) (bundler-/CJS-only) rejected because it leaves the
+   latent break reachable from the kernel's own ESM entry and forces every downstream package
+   to independently rediscover the workaround. See `handshake/CHANGELOG.md` for the full
+   decision record.
 3. **`Client` base location:** in `@rivalis/core` kernel (recommended — isomorphic, both
    clients import it) vs. `@rivalis/handshake`.
 4. **Node WebRTC lib:** `node-datachannel` (recommended) vs `werift` (dev fallback). (§4.5)
@@ -875,7 +879,7 @@ cites the section/finding it implements. Order within a phase is dependency-sort
 These gate Phase 0; resolve all ten, record the chosen values in the changelog/ADR.
 
 - [x] **D1** Core split breaking-ness: `7.0.0` major confirmed — `@rivalis/core/transports/ws` import, no lazy shim. (§3.3, §13.1) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
-- [ ] **D2** Kernel ESM safety: confirm converting `handshake`'s serializer import to the lazy loader. (§3.3a, §13.2)
+- [x] **D2** Kernel ESM safety: convert to lazy loader confirmed — `createRequire(import.meta.url) ?? require` in `handshake/src/serializer.ts`. (§3.3a, §13.2) — decided 2026-06-09; rationale in `handshake/CHANGELOG.md`.
 - [ ] **D3** `Client` base location: confirm `@rivalis/core` kernel (vs `@rivalis/handshake`). (§3.2, §13.3)
 - [ ] **D4** Node WebRTC lib: confirm `node-datachannel` default, `werift` dev fallback. (§4.5, §13.4)
 - [ ] **D5** v1 host location: confirm Node-host-first (browser-host → phase 3). (§13.5)
@@ -916,7 +920,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] Back-compat shim decision per D1: **no shim** — remove `Transports`/`Clients` namespace objects from `main.ts`; document `7.0.0` migration in `core/CHANGELOG.md`. (§3.3, §13.1)
 
 **F5 / §3.3a / §3.5 — Kernel ESM safety (lazy serializer)**
-- [ ] Convert `handshake/src/serializer.ts:1` top-level serializer import → lazy `createRequire(import.meta.url) ?? require` loader. (§3.3a, §3.5, §9)
+- [ ] Convert `handshake/src/serializer.ts:1` top-level serializer import → lazy `createRequire(import.meta.url) ?? require` loader. (§3.3a, §3.5, §9) — gated on D2 (locked 2026-06-09; convert confirmed — see `handshake/CHANGELOG.md`)
 - [ ] Add Node strict-ESM smoke test: `node --input-type=module -e "import '@rivalis/handshake'"` (and `'@rivalis/core'`). (§10)
 
 **F4 / §3.5 — Shared typed-codec toolkit**
