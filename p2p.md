@@ -924,8 +924,8 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 ### Phase 0 — Core generalization (no P2P yet; pays for itself regardless)
 
 **F1 / §3.1 — Export and widen `Transport`; carry connection context**
-- [ ] Move/define `Transport` abstract class in `core/src/Transport.ts` (unchanged contract: `onInitialize`, `get sockets`, `dispose`). (§3.1)
-- [ ] Export `Transport` from `core/src/main.ts`. (F1)
+- [x] Move/define `Transport` abstract class in `core/src/Transport.ts` (unchanged contract: `onInitialize`, `get sockets`, `dispose`). (§3.1)
+- [x] Export `Transport` from `core/src/main.ts`. (F1)
 - [ ] Add `ConnectionContext` type (`kind`, `remoteId?`, `meta?`) and export it. (§3.1)
 - [ ] Add optional 2nd arg `context?: ConnectionContext` to `TLayer.grantAccess`. (§3.1)
 - [ ] Add optional 2nd arg `context?: ConnectionContext` to `AuthMiddleware.authenticate` (backward-compatible). (§3.1)
