@@ -572,8 +572,11 @@ authMiddleware:new SignalAuthMiddleware() })` + `rooms.define('signal', SignalRo
 the exact shape `fleet`'s `attachControlPlane` uses (`fleet/src/orchestrator/transport.ts:109-163`),
 including the `ticketSource:'protocol'` option and a `TokenBucketRateLimiter`.
 
-**ICE/TURN credential issuance** (`signal/src/IceConfig.ts`): build `RTCIceServer[]`; for
-TURN mint ephemeral creds — `username = <unixExpiry>:<peerId>`,
+**ICE/TURN credential issuance** (`signal/src/IceConfig.ts`): `issueFor(peerId): string`
+returns a JSON-encoded `RTCIceServer[]`. The return type is `string` rather than a typed
+array because the `signal:welcome` wire frame carries `iceServers` as a STRING field (the
+client `JSON.parse`s it after wire-decoding). For TURN it mints ephemeral creds —
+`username = <unixExpiry>:<peerId>`,
 `credential = base64(HMAC_SHA1(turnSharedSecret, username))` via `node:crypto.createHmac`;
 coturn validates the HMAC and expires creds at `unixExpiry`. Never ship the shared secret.
 
