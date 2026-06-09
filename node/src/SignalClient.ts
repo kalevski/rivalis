@@ -20,6 +20,7 @@ import { WSClient } from '@rivalis/core/clients/ws'
 export type SignalTopic =
     | 'signal:welcome'
     | 'signal:host_gone'
+    | 'signal:host_elected'
     | 'signal:offer'
     | 'signal:answer'
     | 'signal:ice'
@@ -27,6 +28,7 @@ export type SignalTopic =
 const SIGNAL_TOPICS: readonly SignalTopic[] = [
     'signal:welcome',
     'signal:host_gone',
+    'signal:host_elected',
     'signal:offer',
     'signal:answer',
     'signal:ice',

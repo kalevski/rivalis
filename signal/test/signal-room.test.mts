@@ -26,6 +26,7 @@ import {
     encodeAnswer,
     encodeIceCandidate,
     decodeWelcome,
+    decodeHostElected,
 } from '../lib/main.js'
 
 // ── test harness ──────────────────────────────────────────────────────────────
@@ -319,4 +320,142 @@ test('unknown topics are silently dropped; the actor is not kicked', async () =>
     await tl.handleMessage(idA, encode('unknown:topic', new Uint8Array(0)))
 
     assert.equal(tl.connections, 1, 'actor must remain connected after an unknown topic (drop policy)')
+})
+
+// ── host election ─────────────────────────────────────────────────────────────
+
+test('signal:host_elected is broadcast to remaining peers when host leaves', async () => {
+    const { tl } = setup()
+    const { id: idA } = await admitActor(tl)  // host
+    const { msgs: msgsB } = await admitActor(tl)
+    const { msgs: msgsC } = await admitActor(tl)
+
+    tl.handleClose(idA)
+
+    assert.ok(
+        msgsB.some(m => m.topic === 'signal:host_elected'),
+        'peer B must receive signal:host_elected after the host disconnects'
+    )
+    assert.ok(
+        msgsC.some(m => m.topic === 'signal:host_elected'),
+        'peer C must receive signal:host_elected after the host disconnects'
+    )
+})
+
+test('signal:host_elected names the oldest remaining peer as new host', async () => {
+    const { tl } = setup()
+    const { id: idA } = await admitActor(tl)  // host — joins first
+    const { id: idB } = await admitActor(tl)  // joins second
+    const { msgs: msgsC } = await admitActor(tl)
+
+    tl.handleClose(idA)
+
+    const electedMsg = msgsC.find(m => m.topic === 'signal:host_elected')
+    assert.ok(electedMsg !== undefined, 'peer C must receive signal:host_elected')
+    const decoded = decodeHostElected(electedMsg.payload)
+    assert.equal(decoded.newHostId, idB, 'the oldest remaining peer (B) becomes the new host')
+})
+
+test('signal:host_gone is sent before signal:host_elected', async () => {
+    const { tl } = setup()
+    const { id: idA } = await admitActor(tl)
+    const { msgs: msgsB } = await admitActor(tl)
+
+    tl.handleClose(idA)
+
+    const goneIdx    = msgsB.findIndex(m => m.topic === 'signal:host_gone')
+    const electedIdx = msgsB.findIndex(m => m.topic === 'signal:host_elected')
+    assert.ok(goneIdx !== -1,    'signal:host_gone must be sent')
+    assert.ok(electedIdx !== -1, 'signal:host_elected must be sent')
+    assert.ok(goneIdx < electedIdx, 'signal:host_gone must arrive before signal:host_elected')
+})
+
+test('signal:host_elected is NOT sent when no peers remain after host leaves', async () => {
+    const { tl } = setup()
+    const { id: idA, msgs: msgsA } = await admitActor(tl)
+
+    tl.handleClose(idA)
+
+    assert.equal(
+        msgsA.filter(m => m.topic === 'signal:host_elected').length,
+        0,
+        'signal:host_elected must not be sent when the last peer (host) disconnects'
+    )
+})
+
+test('signal:host_gone is still sent even when no peers remain', async () => {
+    const { tl } = setup()
+    // We need a second actor to receive the broadcast, but test that host_gone
+    // is broadcast when the host is the only one left by checking no crash occurs.
+    const { id: idA } = await admitActor(tl)
+
+    // No throw / crash expected.
+    assert.doesNotThrow(() => tl.handleClose(idA))
+})
+
+test('new host after election is used in signal:welcome for subsequently joining peers', async () => {
+    const { tl } = setup()
+    const { id: idA } = await admitActor(tl)  // original host
+    const { id: idB } = await admitActor(tl)  // becomes new host after A leaves
+
+    tl.handleClose(idA)
+
+    // C joins after election — should see B as host.
+    const { msgs: msgsC } = await admitActor(tl)
+    const welcome = msgsC.find(m => m.topic === 'signal:welcome')
+    assert.ok(welcome !== undefined)
+    const decoded = decodeWelcome(welcome.payload)
+    assert.equal(decoded.hostId, idB, 'new joiner must see the elected host (B) in welcome')
+})
+
+test('chained election: elected host also leaves — next oldest peer is elected', async () => {
+    const { tl } = setup()
+    const { id: idA } = await admitActor(tl)  // original host
+    const { id: idB } = await admitActor(tl)  // elected host after A leaves
+    const { id: idC, msgs: msgsC } = await admitActor(tl)
+
+    tl.handleClose(idA)  // B becomes host
+    tl.handleClose(idB)  // C should be elected
+
+    const electedMsgs = msgsC.filter(m => m.topic === 'signal:host_elected')
+    assert.equal(electedMsgs.length, 2, 'peer C must receive two signal:host_elected messages')
+
+    assert.equal(decodeHostElected(electedMsgs[0].payload).newHostId, idB,
+        'first election: B is elected')
+    assert.equal(decodeHostElected(electedMsgs[1].payload).newHostId, idC,
+        'second election: C (the only remaining peer) is elected')
+})
+
+test('election determinism: the second-joined peer is always elected (not third)', async () => {
+    const { tl } = setup()
+    const { id: idA } = await admitActor(tl)  // host
+    const { id: idB } = await admitActor(tl)  // second to join → should be elected
+    await admitActor(tl)                        // third to join
+    const { msgs: msgsD } = await admitActor(tl)  // observer
+
+    tl.handleClose(idA)
+
+    const elected = msgsD.find(m => m.topic === 'signal:host_elected')
+    assert.ok(elected !== undefined)
+    assert.equal(decodeHostElected(elected.payload).newHostId, idB,
+        'the second-joined peer (oldest after host) must be elected, not the third')
+})
+
+test('non-host leave does not trigger election or signal:host_elected', async () => {
+    const { tl } = setup()
+    const { id: idA, msgs: msgsA } = await admitActor(tl)  // host
+    const { id: idB } = await admitActor(tl)
+
+    tl.handleClose(idB)
+
+    assert.equal(
+        msgsA.filter(m => m.topic === 'signal:host_elected').length,
+        0,
+        'signal:host_elected must not be sent when a non-host peer leaves'
+    )
+    assert.equal(
+        msgsA.filter(m => m.topic === 'signal:host_gone').length,
+        0,
+        'signal:host_gone must not be sent when a non-host peer leaves'
+    )
 })

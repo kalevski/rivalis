@@ -45,6 +45,10 @@ const codec = createCodec({
             { key: 'candidate', type: F.STRING, rule: 'optional' }, // JSON RTCIceCandidateInit
             { key: 'from',      type: F.STRING, rule: 'optional' }, // sender's youId (tag 3)
         ],
+        // APPEND ONLY — tag 1
+        HostElected: [
+            { key: 'newHostId', type: F.STRING, rule: 'optional' },
+        ],
     }
 })
 
@@ -59,6 +63,11 @@ export type WelcomePayload = {
 export type OfferPayload = { to: string; sdp: string; from?: string }
 export type AnswerPayload = { to: string; sdp: string; from?: string }
 export type IceCandidatePayload = { to: string; candidate: string; from?: string }
+
+export type HostElectedPayload = {
+    /** The actor id of the newly elected host. */
+    newHostId: string
+}
 
 // ── Encode / decode ───────────────────────────────────────────────────────────
 
@@ -114,6 +123,15 @@ export function decodeIceCandidate(frame: Uint8Array): IceCandidatePayload {
     const result: IceCandidatePayload = { to: m.to ?? '', candidate: m.candidate ?? '' }
     if (present(m, 'from')) result.from = String(m.from)
     return result
+}
+
+export function encodeHostElected(p: HostElectedPayload): Uint8Array {
+    return codec.encode('HostElected', { newHostId: p.newHostId })
+}
+
+export function decodeHostElected(frame: Uint8Array): HostElectedPayload {
+    const m = codec.decode('HostElected', frame)
+    return { newHostId: m.newHostId ?? '' }
 }
 
 /**

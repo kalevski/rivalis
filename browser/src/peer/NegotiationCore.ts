@@ -76,6 +76,10 @@ const codec = createCodec({
             { key: 'candidate', type: F.STRING, rule: 'optional' },  // tag 2 — JSON RTCIceCandidateInit
             { key: 'from',      type: F.STRING, rule: 'optional' },  // tag 3 — sender id
         ],
+        // APPEND ONLY — must stay in sync with @rivalis/signal/src/wire/index.ts
+        HostElected: [
+            { key: 'newHostId', type: F.STRING, rule: 'optional' },  // tag 1
+        ],
     },
 })
 
@@ -189,6 +193,15 @@ export class PeerNegotiator {
             const { candidate, mid } = iceFromJson(String(msg['candidate']))
             if (!candidate) return
             this.pc?.addRemoteCandidate(candidate, mid)
+        })
+
+        // Host election (p2p.md §4.3, §12 Phase 3): update hostId so that any
+        // subsequent ICE candidates are addressed to the newly elected host.
+        // Full re-negotiation with the new host is driven by RTCClient's reconnect
+        // loop once the previous WebRTC connection closes.
+        this.signalClient.on('signal:host_elected', (payload: Uint8Array) => {
+            const msg = codec.decode('HostElected', payload)
+            if (msg['newHostId']) this.hostId = String(msg['newHostId'])
         })
 
         this.signalClient.connect(ticket)

@@ -585,8 +585,25 @@ class SignalRoom extends Room<PeerData> {
         }))
     }
     protected override onLeave(actor: Actor<PeerData>): void {
-        if (actor.id === this.hostId) { this.hostId = null; this.broadcast('signal:host_gone', '') }
+        this.joinOrder = this.joinOrder.filter(id => id !== actor.id)
+        if (actor.id !== this.hostId) return
+
+        // Notify all remaining peers that the host has left.
+        this.broadcast('signal:host_gone', '')
+
+        // Elect the oldest remaining peer (deterministic: first in join order).
+        const nextHostId = this.joinOrder[0] ?? null
+        this.hostId = nextHostId
+        if (nextHostId !== null) {
+            this.broadcast('signal:host_elected', encodeHostElected({ newHostId: nextHostId }))
+        }
     }
+
+    // Election policy: oldest remaining peer (first in join order).
+    // `joinOrder` is a stable insertion-order array maintained in onJoin/onLeave.
+    // JS is single-threaded, so onLeave calls are always serialised — no true
+    // races exist, but chained departures (elected host also leaves immediately)
+    // are handled correctly because each onLeave re-reads the updated joinOrder.
     private relay(actor: Actor<PeerData>, payload: Uint8Array, topic: string): void {
         const msg = decode(payload)                 // { to, ... }
         this.getActor(msg.to)?.send(topic, payload) // §3.7 lookup; forward verbatim (from = actor.id)
@@ -1151,7 +1168,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 ### Phase 3 — Browser-as-host (serverless P2P)
 
 - [x] Browser `RTCTransport` reusing §4.5 negotiation core w/ native adapters (free of bespoke runtime build thanks to §3.3). (§12 phase 3) — `browser/src/RTCTransport.ts`; extends `Transport` from the isomorphic core kernel; signaling leg uses browser `WSClient` (ticketSource='protocol'); `HostNegotiator` from `browser/src/peer/NegotiationCore.ts` drives offer/answer/ICE with native `RTCPeerConnection`; chunk/reassemble (p2p.md §7) ported to `browser/src/peer/RtcFrameChunker.ts`; `bufferedAmount` added to `RTCDataChannelLike` in `browser/src/peer/RTCPeer.ts`; backpressure via `checkBackpressure` from `@rivalis/core`; §3.4 control-frame kick; double-close guard; `dispose` cleanly closes all channels; exported from `browser/src/main.ts`; task 081, 2026-06-09.
-- [ ] Host election leveraging `SignalRoom` `hostId`/`host_gone`. (§4.3, §12)
+- [x] Host election leveraging `SignalRoom` `hostId`/`host_gone`. (§4.3, §12) — `SignalRoom` tracks `joinOrder` (insertion order); on host departure broadcasts `signal:host_gone` then elects the oldest remaining peer and broadcasts `signal:host_elected { newHostId }` (empty when no peers remain). `PeerNegotiator` (node + browser) handles `signal:host_elected` to update `hostId` so subsequent ICE candidates address the new host. Wire schema: `HostElected` appended to `signal/src/wire/index.ts` codec (APPEND-ONLY, major=1). Full re-negotiation with the new host is driven by RTCClient's existing reconnect loop once the old WebRTC connection closes. Races handled deterministically via single-threaded `joinOrder` ordering — chained departures each re-read the updated list. Tests in `signal/test/signal-room.test.mts`; task 082, 2026-06-09.
 - [ ] Optional `Room.serialize()/hydrate()` for host-handoff state transfer. (§12 phase 3)
 
 ### Phase 4 — Optional (realtime-grade + zero-native dev)

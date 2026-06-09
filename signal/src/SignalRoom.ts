@@ -1,11 +1,20 @@
 import { Room, Actor } from '@rivalis/core'
-import { encodeWelcome, decodeRelayTo } from './wire/index'
+import { encodeWelcome, encodeHostElected, decodeRelayTo } from './wire/index'
 import IceConfig from './IceConfig'
 
 /**
  * Signaling room: relays SDP offers/answers and ICE candidates between peers.
- * The first peer to join becomes the host; subsequent peers are told who the
- * host is so they know which actor to address their offer to.
+ *
+ * Host assignment and election (p2p.md §4.3, §12 Phase 3):
+ *  - The first peer to join becomes the host (`hostId`).
+ *  - When the host leaves, the oldest remaining peer (next in join order) is
+ *    elected as the new host. All remaining peers receive `signal:host_gone`
+ *    followed by `signal:host_elected { newHostId }`.
+ *  - If no peers remain after the host leaves, only `signal:host_gone` is sent
+ *    and `hostId` resets to null (the next joiner becomes host again).
+ *  - Join order is tracked in `joinOrder` and is the sole source of determinism
+ *    for election races. JavaScript's single-threaded event loop serialises all
+ *    `onLeave` calls, so election is always consistent.
  *
  * All relay topics carry a binary frame whose first field is `to` (the target
  * actorId). `relay` decodes that field and uses `Room.getActor` (§3.7) for
@@ -20,6 +29,12 @@ class SignalRoom extends Room<null> {
 
     private hostId: string | null = null
 
+    /**
+     * Stable insertion-order list of actor ids still in the room.
+     * Used exclusively for deterministic host election (oldest-peer-first).
+     */
+    private joinOrder: string[] = []
+
     /** ICE/TURN credential issuer. Reads from env vars by default; may be
      *  overridden in a subclass for testing or custom configuration. */
     protected iceConfig: IceConfig = IceConfig.fromEnv()
@@ -31,6 +46,7 @@ class SignalRoom extends Room<null> {
     }
 
     protected override onJoin(actor: Actor<null>): void {
+        this.joinOrder.push(actor.id)
         if (this.hostId === null) this.hostId = actor.id
         actor.send('signal:welcome', encodeWelcome({
             youId: actor.id,
@@ -40,9 +56,19 @@ class SignalRoom extends Room<null> {
     }
 
     protected override onLeave(actor: Actor<null>): void {
-        if (actor.id === this.hostId) {
-            this.hostId = null
-            this.broadcast('signal:host_gone', '')
+        this.joinOrder = this.joinOrder.filter(id => id !== actor.id)
+
+        if (actor.id !== this.hostId) return
+
+        // Host has left — notify all remaining peers.
+        this.broadcast('signal:host_gone', '')
+
+        const nextHostId = this.joinOrder[0] ?? null
+        this.hostId = nextHostId
+
+        if (nextHostId !== null) {
+            // Elect the oldest remaining peer and notify everyone.
+            this.broadcast('signal:host_elected', encodeHostElected({ newHostId: nextHostId }))
         }
     }
 
