@@ -184,14 +184,6 @@ class WSClient extends Client {
         ws?.removeAllListeners()
     }
 
-    protected override emit(eventName: string | symbol, ...messages: unknown[]): boolean {
-        if (this.listenerCount(eventName) === 0) {
-            this.logger.warning(`event=${String(eventName)} emitted, register listener to handle the event`)
-            return false
-        }
-        return super.emit(eventName, ...messages)
-    }
-
 }
 
 export default WSClient

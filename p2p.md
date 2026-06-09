@@ -938,7 +938,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [ ] Export `Client` from `core/src/main.ts`. (F1)
 - [ ] Browser `WSClient extends Client`; add `client:error` emission on socket error (stop swallowing into reconnect). (§3.2)
 - [ ] Node `core/src/clients/WSClient.ts extends Client`: add `client:kicked` (decode 4xxx + reason like browser `:271-280`), keep `client:error`; document caller-layered reconnect. (§3.2)
-- [ ] Remove/gate node WSClient warn-on-no-listener `emit` override (`:170-176`). (§3.2)
+- [x] Remove/gate node WSClient warn-on-no-listener `emit` override (`:170-176`). (§3.2)
 - [ ] `demo/src/client/useRoom.ts` → `useState<Client | null>`. (§3.2, §5)
 - [ ] Collapse fleet `FleetTransportClient` interface + `defaultCreateClient` cast → `Client`. (§3.2, §5)
 

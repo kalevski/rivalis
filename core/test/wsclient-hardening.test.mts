@@ -61,8 +61,6 @@ test('connecting to a closed port emits client:error and does not crash', async 
     // The regression: without an 'error' listener on the underlying ws
     // socket, this connect would throw an unhandled 'error' and crash node.
     const errored = waitForEvent(client, 'client:error', 3000)
-    // 'close' follows 'error'; attach a listener so the emit override does
-    // not warn-and-drop it (harmless either way, this keeps logs clean).
     client.on('client:disconnect', () => {})
     client.connect('whatever')
 
