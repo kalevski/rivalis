@@ -44,6 +44,8 @@ export interface RTCDataChannelLike {
     readonly isOpen: boolean
     /** Bytes currently queued for delivery (analog of WebSocket.bufferedAmount). */
     readonly bufferedAmount: number
+    /** The channel's label (e.g. 'rivalis' for the reliable channel, 'rivalis:unreliable' for the unreliable channel). */
+    readonly label: string
 }
 
 export interface RTCPeerLike {
@@ -108,6 +110,8 @@ export class NodeDCDataChannel implements RTCDataChannelLike {
     get isOpen(): boolean { return this.dc.isOpen() }
 
     get bufferedAmount(): number { return this.dc.bufferedAmount() }
+
+    get label(): string { return this.dc.getLabel() }
 }
 
 export class NodeDataChannelPeer implements RTCPeerLike {

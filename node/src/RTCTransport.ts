@@ -58,6 +58,36 @@ import {
 
 export type { BackpressureDropFn }
 
+// ── Topic predicate helper ────────────────────────────────────────────────────
+
+function resolveTopicPredicate(
+    opt: ReadonlySet<string> | ((topic: string) => boolean) | undefined,
+): ((topic: string) => boolean) | null {
+    if (opt === undefined) return null
+    if (typeof opt === 'function') return opt
+    return (t: string) => opt.has(t)
+}
+
+/**
+ * Fast topic extraction from a handshake-encoded frame.
+ * Reads protobuf field 1 (wire type 2, length-delimited) without a full decode.
+ * Returns an empty string if the frame does not start with a valid topic field.
+ */
+function extractFrameTopic(frame: Uint8Array): string {
+    // Field 1, wire type 2 (length-delimited): tag byte = 0x0A
+    if (frame.length < 2 || frame[0] !== 0x0A) return ''
+    let len = 0, shift = 0, i = 1
+    while (i < frame.length) {
+        const b = frame[i++]!
+        len |= (b & 0x7F) << shift
+        if ((b & 0x80) === 0) break
+        shift += 7
+        if (shift > 28) return ''  // malformed varint
+    }
+    if (i + len > frame.length) return ''
+    return new TextDecoder().decode(frame.subarray(i, i + len))
+}
+
 // ── Welcome codec (subset of NegotiationCore's signal wire codec) ─────────────
 // Same schema major and field order → bitwise-identical binary. Namespace differs
 // intentionally; it is a serializer scope key only and does not affect the wire.
@@ -125,6 +155,18 @@ export type RTCTransportOptions = {
      * support multiple channels per peer. Default: `{ ordered: true }`.
      */
     channelReliability?: ChannelReliability
+    /**
+     * Topics routed over the unreliable/unordered data channel when a peer opens one
+     * (p2p.md §7, task 084). Accepts a `Set<string>` of exact topic names or a
+     * predicate function. Topics not matched always use the reliable channel.
+     *
+     * The unreliable channel must be opened by the peer (`RTCClientOptions.dualChannel`)
+     * for routing to take effect. If no unreliable channel is present for a given peer,
+     * all messages fall through to the reliable channel regardless of this option.
+     *
+     * Default: none (all topics use the reliable channel).
+     */
+    unreliableTopics?: ReadonlySet<string> | ((topic: string) => boolean)
 }
 
 export type { ChannelReliability }
@@ -162,6 +204,21 @@ class RTCTransport extends Transport {
     private readonly peerLimiter: ConnectionLimiter | null
     private readonly maxBufferedBytes: number
     private readonly onBackpressureDrop: BackpressureDropFn | null
+    /**
+     * Predicate for routing outbound messages to the unreliable channel.
+     * Derived from `RTCTransportOptions.unreliableTopics` at construction time.
+     */
+    private readonly unreliableTopicPredicate: ((topic: string) => boolean) | null
+    /**
+     * actorId → unreliable data channel (post-grant, when peer opened one).
+     * Used to route high-rate outbound topics over the lower-latency path.
+     */
+    private readonly unreliableChannels = new Map<string, RTCDataChannelLike>()
+    /**
+     * peerId → pending unreliable channel that arrived before the reliable channel
+     * completed grantAccess. Cleared in onChannelOpen once actorId is known.
+     */
+    private readonly pendingUnreliableByPeer = new Map<string, RTCDataChannelLike>()
 
     constructor(options: RTCTransportOptions) {
         super()
@@ -169,6 +226,7 @@ class RTCTransport extends Transport {
         this.peerLimiter = options.peerLimiter ?? null
         this.maxBufferedBytes = options.maxBufferedBytes ?? DEFAULT_MAX_BUFFERED_BYTES
         this.onBackpressureDrop = options.onBackpressureDrop ?? null
+        this.unreliableTopicPredicate = resolveTopicPredicate(options.unreliableTopics)
 
         const resolvedAdapters: RTCAdapters = {
             createPeerConnection: options.adapters?.createPeerConnection ?? createPeerConnection,
@@ -223,6 +281,13 @@ class RTCTransport extends Transport {
     // ── Step (2-5): onChannelOpen ─────────────────────────────────────────────
 
     private onChannelOpen(channel: RTCDataChannelLike, peerId: string): void {
+        // Unreliable secondary channel: a label ending with ':unreliable' is the
+        // convention set by RTCClient when dualChannel is enabled (p2p.md §7, task 084).
+        if (channel.label.endsWith(':unreliable')) {
+            this.handleUnreliableChannel(channel, peerId)
+            return
+        }
+
         const layer = this.layer!
         let actorId: string | null = null
         let ticketConsumed = false
@@ -329,10 +394,40 @@ class RTCTransport extends Transport {
                 this.outboundSeq.set(aid, 0)
                 this.inboundReassembler.set(aid, new ChunkReassembler())
 
+                // Wire up any unreliable channel that arrived before grantAccess completed.
+                const pendingUnreliable = this.pendingUnreliableByPeer.get(peerId)
+                if (pendingUnreliable !== undefined) {
+                    this.pendingUnreliableByPeer.delete(peerId)
+                    this.wireUnreliableChannel(pendingUnreliable, aid, layer)
+                }
+
                 // Steps (3)(4): register inbound + outbound listeners immediately so the
                 // pendingEmits buffer (TLayer.ts:58-66, cap 256) drains right now rather
                 // than accumulating frames sent during Room.onJoin.
                 layer.on('message', aid, (_id, m) => {
+                    // Route to unreliable channel when predicate matches and channel is open.
+                    const unreliableCh = this.unreliableChannels.get(aid)
+                    if (
+                        unreliableCh !== undefined &&
+                        unreliableCh.isOpen &&
+                        this.unreliableTopicPredicate !== null &&
+                        this.unreliableTopicPredicate(extractFrameTopic(m))
+                    ) {
+                        if (checkBackpressure(aid, unreliableCh.bufferedAmount, this.maxBufferedBytes, this.onBackpressureDrop, (msg) => layer.logger.warning(msg))) {
+                            return
+                        }
+                        if (m.byteLength <= RTC_MAX_FRAME_BYTES) {
+                            try { unreliableCh.sendBinary(m) } catch { /* channel gone */ }
+                        } else {
+                            // No chunking on unreliable channel — lost chunks can't be reassembled.
+                            layer.logger.warning(
+                                `rtc: unreliable frame dropped (exceeds ${RTC_MAX_FRAME_BYTES}-byte ceiling, ` +
+                                `no chunking on unordered channel) for actor=${aid}`
+                            )
+                        }
+                        return
+                    }
+
                     if (!channel.isOpen) return
                     if (checkBackpressure(aid, channel.bufferedAmount, this.maxBufferedBytes, this.onBackpressureDrop, (msg) => layer.logger.warning(msg))) {
                         return
@@ -371,6 +466,45 @@ class RTCTransport extends Transport {
         })
     }
 
+    // ── Unreliable channel helpers (p2p.md §7, task 084) ─────────────────────
+
+    /**
+     * Called when `onDataChannel` fires for a channel whose label ends with
+     * ':unreliable'. Either wires it up immediately (if the reliable channel for
+     * this peer already completed grantAccess) or buffers it for later.
+     */
+    private handleUnreliableChannel(channel: RTCDataChannelLike, peerId: string): void {
+        const layer = this.layer!
+        const actorId = this.peerToActor.get(peerId)
+        if (actorId !== undefined) {
+            // Reliable channel already granted — wire up the unreliable channel now.
+            this.wireUnreliableChannel(channel, actorId, layer)
+        } else {
+            // Reliable channel not yet granted — buffer until actorId is known.
+            this.pendingUnreliableByPeer.set(peerId, channel)
+        }
+    }
+
+    /**
+     * Wire up an unreliable channel to an actor: register the message handler and
+     * track the channel in `unreliableChannels` for outbound routing.
+     * Inbound frames arrive via the same `layer.handleMessage` path as the reliable
+     * channel — the room is transparent to which channel a frame arrived on.
+     */
+    private wireUnreliableChannel(channel: RTCDataChannelLike, actorId: string, layer: TLayer<any>): void {
+        this.unreliableChannels.set(actorId, channel)
+        channel.onMessage((buf) => {
+            if (!this.channels.has(actorId)) return  // actor already closed
+            layer.handleMessage(actorId, buf).catch((error: unknown) => {
+                const reason = error instanceof Error ? error.message : String(error)
+                layer.logger.warning(`rtc: unreliable handleMessage rejected for actor=${actorId}: ${reason}`)
+            })
+        })
+        channel.onClose(() => {
+            this.unreliableChannels.delete(actorId)
+        })
+    }
+
     // ── Step (5): PC state-change → handleClose ───────────────────────────────
 
     private onPeerStateChange(peerId: string, state: string): void {
@@ -393,6 +527,15 @@ class RTCTransport extends Transport {
         this.outboundSeq.delete(actorId)
         this.inboundReassembler.get(actorId)?.clear()
         this.inboundReassembler.delete(actorId)
+        // Clean up unreliable channel and any buffered pending channel for this peer.
+        this.pendingUnreliableByPeer.delete(peerId)
+        const uch = this.unreliableChannels.get(actorId)
+        if (uch !== undefined) {
+            this.unreliableChannels.delete(actorId)
+            if (uch.isOpen) {
+                try { uch.close() } catch { /* ignore */ }
+            }
+        }
         this.layer?.handleClose(actorId)
     }
 
@@ -422,6 +565,14 @@ class RTCTransport extends Transport {
         this.outboundSeq.clear()
         this.inboundReassembler.forEach(r => r.clear())
         this.inboundReassembler.clear()
+        // Close unreliable channels (no close frame — they carry no control frames).
+        for (const uch of this.unreliableChannels.values()) {
+            if (uch.isOpen) {
+                try { uch.close() } catch { /* ignore */ }
+            }
+        }
+        this.unreliableChannels.clear()
+        this.pendingUnreliableByPeer.clear()
         for (const [actorId, channel] of snapshot) {
             this.closedActors.add(actorId)  // prevent triggerClose from re-firing
             this.sendCloseFrame(channel, shutdownPayload)

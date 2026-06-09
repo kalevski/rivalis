@@ -115,9 +115,37 @@ export type RTCClientOptions = {
      * Keep phase-1 to the default (one reliable channel) for parity (p2p.md §7).
      */
     channelReliability?: ChannelReliability
+    /**
+     * When `true`, opens a second unreliable/unordered data channel alongside the
+     * primary reliable one. Use in combination with `unreliableTopics` to route
+     * high-rate state (e.g. arena snapshots) over the lower-latency path.
+     *
+     * Reliable channel label: `channelLabel` (default `'rivalis'`)
+     * Unreliable channel label: `channelLabel + ':unreliable'`
+     *
+     * Default: `false` (single reliable channel, p2p.md §7).
+     */
+    dualChannel?: boolean
+    /**
+     * Topics routed over the unreliable channel when `dualChannel` is `true`.
+     * Pass a `Set<string>` for exact topic matching or a predicate function.
+     * Topics not matched fall back to the reliable channel.
+     * Default: none (all topics use the reliable channel).
+     */
+    unreliableTopics?: ReadonlySet<string> | ((topic: string) => boolean)
 }
 
 export type { ChannelReliability }
+
+// ── Topic predicate helper ────────────────────────────────────────────────────
+
+function resolveTopicPredicate(
+    opt: ReadonlySet<string> | ((topic: string) => boolean) | undefined,
+): ((topic: string) => boolean) | null {
+    if (opt === undefined) return null
+    if (typeof opt === 'function') return opt
+    return (t: string) => opt.has(t)
+}
 
 // ── RTCClient ─────────────────────────────────────────────────────────────────
 
@@ -129,9 +157,16 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
     private readonly channelReliability: ChannelReliability
     private readonly reconnectConfig: ReconnectConfig | null
     private readonly getTicketFn: GetTicketFn | null
+    private readonly dualChannel: boolean
+    private readonly unreliableTopicPredicate: ((topic: string) => boolean) | null
 
     /** Open data channel; null during negotiation, after close, and after disconnect. */
     private channel: RTCDataChannelLike | null = null
+    /**
+     * Unreliable data channel for high-rate state (p2p.md §7).
+     * Non-null only when `dualChannel` is enabled and the channel is open.
+     */
+    private unreliableChannel: RTCDataChannelLike | null = null
     /** Active PeerNegotiator; non-null during negotiation and while connected. */
     private negotiator: PeerNegotiator | null = null
     /** Ticket for the current or last connect(); needed to re-run negotiation on reconnect. */
@@ -170,6 +205,8 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
         this.channelReliability = options.channelReliability ?? { ordered: true }
         this.reconnectConfig = this.resolveReconnect(options.reconnect)
         this.getTicketFn = options.getTicket ?? null
+        this.dualChannel = options.dualChannel ?? false
+        this.unreliableTopicPredicate = resolveTopicPredicate(options.unreliableTopics)
         this.resolvedAdapters = {
             createPeerConnection: options.adapters?.createPeerConnection ?? createPeerConnection,
             createSignalingClient: options.adapters?.createSignalingClient
@@ -217,6 +254,7 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
         const wasActive = this.negotiator !== null || this.channel !== null
         this.disconnecting = true
         this.channel = null
+        this.unreliableChannel = null
         this.inboundReassembler.clear()
         this.closeNegotiation()
         if (wasActive) {
@@ -229,9 +267,13 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
      * Guards on `channel.isOpen !== true` — drops silently (mirrors WSClient
      * browser/src/WSClient.ts:184, core/src/clients/WSClient.ts:135).
      *
-     * Large frames (> RTC_MAX_FRAME_BYTES) are split into chunk messages so they
-     * survive the WebRTC SCTP ceiling (p2p.md §7). The host reassembles chunks
-     * transparently before passing them to the Room.
+     * When `dualChannel` is enabled and `unreliableTopics` matches the topic,
+     * the frame is sent over the unreliable channel instead. Frames over
+     * `RTC_MAX_FRAME_BYTES` are dropped on the unreliable channel (chunking is
+     * not supported on unordered delivery — lost chunks can't be reassembled).
+     *
+     * Large frames (> RTC_MAX_FRAME_BYTES) on the reliable channel are split into
+     * chunk messages so they survive the WebRTC SCTP ceiling (p2p.md §7).
      */
     override send(topic: string, payload: Uint8Array | string = EMPTY_PAYLOAD): void {
         if (this.channel === null || !this.channel.isOpen) {
@@ -242,6 +284,22 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
         }
         const bytes = payload instanceof Uint8Array ? payload : encoder.encode(payload)
         const frame = encode(topic, bytes)
+
+        // Route to unreliable channel if available and topic matches (p2p.md §7, task 084).
+        if (
+            this.unreliableChannel !== null &&
+            this.unreliableChannel.isOpen &&
+            this.unreliableTopicPredicate !== null &&
+            this.unreliableTopicPredicate(topic)
+        ) {
+            // No chunking on the unreliable channel — lost chunks can't be reassembled.
+            if (frame.byteLength <= RTC_MAX_FRAME_BYTES) {
+                try { this.unreliableChannel.sendBinary(frame) } catch { /* channel closed */ }
+            }
+            return
+        }
+
+        // Reliable channel path (existing logic).
         if (frame.byteLength <= RTC_MAX_FRAME_BYTES) {
             try { this.channel.sendBinary(frame) } catch { /* channel closed */ }
             return
@@ -272,6 +330,11 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
         this.outboundSeq = 0
         this.inboundReassembler.clear()
 
+        // Derive unreliable channel label when dual-channel is enabled (p2p.md §7).
+        const unreliableChannelLabel = this.dualChannel
+            ? this.channelLabel + ':unreliable'
+            : undefined
+
         // Create a fresh PeerNegotiator per attempt — reusing one would duplicate
         // the persistent event listeners registered in PeerNegotiator.connect().
         const negotiator = new PeerNegotiator(
@@ -279,6 +342,7 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
             this.signalUrl,
             this.channelLabel,
             this.channelReliability,
+            unreliableChannelLabel,
         )
         this.negotiator = negotiator
 
@@ -307,6 +371,16 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
     // ── DC open ───────────────────────────────────────────────────────────────
 
     private onChannelOpen(channel: RTCDataChannelLike, ticket: string): void {
+        // Dual-channel: secondary unreliable channel — store and wire up message handler.
+        // The game ticket is only sent on the reliable channel (§4.2 ticket protocol).
+        if (channel.label.endsWith(':unreliable')) {
+            this.unreliableChannel = channel
+            channel.onMessage((buf) => this.onMessage(buf))
+            channel.onClose(() => { this.unreliableChannel = null })
+            return
+        }
+
+        // Reliable (primary) channel — existing logic.
         this.channel = channel
 
         // Register handlers before sending — no async event can fire during this
@@ -384,6 +458,7 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
         this.disconnecting = true
 
         this.channel = null
+        this.unreliableChannel = null
         this.closeNegotiation()
 
         if (this.userDisconnected) return

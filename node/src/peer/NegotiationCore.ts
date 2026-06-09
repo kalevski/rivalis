@@ -138,6 +138,12 @@ export class PeerNegotiator {
         signalUrl: string,
         private readonly channelLabel: string = 'rivalis',
         private readonly channelReliability: ChannelReliability = DEFAULT_RELIABILITY,
+        /**
+         * When set, a second unreliable/unordered data channel with this label is opened
+         * alongside the primary reliable channel (p2p.md §7, task 084).
+         * Use `channelLabel + ':unreliable'` as the conventional label.
+         */
+        private readonly unreliableChannelLabel?: string,
     ) {
         this.signalClient = adapters.createSignalingClient(signalUrl)
     }
@@ -160,6 +166,16 @@ export class PeerNegotiator {
 
             const dc = pc.createDataChannel(this.channelLabel, this.channelReliability)
             dc.onOpen(() => onChannel(dc))
+
+            // Dual-channel: open a second unreliable/unordered channel for high-rate state (p2p.md §7).
+            if (this.unreliableChannelLabel) {
+                const unreliableDc = pc.createDataChannel(
+                    this.unreliableChannelLabel,
+                    { ordered: false, maxRetransmits: 0 },
+                )
+                unreliableDc.onOpen(() => onChannel(unreliableDc))
+            }
+
             pc.onStateChange(onPeerStateChange)
 
             pc.onLocalDescription((sdp, type) => {

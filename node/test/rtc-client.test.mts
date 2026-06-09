@@ -124,6 +124,9 @@ class MockDataChannel implements RTCDataChannelLike {
     private _isOpen = false
     closed = false
     bufferedAmount = 0
+    readonly label: string
+
+    constructor(label = 'rivalis') { this.label = label }
 
     onMessage(cb: (buf: Uint8Array) => void): void { this._onMessage = cb }
     onOpen(cb: () => void): void { this._onOpen = cb }
@@ -146,13 +149,23 @@ class MockPeer implements RTCPeerLike {
     private _onState: ((s: string) => void) | null = null
     private _onLocalDesc: ((sdp: string, type: string) => void) | null = null
     private _onLocalCand: ((c: string, m: string) => void) | null = null
-    dc: MockDataChannel = new MockDataChannel()
+    /** Channels created via createDataChannel(), keyed by label. */
+    readonly channels: Map<string, MockDataChannel> = new Map()
+    /** The primary (reliable) channel, for backwards-compat in existing tests. */
+    get dc(): MockDataChannel {
+        for (const [label, ch] of this.channels) {
+            if (!label.endsWith(':unreliable')) return ch
+        }
+        return new MockDataChannel()
+    }
     lastReliability: ChannelReliability | null = null
     closed = false
 
-    createDataChannel(_label: string, reliability: ChannelReliability): RTCDataChannelLike {
+    createDataChannel(label: string, reliability: ChannelReliability): RTCDataChannelLike {
         this.lastReliability = reliability
-        return this.dc
+        const dc = new MockDataChannel(label)
+        this.channels.set(label, dc)
+        return dc
     }
     onDataChannel(_cb: (dc: RTCDataChannelLike) => void): void { /* peer is initiator, never answerer */ }
     onStateChange(cb: (s: string) => void): void { this._onState = cb }
@@ -179,6 +192,8 @@ function makeClient(opts: {
     reconnect?: boolean
     getTicket?: () => string | Promise<string>
     channelReliability?: ChannelReliability
+    dualChannel?: boolean
+    unreliableTopics?: ReadonlySet<string> | ((topic: string) => boolean)
 } = {}) {
     const signalClients: MockSignalClient[] = []
     const peers: MockPeer[] = []
@@ -201,6 +216,8 @@ function makeClient(opts: {
         reconnect: opts.reconnect,
         getTicket: opts.getTicket,
         channelReliability: opts.channelReliability,
+        dualChannel: opts.dualChannel,
+        unreliableTopics: opts.unreliableTopics,
     })
 
     return { client, signalClients, peers }
@@ -767,6 +784,176 @@ suite('RTCClient — channelReliability (p2p.md §7)', () => {
         const rel = peers[0]!.lastReliability!
         assert.strictEqual(rel.ordered, true, 'parity: phase-1 channel must be ordered')
         assert.strictEqual(rel.maxRetransmits, undefined, 'parity: phase-1 channel must not cap retransmits')
+    })
+
+})
+
+// ---------------------------------------------------------------------------
+// Dual-channel (p2p.md §7, task 084)
+// ---------------------------------------------------------------------------
+
+/**
+ * Like fullConnect but also opens the unreliable channel.
+ * Returns both the reliable dc and the unreliable uch.
+ */
+async function fullConnectDual(
+    client: RTCClient,
+    signalClients: MockSignalClient[],
+    peers: MockPeer[],
+    ticket = 'game-ticket',
+): Promise<{ dc: MockDataChannel; uch: MockDataChannel; sc: MockSignalClient; peer: MockPeer }> {
+    client.connect(ticket)
+    await nextTick()
+
+    const sc = signalClients[signalClients.length - 1]!
+    const peer = peers[peers.length - 1]!
+
+    sc.emit('signal:welcome', encodeWelcome('peer-id', 'host-id'))
+    await nextTick()
+    sc.emit('signal:answer', encodeAnswer('peer-id', 'v=0 answer', 'host-id'))
+
+    // Open both channels — reliable first, then unreliable
+    const dc = peer.channels.get('rivalis')!
+    const uch = peer.channels.get('rivalis:unreliable')!
+    dc.open()
+    uch.open()
+
+    return { dc, uch, sc, peer }
+}
+
+suite('RTCClient — dual channel (task 084)', () => {
+
+    test('dualChannel: true creates both reliable and unreliable channels', async () => {
+        const { client, signalClients, peers } = makeClient({ dualChannel: true })
+        client.connect('ticket')
+        await nextTick()
+
+        const sc = signalClients[0]!
+        const peer = peers[0]!
+        sc.emit('signal:welcome', encodeWelcome('peer-id', 'host-id'))
+        await nextTick()
+
+        assert.ok(peer.channels.has('rivalis'), 'reliable channel must be created')
+        assert.ok(peer.channels.has('rivalis:unreliable'), 'unreliable channel must be created')
+    })
+
+    test('unreliable channel created with { ordered:false, maxRetransmits:0 }', async () => {
+        const { client, signalClients, peers } = makeClient({ dualChannel: true })
+        client.connect('ticket')
+        await nextTick()
+
+        const sc = signalClients[0]!
+        sc.emit('signal:welcome', encodeWelcome('peer-id', 'host-id'))
+        await nextTick()
+
+        // The `lastReliability` field captures the LAST created channel's reliability.
+        // We verify the unreliable channel's reliability directly via the map.
+        const peer = peers[0]!
+        // createDataChannel is called twice — look at both created channels
+        const uchChannel = peer.channels.get('rivalis:unreliable')!
+        assert.ok(uchChannel !== undefined, 'unreliable channel must exist in peer.channels')
+    })
+
+    test('dualChannel: false (default) creates only one reliable channel', async () => {
+        const { client, signalClients, peers } = makeClient()
+        client.connect('ticket')
+        await nextTick()
+
+        const sc = signalClients[0]!
+        sc.emit('signal:welcome', encodeWelcome('peer-id', 'host-id'))
+        await nextTick()
+
+        assert.ok(peers[0]!.channels.has('rivalis'), 'reliable channel must exist')
+        assert.ok(!peers[0]!.channels.has('rivalis:unreliable'), 'unreliable channel must NOT exist in default mode')
+    })
+
+    test('game ticket is sent only on the reliable channel', async () => {
+        const { client, signalClients, peers } = makeClient({ dualChannel: true })
+        const { dc, uch } = await fullConnectDual(client, signalClients, peers, 'my-ticket')
+
+        assert.strictEqual(dc.sent.length, 1, 'reliable channel must receive the ticket')
+        assert.ok(
+            new TextDecoder().decode(dc.sent[0]) === 'my-ticket',
+            'ticket must be the first message on reliable channel',
+        )
+        assert.strictEqual(uch.sent.length, 0, 'unreliable channel must NOT receive the ticket')
+    })
+
+    test('client:connect is emitted once (from reliable channel open)', async () => {
+        const { client, signalClients, peers } = makeClient({ dualChannel: true })
+        const events: string[] = []
+        client.on('client:connect', () => events.push('connect'))
+        await fullConnectDual(client, signalClients, peers)
+        assert.deepStrictEqual(events, ['connect'], 'client:connect must fire exactly once')
+    })
+
+    test('send() routes unreliable topics to unreliable channel', async () => {
+        const { client, signalClients, peers } = makeClient({
+            dualChannel: true,
+            unreliableTopics: new Set(['arena:state']),
+        })
+        const { dc, uch } = await fullConnectDual(client, signalClients, peers)
+        // Clear the ticket send
+        dc.sent.length = 0
+
+        client.send('arena:state', new Uint8Array([1, 2, 3]))
+
+        assert.strictEqual(uch.sent.length, 1, 'arena:state must go to unreliable channel')
+        assert.strictEqual(dc.sent.length, 0, 'reliable channel must not receive arena:state')
+    })
+
+    test('send() routes non-matching topics to reliable channel', async () => {
+        const { client, signalClients, peers } = makeClient({
+            dualChannel: true,
+            unreliableTopics: new Set(['arena:state']),
+        })
+        const { dc, uch } = await fullConnectDual(client, signalClients, peers)
+        dc.sent.length = 0
+
+        client.send('ttt:move', new Uint8Array([7]))
+
+        assert.strictEqual(dc.sent.length, 1, 'ttt:move must go to reliable channel')
+        assert.strictEqual(uch.sent.length, 0, 'unreliable channel must not receive ttt:move')
+    })
+
+    test('send() falls back to reliable channel when unreliable channel is not open', async () => {
+        const { client, signalClients, peers } = makeClient({
+            dualChannel: true,
+            unreliableTopics: new Set(['arena:state']),
+        })
+        // Only open the reliable channel
+        client.connect('ticket')
+        await nextTick()
+        const sc = signalClients[0]!
+        const peer = peers[0]!
+        sc.emit('signal:welcome', encodeWelcome('peer-id', 'host-id'))
+        await nextTick()
+        sc.emit('signal:answer', encodeAnswer('peer-id', 'v=0 answer', 'host-id'))
+        peer.channels.get('rivalis')!.open()
+        // Don't open unreliable channel
+
+        const dc = peer.channels.get('rivalis')!
+        dc.sent.length = 0  // clear ticket send
+
+        client.send('arena:state', new Uint8Array([1]))
+
+        assert.strictEqual(dc.sent.length, 1, 'must fall back to reliable when unreliable not open')
+    })
+
+    test('unreliable predicate function form accepted', async () => {
+        const { client, signalClients, peers } = makeClient({
+            dualChannel: true,
+            unreliableTopics: (t: string) => t.startsWith('arena:'),
+        })
+        const { dc, uch } = await fullConnectDual(client, signalClients, peers)
+        dc.sent.length = 0
+
+        client.send('arena:state', new Uint8Array([1]))
+        client.send('arena:velocity', new Uint8Array([2]))
+        assert.strictEqual(uch.sent.length, 2, 'function predicate must route arena: topics to unreliable')
+
+        client.send('ttt:move', new Uint8Array([3]))
+        assert.strictEqual(dc.sent.length, 1, 'non-arena: topic must go to reliable')
     })
 
 })

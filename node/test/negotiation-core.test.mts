@@ -145,6 +145,9 @@ class MockDataChannel implements RTCDataChannelLike {
     private _isOpen = false
     closed = false
     bufferedAmount = 0
+    readonly label: string
+
+    constructor(label = 'rivalis') { this.label = label }
 
     onMessage(_cb: (buf: Uint8Array) => void): void { /* no-op in this test */ }
     onOpen(cb: () => void): void { this._onOpen = cb }
@@ -173,8 +176,8 @@ class MockPeer implements RTCPeerLike {
     readonly localDescriptionCalls: Array<{ type: string | undefined }> = []
     closed = false
 
-    createDataChannel(_label: string, reliability: ChannelReliability): RTCDataChannelLike {
-        const dc = new MockDataChannel()
+    createDataChannel(label: string, reliability: ChannelReliability): RTCDataChannelLike {
+        const dc = new MockDataChannel(label)
         this.channels.push(dc)
         this.channelReliabilities.push(reliability)
         return dc

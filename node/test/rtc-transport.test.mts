@@ -33,8 +33,9 @@ import {
     CLOSE_CONTROL_TOPIC,
 } from '@rivalis/handshake'
 import { RTCTransport } from '../lib/main.js'
-import type { RTCAdapters } from '../lib/main.js'
+import type { RTCAdapters, RTCTransportOptions } from '../lib/main.js'
 import type { RTCPeerLike, RTCDataChannelLike } from '../lib/main.js'
+import { encode as handshakeEncode } from '@rivalis/handshake'
 
 // ---------------------------------------------------------------------------
 // Signal wire codec — same schema + major as RTCTransport's internal codec
@@ -114,6 +115,9 @@ class MockDataChannel implements RTCDataChannelLike {
     private _isOpen = true
     closed = false
     bufferedAmount = 0
+    readonly label: string
+
+    constructor(label = 'rivalis') { this.label = label }
 
     onMessage(cb: (buf: Uint8Array) => void): void { this._onMessage = cb }
     onOpen(_cb: () => void): void { /* called once before open — no-op in tests; channel already open */ }
@@ -138,8 +142,8 @@ class MockPeer implements RTCPeerLike {
     readonly remoteDescriptions: Array<{ sdp: string; type: string }> = []
     closed = false
 
-    createDataChannel(_label: string, _reliability: { ordered: boolean; maxRetransmits?: number }): RTCDataChannelLike {
-        return new MockDataChannel()
+    createDataChannel(label: string, _reliability: { ordered: boolean; maxRetransmits?: number }): RTCDataChannelLike {
+        return new MockDataChannel(label)
     }
     onDataChannel(cb: (dc: RTCDataChannelLike) => void): void { this._onDataChannel = cb }
     onStateChange(cb: (s: string) => void): void { this._onState = cb }
@@ -882,6 +886,186 @@ suite('RTCTransport — backpressure (p2p.md §7)', () => {
         layer.emitOut('message', layer.grantResult, new Uint8Array([1]))
 
         assert.ok(!called, 'hook must not be called when frame is forwarded')
+    })
+
+})
+
+// ---------------------------------------------------------------------------
+// Dual-channel unreliable routing (p2p.md §7, task 084)
+// ---------------------------------------------------------------------------
+
+function makeTransportWithUnreliable(opts: Partial<RTCTransportOptions> = {}) {
+    const signalClient = new MockSignalClient()
+    const peers: MockPeer[] = Array.from({ length: 4 }, () => new MockPeer())
+    let peerIdx = 0
+    const adapters: RTCAdapters = {
+        createPeerConnection() { return (peers[peerIdx++] ?? new MockPeer()) as RTCPeerLike },
+        createSignalingClient() { return signalClient as AnyTLayer },
+    }
+    const transport = new RTCTransport({
+        signalUrl: 'ws://signal:9000',
+        ticket: 'host-ticket',
+        adapters,
+        ...opts,
+    })
+    const layer = new MockTLayer()
+    return { transport, layer, signalClient, peers }
+}
+
+suite('RTCTransport — dual-channel unreliable routing (task 084)', () => {
+
+    test('unreliable channel (label ending :unreliable) accepted when peer opens one', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithUnreliable({
+            unreliableTopics: new Set(['arena:state']),
+        })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        const uch = new MockDataChannel('rivalis:unreliable')
+        peers[0]!.emitDataChannel(uch)
+
+        // Channel should be accepted without error and without triggering handleClose
+        assert.strictEqual(layer.closed.length, 0)
+        assert.ok(!uch.closed, 'unreliable channel must not be closed on arrival')
+    })
+
+    test('unreliable topic is sent over the unreliable channel', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithUnreliable({
+            unreliableTopics: new Set(['arena:state']),
+        })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        const uch = new MockDataChannel('rivalis:unreliable')
+        peers[0]!.emitDataChannel(uch)
+
+        // Send a frame with topic 'arena:state' (inside RTC_MAX_FRAME_BYTES)
+        const frame = handshakeEncode('arena:state', new Uint8Array([1, 2, 3]))
+        layer.emitOut('message', layer.grantResult, frame)
+
+        assert.strictEqual(uch.sent.length, 1, 'unreliable channel should receive the frame')
+        assert.strictEqual(dc.sent.length, 0, 'reliable channel should NOT receive unreliable-topic frame')
+    })
+
+    test('non-unreliable topic falls through to reliable channel', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithUnreliable({
+            unreliableTopics: new Set(['arena:state']),
+        })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        const uch = new MockDataChannel('rivalis:unreliable')
+        peers[0]!.emitDataChannel(uch)
+
+        const frame = handshakeEncode('ttt:move', new Uint8Array([7]))
+        layer.emitOut('message', layer.grantResult, frame)
+
+        assert.strictEqual(dc.sent.length, 1, 'reliable channel should receive control-topic frame')
+        assert.strictEqual(uch.sent.length, 0, 'unreliable channel should NOT receive control-topic frame')
+    })
+
+    test('unreliable channel arriving before reliable channel completes grantAccess is buffered and wired up after', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithUnreliable({
+            unreliableTopics: new Set(['arena:state']),
+        })
+        transport.onInitialize(layer as AnyTLayer)
+        signalClient.emit('signal:welcome', encodeWelcome('host-id'))
+        signalClient.emit('signal:offer', encodeOffer('host-id', 'v=0', 'peer-1'))
+
+        const dc = new MockDataChannel('rivalis')
+        const uch = new MockDataChannel('rivalis:unreliable')
+
+        // Unreliable channel arrives first, before the reliable channel's ticket handshake
+        peers[0]!.emitDataChannel(uch)
+        peers[0]!.emitDataChannel(dc)
+
+        // Now send the ticket on the reliable channel to complete grantAccess
+        dc.receive(new TextEncoder().encode('peer-ticket'))
+        await nextTick()
+
+        // After grantAccess, unreliable channel should be wired up
+        const frame = handshakeEncode('arena:state', new Uint8Array([9]))
+        layer.emitOut('message', layer.grantResult, frame)
+
+        assert.strictEqual(uch.sent.length, 1, 'unreliable channel wired after buffering should receive the frame')
+        assert.strictEqual(dc.sent.length, 0, 'reliable channel should not receive the unreliable-topic frame')
+    })
+
+    test('default (no unreliableTopics): all messages routed to reliable channel', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithUnreliable()
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        const uch = new MockDataChannel('rivalis:unreliable')
+        peers[0]!.emitDataChannel(uch)
+
+        const frame = handshakeEncode('arena:state', new Uint8Array([1]))
+        layer.emitOut('message', layer.grantResult, frame)
+
+        assert.strictEqual(dc.sent.length, 1, 'reliable channel must receive all frames when no predicate set')
+        assert.strictEqual(uch.sent.length, 0, 'unreliable channel must be idle when no predicate set')
+    })
+
+    test('triggerClose cleans up unreliable channel', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithUnreliable({
+            unreliableTopics: new Set(['arena:state']),
+        })
+        await openChannel(transport, layer, signalClient, peers)
+        const uch = new MockDataChannel('rivalis:unreliable')
+        peers[0]!.emitDataChannel(uch)
+
+        // Trigger close via PC state change
+        peers[0]!.emitState('disconnected')
+
+        // Unreliable channel should be closed by triggerClose
+        assert.ok(uch.closed, 'unreliable channel must be closed when actor closes')
+    })
+
+    test('inbound message on unreliable channel forwarded to handleMessage', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithUnreliable({
+            unreliableTopics: new Set(['arena:state']),
+        })
+        await openChannel(transport, layer, signalClient, peers)
+        const uch = new MockDataChannel('rivalis:unreliable')
+        peers[0]!.emitDataChannel(uch)
+
+        // Simulate peer sending a frame on the unreliable channel
+        const frame = handshakeEncode('input:snapshot', new Uint8Array([42]))
+        uch.receive(frame)
+        await nextTick()
+
+        assert.strictEqual(layer.handled.length, 1, 'inbound unreliable frame must reach handleMessage')
+        assert.ok(layer.handled[0]!.buf === frame)
+    })
+
+    test('unreliable frame exceeding RTC ceiling is dropped with warning, not sent', async () => {
+        const warnings: string[] = []
+        const { transport, layer, signalClient, peers } = makeTransportWithUnreliable({
+            unreliableTopics: new Set(['arena:state']),
+        })
+        // Override logger to capture warnings
+        ;(layer.logger as { warning: (s: string) => void }).warning = (s: string) => warnings.push(s)
+
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        const uch = new MockDataChannel('rivalis:unreliable')
+        peers[0]!.emitDataChannel(uch)
+
+        // Build a frame larger than 16 KiB
+        const bigPayload = new Uint8Array(17 * 1024)
+        const frame = handshakeEncode('arena:state', bigPayload)
+        layer.emitOut('message', layer.grantResult, frame)
+
+        assert.strictEqual(uch.sent.length, 0, 'oversized unreliable frame must be dropped')
+        assert.strictEqual(dc.sent.length, 0, 'must not fall through to reliable channel either')
+        assert.ok(warnings.some(w => w.includes('unreliable frame dropped')), 'warning must be logged')
+    })
+
+    test('unreliable topic predicate function form accepted', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithUnreliable({
+            unreliableTopics: (t: string) => t.startsWith('arena:'),
+        })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        const uch = new MockDataChannel('rivalis:unreliable')
+        peers[0]!.emitDataChannel(uch)
+
+        layer.emitOut('message', layer.grantResult, handshakeEncode('arena:state', new Uint8Array([1])))
+        assert.strictEqual(uch.sent.length, 1, 'predicate function must route arena: topics to unreliable')
+        assert.strictEqual(dc.sent.length, 0)
+
+        layer.emitOut('message', layer.grantResult, handshakeEncode('arena:score', new Uint8Array([2])))
+        assert.strictEqual(uch.sent.length, 2, 'second arena: topic also routes to unreliable')
     })
 
 })

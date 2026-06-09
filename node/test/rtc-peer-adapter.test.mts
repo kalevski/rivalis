@@ -38,6 +38,7 @@ class MockDataChannel {
     public _open = true
     public _closed = false
     public _bufferedAmount = 0
+    public _label = 'rivalis'
 
     onMessage(cb: (msg: Buffer | string) => void): void { this._messageHandler = cb }
     onOpen(cb: () => void): void { this._openHandler = cb }
@@ -46,6 +47,7 @@ class MockDataChannel {
     close(): void { this._closed = true; this._open = false }
     isOpen(): boolean { return this._open }
     bufferedAmount(): number { return this._bufferedAmount }
+    getLabel(): string { return this._label }
 
     emitMessage(msg: Buffer | string): void { this._messageHandler?.(msg) }
     emitOpen(): void { this._openHandler?.() }

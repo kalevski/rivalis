@@ -773,6 +773,42 @@ After the channel opens, the signaling server sees **zero** game traffic.
   accepts whatever channel the peer opens; the reliability option is enforced at the peer side.
   Optionally a `Transport` capability descriptor (`{ ordered, reliable, maxFrameBytes }`) a
   `Room` can query — deferred to a later phase.
+
+  **Implemented (task 084) — dual-channel unreliable routing.** An optional second data
+  channel (`{ ordered:false, maxRetransmits:0 }`) is opened alongside the primary reliable
+  channel when the client opts in. Channel label convention: primary channel keeps its label
+  (default `'rivalis'`); the secondary channel appends `':unreliable'` (e.g.
+  `'rivalis:unreliable'`). The two sides:
+
+  - **`RTCClient`** — `RTCClientOptions.dualChannel: boolean` (default `false`) enables the
+    second channel. `RTCClientOptions.unreliableTopics` is a `ReadonlySet<string>` or
+    `(topic: string) => boolean` predicate that selects which outbound topics are routed over
+    the unreliable channel; unmatched topics fall back to the reliable channel. When
+    `dualChannel` is `false` the client creates only the single reliable channel — no behavior
+    change. The auth ticket is only sent on the reliable channel (§4.2 protocol unchanged).
+    `PeerNegotiator` receives the unreliable channel label as a 5th constructor argument and
+    creates it with `{ ordered:false, maxRetransmits:0 }` after the primary channel is set up.
+
+  - **`RTCTransport`** — `RTCTransportOptions.unreliableTopics` is the same predicate type,
+    applied to outbound frames routed from the `TLayer`. When a peer opens a `':unreliable'`
+    channel, `RTCTransport` buffers it in `pendingUnreliableByPeer` if `grantAccess` has not
+    yet completed; after grant the channel is wired up using `wireUnreliableChannel`. Inbound
+    messages on the unreliable channel are forwarded directly to `TLayer.handleMessage` — no
+    chunk reassembly (chunk reassembly depends on ordered delivery; see below).
+
+  - **No chunking on unreliable.** Frames larger than `RTC_MAX_FRAME_BYTES` (16 KiB) are
+    **dropped with a warning** on the unreliable channel instead of being chunked. Chunk
+    reassembly relies on ordered delivery; on an unordered channel a lost intermediate chunk
+    cannot be reassembled. High-rate state snapshots (the primary use-case) are expected to be
+    well under 16 KiB.
+
+  - **Fast topic extraction.** Outbound routing reads protobuf field 1 (wire type 2, tag
+    `0x0A`) directly from the frame bytes via `extractFrameTopic()` — an O(topic-length) fast
+    path that avoids a full `handshakeDecode` call on every send.
+
+  - **Default unchanged.** `dualChannel` defaults to `false`; `unreliableTopics` defaults to
+    `undefined`. A client or transport that does not set these options behaves exactly as
+    before task 084.
 - **Frame size.** `WSTransport`'s default max payload is **64 KiB**
   (`DEFAULT_MAX_PAYLOAD = 64 * 1024`, `WSTransport.ts:52`). WebRTC data channels cap a single
   SCTP message to ~16 KiB in practice across implementations. The ceiling is enforced in two
@@ -1173,7 +1209,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 ### Phase 4 — Optional (realtime-grade + zero-native dev)
 
-- [ ] Unreliable/unordered + dual-channel for high-rate state (`arena`, `{ ordered:false, maxRetransmits:0 }`). (§7, §12)
+- [x] Unreliable/unordered + dual-channel for high-rate state (`arena`, `{ ordered:false, maxRetransmits:0 }`). (§7, §12) — task 084, 2026-06-09. `RTCClientOptions.dualChannel` + `unreliableTopics`; `RTCTransportOptions.unreliableTopics`; `':unreliable'` label suffix convention; `pendingUnreliableByPeer` buffer for timing race; no chunking on unreliable (frames >16 KiB dropped with warning); `extractFrameTopic()` fast routing; default single-channel unchanged.
 - [ ] `Transport` capability descriptor `{ ordered, reliable, maxFrameBytes }` a `Room` can query. (§7, §12)
 - [ ] Per-transport auth/rate-limit override (the deferred D9). (§3.6, §12)
 - [ ] Pure-JS STUN dev-only responder behind a flag. (§4.3, §12)
