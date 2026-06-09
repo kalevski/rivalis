@@ -1,5 +1,6 @@
 /**
  * RTC frame-size ceiling — chunk/reassemble tests (p2p.md §7, task 071).
+ * Oversized-broadcast regression (p2p.md §10, task 078).
  *
  * Covers:
  *  - Transport.maxFrameBytes returns null (base class default)
@@ -13,10 +14,13 @@
  *  - ChunkReassembler: accumulates, resets on new seq, ignores duplicates
  *  - isChunkFrame: correct prefix detection without decoding
  *  - chunkFrame: correct split and seq/total/index encoding
+ *  - Broadcast (> RTC ceiling) to multiple actors — each receives all chunk messages
+ *  - Broadcast oversized (> 255 chunks) — dropped for all actors, nothing partially sent
  */
 
 import { test, suite } from 'node:test'
 import assert from 'node:assert/strict'
+import { Transport } from '@rivalis/core'
 import {
     createCodec,
     FieldType,
@@ -327,6 +331,15 @@ async function connectClient(
 // ---------------------------------------------------------------------------
 
 suite('Transport.maxFrameBytes capability (p2p.md §7)', () => {
+
+    test('Transport base class maxFrameBytes returns null (no ceiling enforced)', () => {
+        class MinimalTransport extends Transport {
+            onInitialize(): void {}
+            get sockets(): number { return 0 }
+        }
+        const t = new MinimalTransport()
+        assert.strictEqual(t.maxFrameBytes, null)
+    })
 
     test('RTCTransport.maxFrameBytes returns RTC_MAX_FRAME_BYTES (16 KiB)', () => {
         const signalClient = new MockSignalClient()
@@ -768,6 +781,151 @@ suite('RTCClient.send() — outbound chunking (p2p.md §7)', () => {
         const { topic, payload } = handshakeDecode(reassembled)
         assert.strictEqual(topic, 'peer:upload')
         assert.deepStrictEqual(payload, largePayload)
+    })
+
+})
+
+// ---------------------------------------------------------------------------
+// Oversized-broadcast regression (p2p.md §10, task 078)
+//
+// When Room.broadcast() produces a frame > RTC_MAX_FRAME_BYTES the transport
+// MUST chunk it for every connected actor — not silently drop it and not send
+// a partial stream to any actor.  When the frame cannot be chunked at all
+// (> 255 chunks, ~4 MiB) the transport MUST log a warning and drop the entire
+// frame for every actor — never a partially-sent sequence of chunks.
+// ---------------------------------------------------------------------------
+
+/**
+ * Open a second actor on an already-initialised transport.
+ * The first openChannel() call has already called onInitialize + welcome;
+ * we only need to trigger a new signal:offer so the HostNegotiator creates
+ * a fresh RTCPeerConnection (peers[peerIndex]) and then open the data channel.
+ */
+async function openSecondChannel(
+    layer: MockTLayer,
+    signalClient: MockSignalClient,
+    peers: MockPeer[],
+    peerIndex: number,
+    opts: { peerId?: string; hostId?: string; actorId?: string; ticket?: string } = {},
+): Promise<MockDataChannel> {
+    const peerId  = opts.peerId  ?? 'peer-2'
+    const hostId  = opts.hostId  ?? 'host-id'
+    const ticket  = opts.ticket  ?? 'peer-game-ticket-2'
+
+    layer.grantResult = opts.actorId ?? 'actor-2'
+    signalClient.emit('signal:offer', encodeOffer(hostId, 'v=0\r\n', peerId))
+    const dc = new MockDataChannel()
+    peers[peerIndex]!.emitDataChannel(dc)
+    dc.receive(new TextEncoder().encode(ticket))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    return dc
+}
+
+suite('RTCTransport — oversized broadcast (p2p.md §10)', () => {
+
+    test('broadcast (> RTC ceiling) to two actors — each receives all chunk messages', async () => {
+        const { transport, layer, signalClient, peers } = makeTransport()
+        layer.grantResult = 'actor-1'
+        const dc1 = await openChannel(transport, layer, signalClient, peers, { peerId: 'peer-1' })
+        const dc2 = await openSecondChannel(layer, signalClient, peers, 1, { peerId: 'peer-2', actorId: 'actor-2' })
+
+        const largePayload = new Uint8Array(RTC_MAX_FRAME_BYTES * 2).fill(0xAB)
+        const largeFrame = handshakeEncode('arena:snapshot', largePayload)
+        assert.ok(largeFrame.byteLength > RTC_MAX_FRAME_BYTES, 'pre-condition: frame must exceed RTC ceiling')
+
+        // Simulate Room.broadcast() — TLayer delivers the same frame to every actor.
+        layer.emitOut('message', 'actor-1', largeFrame)
+        layer.emitOut('message', 'actor-2', largeFrame)
+
+        assert.ok(dc1.sent.length > 1, 'actor-1 must receive more than one chunk message')
+        assert.ok(dc2.sent.length > 1, 'actor-2 must receive more than one chunk message')
+
+        for (const chunk of dc1.sent) {
+            assert.ok(chunk.byteLength <= RTC_MAX_FRAME_BYTES,
+                `actor-1 chunk size ${chunk.byteLength} exceeds RTC ceiling`)
+            assert.ok(isChunkFrame(chunk), 'every actor-1 message must be a chunk frame')
+        }
+        for (const chunk of dc2.sent) {
+            assert.ok(chunk.byteLength <= RTC_MAX_FRAME_BYTES,
+                `actor-2 chunk size ${chunk.byteLength} exceeds RTC ceiling`)
+            assert.ok(isChunkFrame(chunk), 'every actor-2 message must be a chunk frame')
+        }
+    })
+
+    test('broadcast chunks to two actors reassemble independently to the original frame', async () => {
+        const { transport, layer, signalClient, peers } = makeTransport()
+        layer.grantResult = 'actor-1'
+        const dc1 = await openChannel(transport, layer, signalClient, peers, { peerId: 'peer-1' })
+        const dc2 = await openSecondChannel(layer, signalClient, peers, 1, { peerId: 'peer-2', actorId: 'actor-2' })
+
+        const originalPayload = new Uint8Array(CHUNK_DATA_BYTES * 2 + 200)
+        for (let i = 0; i < originalPayload.length; i++) originalPayload[i] = i & 0xFF
+        const originalFrame = handshakeEncode('game:state', originalPayload)
+
+        layer.emitOut('message', 'actor-1', originalFrame)
+        layer.emitOut('message', 'actor-2', originalFrame)
+
+        // Reassemble what actor-1 received
+        const r1 = new ChunkReassembler()
+        let result1: Uint8Array | null = null
+        for (const chunk of dc1.sent) {
+            const { payload } = handshakeDecode(chunk)
+            const parsed = decodeChunkPayload(payload)!
+            result1 = r1.feed(parsed.seq, parsed.total, parsed.index, parsed.data)
+        }
+        assert.ok(result1 !== null, 'actor-1 chunks must fully reassemble')
+        assert.deepStrictEqual(result1, originalFrame, 'actor-1 reassembled frame must equal the original')
+
+        // Reassemble what actor-2 received
+        const r2 = new ChunkReassembler()
+        let result2: Uint8Array | null = null
+        for (const chunk of dc2.sent) {
+            const { payload } = handshakeDecode(chunk)
+            const parsed = decodeChunkPayload(payload)!
+            result2 = r2.feed(parsed.seq, parsed.total, parsed.index, parsed.data)
+        }
+        assert.ok(result2 !== null, 'actor-2 chunks must fully reassemble')
+        assert.deepStrictEqual(result2, originalFrame, 'actor-2 reassembled frame must equal the original')
+    })
+
+    test('broadcast oversized (> 255 chunks) — warning logged, nothing sent to any actor', async () => {
+        const { transport, layer, signalClient, peers } = makeTransport()
+        layer.grantResult = 'actor-1'
+        const dc1 = await openChannel(transport, layer, signalClient, peers, { peerId: 'peer-1' })
+        const dc2 = await openSecondChannel(layer, signalClient, peers, 1, { peerId: 'peer-2', actorId: 'actor-2' })
+
+        // CHUNK_DATA_BYTES * 256 + 1 requires 257 chunks — exceeds the 255 limit.
+        const giantPayload = new Uint8Array(CHUNK_DATA_BYTES * 256 + 1)
+        const giantFrame = handshakeEncode('huge:blob', giantPayload)
+
+        // Simulate broadcast delivering the giant frame to both actors.
+        layer.emitOut('message', 'actor-1', giantFrame)
+        layer.emitOut('message', 'actor-2', giantFrame)
+
+        assert.strictEqual(dc1.sent.length, 0,
+            'actor-1 must receive nothing when the frame is too large to chunk')
+        assert.strictEqual(dc2.sent.length, 0,
+            'actor-2 must receive nothing when the frame is too large to chunk')
+
+        const warnings = layer.warningLogs.filter(m => m.includes('too large'))
+        assert.ok(warnings.length >= 2,
+            'a warning must be logged for each actor whose frame could not be chunked')
+    })
+
+    test('broadcast oversized frame — never partially sent (no chunks before the drop)', async () => {
+        const { transport, layer, signalClient, peers } = makeTransport()
+        layer.grantResult = 'actor-1'
+        const dc1 = await openChannel(transport, layer, signalClient, peers, { peerId: 'peer-1' })
+
+        const giantPayload = new Uint8Array(CHUNK_DATA_BYTES * 256 + 1)
+        const giantFrame = handshakeEncode('huge:blob', giantPayload)
+
+        layer.emitOut('message', 'actor-1', giantFrame)
+
+        // The transport must not send even a single byte — a partial chunk stream
+        // would leave the reassembler in a broken state on the other end.
+        assert.strictEqual(dc1.sent.length, 0,
+            'no partial chunk sequence must be sent when the frame exceeds the 255-chunk limit')
     })
 
 })
