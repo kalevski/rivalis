@@ -948,7 +948,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [ ] New entry `core/src/transports/ws.ts` exporting `WSTransport` + option types (`WSTransportOptions, AllowedOrigins, TicketSource, BackpressureDropFn`). (§3.3)
 - [x] New entry `core/src/clients/ws.ts` exporting node `WSClient` + option types. (§3.3)
 - [x] Rewrite `core/package.json` `exports` map: `.` (kernel) + `./transports/ws` + `./clients/ws`, each dual types/import/require. (§3.3)
-- [ ] `core/tsup.config.ts`: 3 entry pairs; kernel `platform:'neutral'`, ws entries `platform:'node'`; keep `@toolcase/*`, `@rivalis/handshake`, `ws` external. (§3.3, §9)
+- [x] `core/tsup.config.ts`: 3 entry pairs; kernel `platform:'neutral'`, ws entries `platform:'node'`; keep `@toolcase/*`, `@rivalis/handshake`, `ws` external. (§3.3, §9)
 - [x] Back-compat shim decision per D1: **no shim** — remove `Transports`/`Clients` namespace objects from `main.ts`; document `7.0.0` migration in `core/CHANGELOG.md`. (§3.3, §13.1)
 
 **F5 / §3.3a / §3.5 — Kernel ESM safety (lazy serializer)**

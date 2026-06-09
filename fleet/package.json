@@ -33,7 +33,7 @@
         "redis": "^5.12.1"
     },
     "peerDependencies": {
-        "@rivalis/core": ">=6.1.0 <7",
+        "@rivalis/core": ">=7 <8",
         "@toolcase/base": "3.x",
         "@toolcase/logging": "3.x",
         "ws": "8.x"

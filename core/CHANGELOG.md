@@ -1,6 +1,6 @@
 # Changelog — @rivalis/core
 
-## [7.0.0] — upcoming
+## [7.0.0] — 2026-06-09
 
 ### Breaking changes
 
@@ -166,7 +166,7 @@ range to `>=7 <8`.
 
 ---
 
-## [6.1.0] — current
+## [6.1.0] — previous
 
 Existing `@rivalis/core` release. Node-only; single `"."` export entry bundles
 `WSTransport` and node `WSClient` alongside the isomorphic kernel.

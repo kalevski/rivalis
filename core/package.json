@@ -1,8 +1,7 @@
 {
     "name": "@rivalis/core",
-    "version": "6.1.0",
-    "nextVersion": "7.0.0",
-    "description": "NodeJS framework for building real-time applications",
+    "version": "7.0.0",
+    "description": "Isomorphic real-time framework for building multiplayer applications",
     "source": "src/main.ts",
     "main": "lib/main.js",
     "module": "lib/module.js",
