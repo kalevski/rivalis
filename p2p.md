@@ -1260,5 +1260,5 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] `AuthMiddleware.authenticate` constant-time ticket compare — `timingSafeCompare(a, b)` exported from `@rivalis/core`; pure-JS XOR over UTF-8 bytes, always iterates `b.length` times, length mismatch encoded in accumulator; tests in `core/test/auth-timing-safe.test.mts`; task 089, 2026-06-09. (§8)
 - [x] Confirm DTLS-by-default encryption documented (no extra work). (§8) — `node/README.md` §Security; §8 already states "DTLS-encrypted by default — no extra work"; task 090, 2026-06-09.
 - [ ] Liveness parity doc: WS heartbeat vs RTC `onconnectionstatechange`→`handleClose`. (§7)
-- [ ] Game-traffic rate-limiting auto-applies to RTC via `TLayer.handleMessage` — verify, no transport work. (§8)
+- [x] Game-traffic rate-limiting auto-applies to RTC via `TLayer.handleMessage` — verify, no transport work. (§8) — `core/test/rtc-rate-limit.test.mts`: AC1 drives an RTC stub peer past the per-message limit, asserts kick with `RATE_LIMITED`; AC2 logs `checkCalls` to confirm the limiter runs inside `handleMessage` on every frame; AC3 covers per-transport override; AC4 confirms `StubTransport` (RTC stand-in) requires zero transport-specific rate-limit code; task 092, 2026-06-09.
 - [ ] Game logic (`Room`/`Actor`): **zero changes** — assert across all phases. (§5, §11)
