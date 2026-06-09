@@ -866,10 +866,33 @@ After the channel opens, the signaling server sees **zero** game traffic.
   `maxBufferedBytes` (default 1 MiB) and `onBackpressureDrop` as `WSTransportOptions`.
   `RTCDataChannelLike.bufferedAmount` is exposed as a getter so the adapter interface tracks the
   transport-native queue depth without transport-specific code escaping the helper.
-- **Liveness** is per-transport. WS uses a ping/pong heartbeat (default 30 s interval,
-  2-miss threshold → `socket.terminate()`, `WSTransport.ts:134-141,runHeartbeat`). RTC relies
-  on `pc.onconnectionstatechange` (ICE/DTLS consent freshness) → `handleClose` on
-  `disconnected`/`failed`/`closed`. Document the parallel; no shared timer needed.
+- **Liveness** is per-transport; each transport detects dead connections through a different
+  mechanism that suits its underlying protocol.
+
+  | | WS (`WSTransport`) | RTC (`RTCTransport`) |
+  |---|---|---|
+  | **Mechanism** | Application-level ping/pong heartbeat | WebRTC ICE consent freshness (RFC 7675) |
+  | **Initiator** | `setInterval` at `intervalMs` (default 30 s) | WebRTC stack — no application code |
+  | **Detection** | `missedPings ≥ missThreshold` (default 2 misses) | `connectionState` → `disconnected` / `failed` / `closed` |
+  | **Action** | `socket.terminate()` | `onPeerStateChange` → `triggerClose` → `layer.handleClose` |
+  | **Approx. latency** | `missThreshold × intervalMs` ≈ 60 s default | Stack-defined, typically 5–30 s after loss |
+  | **Code** | `WSTransport.ts:139-146` (setup), `WSTransport.ts:314-333` (`runHeartbeat`) | `RTCTransport.ts:511-518` (`onPeerStateChange`), `RTCPeer.ts:274-279` (`onStateChange`) |
+
+  **Why no shared timer:** WebSocket has no built-in liveness probe — the application must
+  periodically ping to discover a silently-dead connection. WebRTC data channels are backed
+  by ICE/DTLS, which validates peer reachability continuously via STUN consent-freshness
+  requests (RFC 7675); the stack surfaces failure through `RTCPeerConnection.connectionState`
+  transitions without any application-level polling. An extra application heartbeat on top
+  of RTC would be redundant. Introducing a shared timer would also push WS-specific
+  scheduling decisions into transport-agnostic framework code — each transport is
+  responsible for its own liveness, exactly as it is responsible for its own framing and
+  backpressure.
+
+  **Configuring the WS heartbeat:** `WSTransportOptions.heartbeat` accepts `false` to
+  disable entirely, or `{ intervalMs?, missThreshold? }` to tune. Pass `heartbeat: false`
+  when an upstream reverse proxy (nginx, AWS ALB) already manages pings. There is no
+  analogous option on `RTCTransport`; the WebRTC stack's consent-freshness schedule is not
+  exposed at this layer.
 
 ---
 
