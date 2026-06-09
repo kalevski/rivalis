@@ -962,7 +962,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 **§3.4 — Transport-agnostic close/kick control frames**
 - [x] Reserve control topic `__rivalis:close` in `handshake` carrying encoded `{ code, reason }`; honor existing `__` reserved-prefix guard. (§3.4) — `CLOSE_CONTROL_TOPIC`, `encodeCloseFrame`, `decodeCloseFrame` in `handshake/src/closeFrame.ts`; exported from `handshake/src/main.ts`; tests in `handshake/test/closeFrame.test.mts`.
 - [x] Preserve 123-byte reason ceiling (`MAX_CLOSE_REASON_BYTES`) in the convention. (§3.4) — enforced in `encodeCloseFrame` via UTF-8 boundary-safe truncation; `MAX_CLOSE_REASON_BYTES = 123` exported.
-- [ ] `WSTransport` unchanged (keeps native close frames). (§3.4)
+- [x] `WSTransport` unchanged (keeps native close frames). (§3.4) — verified 2026-06-09; test in `core/test/wstransport-native-close-parity.test.mts`.
 - [ ] Client-side decode of `__rivalis:close` → `client:kicked { code, reason }`; reuse `NO_RECONNECT_CODES = {4001,4003,4004}` gate. (§3.4)
 
 **F8 / §3.7 — `Room.getActor(id)`**
