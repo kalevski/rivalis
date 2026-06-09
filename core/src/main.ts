@@ -8,6 +8,7 @@ import KickReason from './KickReason'
 import Room from './Room'
 import Actor from './Actor'
 import Transport from './Transport'
+import Client from './Client'
 import CustomLoggerFactory from './CustomLoggerFactory'
 
 import WSTransport from './transports/WSTransport'
@@ -37,6 +38,7 @@ export type {
 } from './transports/WSTransport'
 export type { WSClientOptions, WSClientTicketSource, ClientEventListener } from './clients/WSClient'
 export type { Message } from '@rivalis/handshake'
+export type { ClientEvent, ClientKickedEvent } from './Client'
 
 export {
     Rivalis,
@@ -52,5 +54,6 @@ export {
     ConnectionLimiter,
     Room,
     Actor,
-    Transport
+    Transport,
+    Client
 }
