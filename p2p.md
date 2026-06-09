@@ -1139,7 +1139,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [ ] Frame-size handling: chunk/reassemble large frames or expose `maxFrameBytes` capability so a `Room` can split (arena snapshot offender); **log** drop/chunk, never silent truncate. RTC ceiling ~16 KiB vs WS 64 KiB. (§7)
 - [ ] Backpressure shared helper: factor drop-or-escalate (`bufferedAmount` + threshold) used by both transports; identical `onBackpressureDrop` hook signature. (§7)
 - [ ] Reliability option: per-channel `{ ordered }` on `RTCClient`/`RTCTransport`; phase-2 single reliable channel for parity. (§7)
-- [ ] coturn integration docs. (§4.3, §13.6)
+- [x] coturn integration docs. (§4.3, §13.6) — browser peer guidance in `signal/README.md`: automatic ICE server delivery via `signal:welcome`, `wss://` + `turns:` production requirements, `adapters.createPeerConnection` override for forced-relay testing; cross-linked to `coturn/turnserver.conf` provisioning template (Phase 1, task 057); task 074, 2026-06-09.
 - [ ] `demo/src/p2p/`: unchanged `TttRoom` + Node host w/ `RTCTransport` + existing React client on `RTCClient` (parallels `demo/src/fleet/`). (§11)
 - [ ] Playwright/headless-Chromium two-tab test vs Node host (play move, both boards update). (§10)
 - [ ] NAT/TURN CI-optional: coturn container forcing `iceTransportPolicy:'relay'`. (§10)

@@ -320,6 +320,66 @@ services:
 > from `min-port`–`max-port`. Port mapping every relay port individually is impractical;
 > host networking is the standard approach for containerised coturn.
 
+### Browser peers and TURN
+
+When a browser `RTCClient` connects to `@rivalis/signal`, the `signal:welcome`
+message includes `iceServers` — a JSON array of `RTCIceServer` objects with short-lived
+TURN credentials minted by `IceConfig`. `RTCClient` passes this array to
+`RTCPeerConnection` automatically. **No browser-side configuration is needed to enable
+TURN** — provision coturn and set the environment variables above, and browser peers
+will traverse NAT via the relay without any extra client code.
+
+```ts
+import { RTCClient } from '@rivalis/browser'
+
+// ICE servers (including TURN creds) are delivered in signal:welcome — nothing else needed.
+const client = new RTCClient('wss://signal.example.com:9000')
+client.connect(ticket)   // ticket = '<roomId>:<secret>'
+client.on('client:connect', () => console.log('P2P connected (direct or via TURN)'))
+client.on('ttt:state', (payload) => render(decode(payload)))
+client.send('place', encode({ index: 4 }))
+```
+
+#### Production requirements for browser peers
+
+- **`wss://` for the signal URL.** Browsers block `ws://` connections from HTTPS pages.
+  Deploy `@rivalis/signal` behind TLS and use `wss://` in the `RTCClient` constructor.
+- **`turns:` alongside `turn:`.** Set both schemes in `ICE_TURN_URLS`. The `turns:` URL
+  works through HTTPS proxies and corporate firewalls where plain UDP/TCP TURN is blocked;
+  `turn:` is the direct fallback for less-restrictive networks:
+
+  ```sh
+  ICE_TURN_URLS=turn:turn.example.com:3478,turns:turn.example.com:5349
+  ```
+
+  See [TLS (TURNS)](#tls-turns) above for the coturn certificate setup.
+
+#### Forced-relay testing for browsers
+
+To verify that the TURN relay is reachable and credentials are correct, pass an `adapters`
+override that sets `iceTransportPolicy: 'relay'`. This forces the browser to ignore direct
+and STUN paths and connect only through the relay — if the channel opens, coturn is wired correctly.
+
+```ts
+import { RTCClient } from '@rivalis/browser'
+
+const client = new RTCClient('wss://signal.example.com:9000', {
+    adapters: {
+        createPeerConnection: (config) =>
+            new RTCPeerConnection({ ...config, iceTransportPolicy: 'relay' }),
+    },
+})
+client.connect(ticket)
+```
+
+Revert the `adapters` override for production — `iceTransportPolicy` defaults to `'all'`
+(use direct/STUN first, fall back to TURN only when needed).
+
+> Provision coturn and configure `ICE_TURN_URLS` / `ICE_TURN_SECRET` first — see
+> [Install coturn](#install-coturn) and [Configure coturn](#configure-coturn) above.
+> The template at [`coturn/turnserver.conf`](coturn/turnserver.conf) documents all
+> required settings.
+
 ### CI / forced-relay testing
 
 To verify TURN relay end-to-end in CI, run a coturn container with `iceTransportPolicy:'relay'`
