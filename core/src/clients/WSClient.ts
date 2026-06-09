@@ -1,7 +1,7 @@
-import { Broadcast } from '@toolcase/base'
 import { WebSocket } from 'ws'
 import CustomLoggerFactory from '../CustomLoggerFactory'
 import { decode, encode } from '@rivalis/handshake'
+import Client, { ClientKickedEvent } from '../Client'
 
 const EMPTY_PAYLOAD = new Uint8Array()
 
@@ -34,7 +34,16 @@ export type WSClientOptions = {
     subprotocols?: string[]
 }
 
-class WSClient extends Broadcast {
+/**
+ * Node WebSocket client. Emits the full `Client` event taxonomy:
+ * `client:connect`, `client:disconnect`, `client:kicked`, and `client:error`.
+ *
+ * **Reconnect** is intentionally NOT built in — it is layered by the caller
+ * (e.g. `FleetAgent` drives its own exponential-backoff loop via
+ * `AgentInternals.createClient`). This keeps the transport primitive simple
+ * and lets the caller own retry policy, token refresh, and state transitions.
+ */
+class WSClient extends Client {
 
     private baseURL: string
 
@@ -160,9 +169,17 @@ class WSClient extends Broadcast {
         this.emit('client:error', error)
     }
 
-    private onClose(_code: number, reason: Uint8Array): void {
+    private onClose(code: number, reason: Uint8Array): void {
         const ws = this.ws
         this.ws = null
+
+        // Server-initiated app-level closes carry a 4xxx code — surface them as
+        // a typed event, mirroring browser WSClient.ts:282-284.
+        if (code >= 4000 && code < 5000) {
+            const reasonStr = Buffer.isBuffer(reason) ? reason.toString('utf-8') : new TextDecoder().decode(reason)
+            this.emit('client:kicked', { code, reason: reasonStr } satisfies ClientKickedEvent)
+        }
+
         this.emit('client:disconnect', reason)
         ws?.removeAllListeners()
     }

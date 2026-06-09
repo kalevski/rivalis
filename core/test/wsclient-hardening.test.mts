@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
 
-import { Rivalis, Room, AuthMiddleware, Transports, Clients } from '../lib/main.js'
+import { Rivalis, Room, AuthMiddleware, Transports, Clients, CloseCode } from '../lib/main.js'
 
 const { WSTransport } = Transports
 const { WSClient } = Clients
@@ -197,6 +197,33 @@ test('subprotocols are offered alongside the ticket, with the ticket first', asy
     assert.equal(closed, false, 'a valid ticket-first offer is not closed by the server')
     const ws = (client as unknown as { ws: { protocol: string } }).ws
     assert.equal(ws.protocol, SENTINEL, 'server echoed the appended sentinel → the client offered it')
+
+    client.disconnect()
+    await rivalis.shutdown()
+})
+
+// ---- AC5: client:kicked fires for 4xxx close codes -------------------------
+
+test('client:kicked is emitted with code and reason when server closes with 4xxx', async () => {
+    const port = await getFreePort()
+    const rivalis = new Rivalis({
+        transports: [new WSTransport({ port }, null, { ticketSource: 'protocol' })],
+        authMiddleware: new ProtocolAuth()
+    })
+    rivalis.rooms.define('test', TestRoom)
+    rivalis.rooms.create('test', 'room-1')
+
+    // An invalid ticket causes the server to close with CloseCode.INVALID_TICKET (4001).
+    const client = new WSClient(`ws://127.0.0.1:${port}`, { ticketSource: 'protocol' })
+    client.on('client:error', () => {})
+    client.on('client:disconnect', () => {})
+
+    const kicked = waitForEvent(client, 'client:kicked', 3000)
+    client.connect('bad-ticket')
+    const [info] = await kicked as [{ code: number; reason: string }]
+
+    assert.equal(info.code, CloseCode.INVALID_TICKET, 'kicked event carries the 4xxx close code')
+    assert.equal(typeof info.reason, 'string', 'kicked event reason is a decoded string')
 
     client.disconnect()
     await rivalis.shutdown()
