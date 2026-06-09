@@ -254,12 +254,13 @@ the kernel's ESM entry is Node-safe, or **(b)** accept that the default ESM kern
 bundler-only and Node servers import via CJS / a node subpath. Recommendation: **(a)** — it
 is the same fix fleet already wrote, and it makes the kernel genuinely universal.
 
-**Back-compat shim:** keep a thin `Transports = { WSTransport }` / `Clients = { WSClient }`
-in `main.ts` for one major **only if** it can be done without statically importing the node
-files — i.e. a lazy getter that `require`s `./transports/ws` on first access. If that
-re-pollutes the browser bundle (it likely does, since the getter would be reachable from the
-neutral entry), drop the shim and document the new import in the `7.0.0` changelog:
-`import { WSTransport } from '@rivalis/core/transports/ws'`.
+**Back-compat shim: none (D1 — decided 2026-06-09).** The lazy-getter approach was ruled out:
+any getter reachable from the neutral kernel entry is reachable by browser bundlers, which
+would drag `ws` / `node:crypto` back in — the exact pollution the split eliminates. The
+`Transports` / `Clients` namespace objects are removed from `main.ts` in `7.0.0`. Callers
+migrate to `import { WSTransport } from '@rivalis/core/transports/ws'` (server) and
+`import { WSClient } from '@rivalis/core/clients/ws'` (node client). See
+`core/CHANGELOG.md` for the full migration guide.
 
 > This single restructure is what makes browser-as-host (phase 3) **fall out for free**
 > instead of needing a bespoke `core/runtime.ts`. The runtime split *is* the default entry
@@ -632,7 +633,7 @@ major if the boundary proves confusing.
 **Migration cost is bounded and mechanical:**
 - `demo/src/server/index.ts`, `fleet/src/orchestrator/transport.ts` change
   `Transports.WSTransport` → `import { WSTransport } from '@rivalis/core/transports/ws'`
-  (or keep the lazy shim).
+  (D1 locked: no lazy shim — direct subpath import only).
 - `demo/src/client/useRoom.ts` types its state against `Client` instead of `WSClient`
   (`useState<Client | null>`) — no behavior change.
 - `fleet`'s `FleetTransportClient` interface + the cast in `defaultCreateClient` collapse to
@@ -827,10 +828,11 @@ without touching the game-logic API.
 
 ## 13. Decisions needed before coding
 
-1. **Core split breaking-ness (§3.3):** ship the isomorphic-entry + node-subpath split as a
-   **major (`7.0.0`)** (clean, `@rivalis/core/transports/ws` import) vs. a lazy-`require`
-   shim that keeps `Transports.WSTransport` working at the cost of complexity. *Recommend the
-   major* — the shim risks re-polluting the browser bundle.
+1. **Core split breaking-ness (§3.3):** ✅ **Decided 2026-06-09 — `7.0.0` major.**
+   Ship as a clean major with `@rivalis/core/transports/ws` subpath imports. The lazy-`require`
+   shim is dropped: a getter reachable from the neutral kernel entry would carry `ws` /
+   `node:crypto` back into browser bundles, defeating the purpose of the split. Migration is a
+   one-line import change per affected site (see `core/CHANGELOG.md` for the full migration guide).
 2. **Kernel ESM safety (§3.3a):** convert `handshake`'s top-level serializer import to the
    lazy loader so `import '@rivalis/core'` works under plain Node ESM (recommended) vs.
    accept bundler-/CJS-only for the ESM entry. *Recommend convert* — same fix fleet already
@@ -872,7 +874,7 @@ cites the section/finding it implements. Order within a phase is dependency-sort
 
 These gate Phase 0; resolve all ten, record the chosen values in the changelog/ADR.
 
-- [ ] **D1** Core split breaking-ness: confirm `7.0.0` major with `@rivalis/core/transports/ws` import (vs lazy shim). (§3.3, §13.1)
+- [x] **D1** Core split breaking-ness: `7.0.0` major confirmed — `@rivalis/core/transports/ws` import, no lazy shim. (§3.3, §13.1) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
 - [ ] **D2** Kernel ESM safety: confirm converting `handshake`'s serializer import to the lazy loader. (§3.3a, §13.2)
 - [ ] **D3** `Client` base location: confirm `@rivalis/core` kernel (vs `@rivalis/handshake`). (§3.2, §13.3)
 - [ ] **D4** Node WebRTC lib: confirm `node-datachannel` default, `werift` dev fallback. (§4.5, §13.4)
@@ -911,7 +913,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [ ] New entry `core/src/clients/ws.ts` exporting node `WSClient` + option types. (§3.3)
 - [ ] Rewrite `core/package.json` `exports` map: `.` (kernel) + `./transports/ws` + `./clients/ws`, each dual types/import/require. (§3.3)
 - [ ] `core/tsup.config.ts`: 3 entry pairs; kernel `platform:'neutral'`, ws entries `platform:'node'`; keep `@toolcase/*`, `@rivalis/handshake`, `ws` external. (§3.3, §9)
-- [ ] Decide back-compat shim per D1: lazy-getter `Transports`/`Clients` only if it doesn't re-pollute neutral bundle, else drop + document new import in `7.0.0` changelog. (§3.3, §13.1)
+- [x] Back-compat shim decision per D1: **no shim** — remove `Transports`/`Clients` namespace objects from `main.ts`; document `7.0.0` migration in `core/CHANGELOG.md`. (§3.3, §13.1)
 
 **F5 / §3.3a / §3.5 — Kernel ESM safety (lazy serializer)**
 - [ ] Convert `handshake/src/serializer.ts:1` top-level serializer import → lazy `createRequire(import.meta.url) ?? require` loader. (§3.3a, §3.5, §9)
