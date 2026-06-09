@@ -1,6 +1,6 @@
 import { defineConfig } from 'tsup'
 
-const external = ['ws', '@toolcase/base', '@toolcase/logging', '@toolcase/serializer']
+const external = ['ws', '@rivalis/handshake', '@toolcase/base', '@toolcase/logging', '@toolcase/serializer']
 
 export default defineConfig([
     {
