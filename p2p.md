@@ -861,7 +861,13 @@ without touching the game-logic API.
    process — its authority model is equivalent to the existing WS server, so game logic requires
    zero changes; browser-host trust caveats (§8) are real and belong in a later, deliberately
    scoped phase. See `node/CHANGELOG.md` D5 for the full decision record.
-6. **TURN relay:** integrate coturn (recommended) vs pure-JS TURN (dev-only fallback).
+6. **TURN relay:** ✅ **Decided 2026-06-09 — coturn sidecar confirmed.**
+   Production TURN relay is coturn as a sidecar (never reimplemented in JS). A pure-JS STUN
+   responder is available dev-only behind `RIVALIS_STUN_DEV=true` (Phase 4). IceConfig mints
+   HMAC-SHA1 ephemeral creds (`username = <unixExpiry>:<peerId>`, `credential =
+   base64(HMAC_SHA1(secret, username))`) — coturn's `static-auth-secret` REST scheme validates
+   them natively. The shared secret never leaves the server. Full rationale in
+   `signal/CHANGELOG.md` D6.
 7. **Shared codec toolkit home (§3.5):** fold into `@rivalis/handshake` (recommended) vs new
    `@rivalis/wire` package.
 8. **`Room.getActor` visibility (§3.7):** `protected` (recommended — signaling subclass uses
@@ -898,7 +904,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] **D3** `Client` base location: `@rivalis/core` kernel confirmed — `core/src/Client.ts`, exported from `'@rivalis/core'`. (§3.2, §13.3) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
 - [x] **D4** Node WebRTC lib: `node-datachannel` default, `werift` dev/CI fallback (`RIVALIS_WEBRTC_BACKEND=werift`). (§4.5, §13.4) — decided 2026-06-09; rationale in `node/CHANGELOG.md`.
 - [x] **D5** v1 host location: Node-host-first confirmed — browser-as-host deferred to Phase 3. (§13.5) — decided 2026-06-09; rationale in `node/CHANGELOG.md`.
-- [ ] **D6** TURN relay: confirm coturn sidecar (pure-JS STUN dev-only). (§4.3, §13.6)
+- [x] **D6** TURN relay: coturn sidecar confirmed; pure-JS STUN dev-only behind `RIVALIS_STUN_DEV=true`; no JS production TURN. (§4.3, §13.6) — decided 2026-06-09; rationale in `signal/CHANGELOG.md`.
 - [ ] **D7** Shared codec toolkit home: confirm fold into `@rivalis/handshake` (vs new `@rivalis/wire`). (§3.5, §13.7)
 - [ ] **D8** `Room.getActor` visibility: confirm `protected` (vs `public`). (§3.7, §13.8)
 - [ ] **D9** Per-transport auth/rate-limit override: confirm **defer**. (§3.6, §13.9)
