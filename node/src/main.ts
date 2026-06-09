@@ -9,3 +9,6 @@ export { default as SignalClient } from './SignalClient'
 
 export type { RTCTransportOptions } from './RTCTransport'
 export { default as RTCTransport } from './RTCTransport'
+
+export type { RTCClientOptions, RTCClientReconnectOptions, GetTicketFn } from './RTCClient'
+export { default as RTCClient } from './RTCClient'
