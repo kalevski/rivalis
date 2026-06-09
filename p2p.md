@@ -1150,7 +1150,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 ### Phase 3 — Browser-as-host (serverless P2P)
 
-- [ ] Browser `RTCTransport` reusing §4.5 negotiation core w/ native adapters (free of bespoke runtime build thanks to §3.3). (§12 phase 3)
+- [x] Browser `RTCTransport` reusing §4.5 negotiation core w/ native adapters (free of bespoke runtime build thanks to §3.3). (§12 phase 3) — `browser/src/RTCTransport.ts`; extends `Transport` from the isomorphic core kernel; signaling leg uses browser `WSClient` (ticketSource='protocol'); `HostNegotiator` from `browser/src/peer/NegotiationCore.ts` drives offer/answer/ICE with native `RTCPeerConnection`; chunk/reassemble (p2p.md §7) ported to `browser/src/peer/RtcFrameChunker.ts`; `bufferedAmount` added to `RTCDataChannelLike` in `browser/src/peer/RTCPeer.ts`; backpressure via `checkBackpressure` from `@rivalis/core`; §3.4 control-frame kick; double-close guard; `dispose` cleanly closes all channels; exported from `browser/src/main.ts`; task 081, 2026-06-09.
 - [ ] Host election leveraging `SignalRoom` `hostId`/`host_gone`. (§4.3, §12)
 - [ ] Optional `Room.serialize()/hydrate()` for host-handoff state transfer. (§12 phase 3)
 
