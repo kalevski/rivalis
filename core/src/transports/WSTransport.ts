@@ -70,6 +70,8 @@ class WSTransport extends Transport {
 
     private maxBufferedBytes: number = 1024 * 1024
 
+    private resolvedMaxPayload: number = DEFAULT_MAX_PAYLOAD
+
     private allowedOrigins: ((origin: string | undefined) => boolean) | null = null
 
     private connectionLimiter: ConnectionLimiter | null = null
@@ -89,6 +91,7 @@ class WSTransport extends Transport {
         const resolvedMaxPayload = transportOptions.maxPayload
             ?? options.maxPayload
             ?? DEFAULT_MAX_PAYLOAD
+        this.resolvedMaxPayload = resolvedMaxPayload
 
         const serverOptions: ServerOptions = {
             ...options,
@@ -154,6 +157,10 @@ class WSTransport extends Transport {
 
     override get sockets(): number {
         return this.ws !== null ? this.ws.clients.size : 0
+    }
+
+    override get maxFrameBytes(): number {
+        return this.resolvedMaxPayload
     }
 
     private handleReject = (socket: WebSocket, _request: IncomingMessage): void => {

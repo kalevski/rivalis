@@ -751,14 +751,42 @@ After the channel opens, the signaling server sees **zero** game traffic.
   per-channel reliability as an `RTCClient`/`RTCTransport` option. Optionally a `Transport`
   capability descriptor (`{ ordered, reliable, maxFrameBytes }`) a `Room` can query — keep
   phase-1 to a single reliable channel for parity.
-- **Frame size (new, must not be skipped).** `WSTransport`'s default max payload is
-  **64 KiB** (`DEFAULT_MAX_PAYLOAD = 64 * 1024`, `WSTransport.ts:52`). WebRTC data channels
-  cap a single SCTP message far lower in practice — ~16 KiB is the safe cross-impl ceiling,
-  with larger sizes only by negotiation. A `Room` that today `broadcast`s a >16 KiB snapshot
-  over WS will silently fail over RTC. The negotiation layer (§4.5) must either chunk/reassemble
-  large frames or expose `maxFrameBytes` so a `Room` can split (the arena snapshot is the
-  realistic offender). Surface this as a `Transport` capability and **log** when a frame is
-  dropped/chunked — never truncate silently.
+- **Frame size.** `WSTransport`'s default max payload is **64 KiB**
+  (`DEFAULT_MAX_PAYLOAD = 64 * 1024`, `WSTransport.ts:52`). WebRTC data channels cap a single
+  SCTP message to ~16 KiB in practice across implementations. The ceiling is enforced in two
+  complementary ways:
+
+  1. **`Transport.maxFrameBytes` capability.** The `Transport` base class exposes
+     `get maxFrameBytes(): number | null` (default `null` = no limit). `RTCTransport` overrides
+     it to return `RTC_MAX_FRAME_BYTES = 16 * 1024 = 16384`. `WSTransport` returns its
+     configured `maxPayload` (default 64 KiB). A `Room` can query this to decide whether to
+     split before sending.
+
+  2. **Transparent chunk/reassembly in `RTCTransport` and `RTCClient`.** Any frame whose
+     `byteLength > RTC_MAX_FRAME_BYTES` is automatically split before sending and reassembled
+     before delivery, using the reserved internal topic `__rivalis:chunk`.
+
+  **Wire format.** Each chunk is a normal `handshake.encode` frame with topic
+  `__rivalis:chunk` and a binary payload of `[seq_hi, seq_lo, total, index, ...frame_data]`:
+  - `seq` (two bytes, big-endian uint16): monotonically-incrementing per actor/connection, wraps
+    at 65536. Disambiguates concurrent in-flight multi-chunk messages.
+  - `total` (uint8): number of chunks this message was split into (max 255).
+  - `index` (uint8): zero-based chunk position.
+  - `frame_data`: slice of the original encoded frame. Max `CHUNK_DATA_BYTES = 16352` bytes per
+    chunk (16384 − 32 bytes of per-chunk header overhead).
+
+  **Detection.** `isChunkFrame(buf)` checks the first 17 bytes against a lazily-computed
+  prefix: `0x0A 0x0F` (protobuf field-1 length-delimited, length 15) + the 15 ASCII bytes of
+  `__rivalis:chunk`. This prefix is fixed regardless of payload size, avoiding a full
+  `handshakeDecode()` call on every inbound frame.
+
+  **Per-actor state** (`RTCTransport`): `outboundSeq: Map<actorId, number>` and
+  `inboundReassembler: Map<actorId, ChunkReassembler>` — initialised in `grantAccess`, cleaned
+  up in `triggerClose`/`dispose`.
+
+  **Oversized frames** (would require >255 chunks, i.e. >~4 MiB): logged as `warning` and
+  **dropped** — never truncated silently. Frames ≤ `RTC_MAX_FRAME_BYTES` bypass all chunking
+  and are sent/received as-is (no allocation, reference equality preserved).
 - **Backpressure** is a shared concern, not WS's alone. `WSTransport` drops when
   `socket.bufferedAmount > maxBufferedBytes` (default **1 MiB**, `WSTransport.ts:70`) and
   invokes an `onBackpressureDrop(actorId, bufferedAmount)` hook (`:262-266`).

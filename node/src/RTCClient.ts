@@ -32,6 +32,14 @@ import type { RTCDataChannelLike } from './peer/RTCPeer'
 import { PeerNegotiator } from './peer/NegotiationCore'
 import type { RTCAdapters } from './peer/NegotiationCore'
 import SignalClient from './SignalClient'
+import {
+    RTC_MAX_FRAME_BYTES,
+    isChunkFrame,
+    chunkFrame,
+    decodeChunkPayload,
+    ChunkReassembler,
+    CHUNK_CONTROL_TOPIC,
+} from './peer/RtcFrameChunker'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -131,6 +139,16 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
      * the same lifecycle. Reset to false in startNegotiation().
      */
     private disconnecting = false
+    /**
+     * Outbound chunk sequence number (uint16, wraps at 65535).
+     * Incremented each time a large frame is split into chunks (p2p.md §7).
+     */
+    private outboundSeq = 0
+    /**
+     * Inbound chunk reassembler.
+     * Accumulates chunk fragments received from the host until the full frame arrives.
+     */
+    private readonly inboundReassembler = new ChunkReassembler()
 
     constructor(signalUrl: string, options: RTCClientOptions = {}) {
         super()
@@ -185,6 +203,7 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
         const wasActive = this.negotiator !== null || this.channel !== null
         this.disconnecting = true
         this.channel = null
+        this.inboundReassembler.clear()
         this.closeNegotiation()
         if (wasActive) {
             this.emit('client:disconnect', encoder.encode('terminated'))
@@ -195,6 +214,10 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
      * Encode a handshake frame and send it over the open data channel.
      * Guards on `channel.isOpen !== true` — drops silently (mirrors WSClient
      * browser/src/WSClient.ts:184, core/src/clients/WSClient.ts:135).
+     *
+     * Large frames (> RTC_MAX_FRAME_BYTES) are split into chunk messages so they
+     * survive the WebRTC SCTP ceiling (p2p.md §7). The host reassembles chunks
+     * transparently before passing them to the Room.
      */
     override send(topic: string, payload: Uint8Array | string = EMPTY_PAYLOAD): void {
         if (this.channel === null || !this.channel.isOpen) {
@@ -204,15 +227,36 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
             throw new Error(`topic must be a string, ${topic} provided`)
         }
         const bytes = payload instanceof Uint8Array ? payload : encoder.encode(payload)
+        const frame = encode(topic, bytes)
+        if (frame.byteLength <= RTC_MAX_FRAME_BYTES) {
+            try { this.channel.sendBinary(frame) } catch { /* channel closed */ }
+            return
+        }
+        // Frame exceeds the RTC ceiling — chunk and send (p2p.md §7).
+        const seq = this.outboundSeq
+        this.outboundSeq = (this.outboundSeq + 1) & 0xFFFF
+        let chunks: Uint8Array[]
         try {
-            this.channel.sendBinary(encode(topic, bytes))
-        } catch { /* channel closed between isOpen check and sendBinary */ }
+            chunks = chunkFrame(frame, seq)
+        } catch {
+            // Frame is too large even for 255 chunks — log and drop (never silently truncate).
+            // RTCDataChannel carries no way to surface a send error to the Room, so we
+            // drop here and rely on the maxFrameBytes capability for the caller to pre-split.
+            return
+        }
+        const channel = this.channel
+        for (const chunk of chunks) {
+            if (!channel.isOpen) break
+            try { channel.sendBinary(chunk) } catch { break }
+        }
     }
 
     // ── Internal negotiation ──────────────────────────────────────────────────
 
     private startNegotiation(ticket: string): void {
         this.disconnecting = false
+        this.outboundSeq = 0
+        this.inboundReassembler.clear()
 
         // Create a fresh PeerNegotiator per attempt — reusing one would duplicate
         // the persistent event listeners registered in PeerNegotiator.connect().
@@ -262,6 +306,23 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
     // ── Inbound message ───────────────────────────────────────────────────────
 
     private onMessage(buf: Uint8Array): void {
+        // Chunk reassembly (p2p.md §7): detect chunk frames by their topic-field
+        // prefix without decoding, then accumulate until the full frame is ready.
+        if (isChunkFrame(buf)) {
+            const { payload } = decode(buf)
+            const parsed = decodeChunkPayload(payload)
+            if (parsed === null) return  // malformed chunk — discard
+            const complete = this.inboundReassembler.feed(
+                parsed.seq, parsed.total, parsed.index, parsed.data,
+            )
+            if (complete === null) return  // waiting for remaining chunks
+            this.dispatchFrame(complete)
+            return
+        }
+        this.dispatchFrame(buf)
+    }
+
+    private dispatchFrame(buf: Uint8Array): void {
         const { topic, payload } = decode(buf)
         // §3.4: intercept transport-agnostic close/kick control frame so the
         // NO_RECONNECT_CODES gate works identically to the WS path. RTCTransport
@@ -273,6 +334,10 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
             this.emit('client:kicked', { code, reason } satisfies ClientKickedEvent)
             return
         }
+        // Guard against the chunk topic leaking to the user layer (shouldn't happen,
+        // but belt-and-suspenders: a chunk frame received via isChunkFrame goes through
+        // reassembly above; a stray __rivalis:chunk with non-chunk prefix can't occur).
+        if (topic === CHUNK_CONTROL_TOPIC) return
         this.emit(topic, payload)
     }
 

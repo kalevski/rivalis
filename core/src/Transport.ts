@@ -21,6 +21,20 @@ abstract class Transport {
      */
     abstract get sockets(): number
 
+    /**
+     * Maximum number of bytes this transport can deliver in a single frame.
+     * `null` means no enforced ceiling at the transport layer.
+     *
+     * Rooms that broadcast large payloads (e.g. full-arena snapshots) can
+     * query this value and split their frames accordingly, or rely on the
+     * transport's own chunk/reassemble logic. RTCTransport returns 16 KiB
+     * (the safe cross-implementation SCTP ceiling). WSTransport returns its
+     * configured `maxPayload` (default 64 KiB).
+     */
+    get maxFrameBytes(): number | null {
+        return null
+    }
+
     dispose(): void | Promise<void> {}
 
 }

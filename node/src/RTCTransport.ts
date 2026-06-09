@@ -40,12 +40,20 @@ import {
     encodeCloseFrame,
     createCodec,
     FieldType,
+    decode as handshakeDecode,
 } from '@rivalis/handshake'
 import { createPeerConnection } from './peer/RTCPeer'
 import type { RTCDataChannelLike } from './peer/RTCPeer'
 import { HostNegotiator } from './peer/NegotiationCore'
 import type { RTCAdapters } from './peer/NegotiationCore'
 import SignalClient from './SignalClient'
+import {
+    RTC_MAX_FRAME_BYTES,
+    isChunkFrame,
+    chunkFrame,
+    decodeChunkPayload,
+    ChunkReassembler,
+} from './peer/RtcFrameChunker'
 
 // ── Welcome codec (subset of NegotiationCore's signal wire codec) ─────────────
 // Same schema major and field order → bitwise-identical binary. Namespace differs
@@ -111,6 +119,18 @@ class RTCTransport extends Transport {
     /** Prevents double-close when both DC.onClose and PC state-change fire */
     private readonly closedActors = new Set<string>()
 
+    /**
+     * Per-actor outbound chunk sequence number (uint16, wraps at 65535).
+     * Each new multi-chunk message increments the counter for that actor.
+     */
+    private readonly outboundSeq = new Map<string, number>()
+
+    /**
+     * Per-actor inbound chunk reassembler.
+     * Accumulates chunk fragments from a peer until the full frame is ready.
+     */
+    private readonly inboundReassembler = new Map<string, ChunkReassembler>()
+
     private readonly signalClient: ReturnType<RTCAdapters['createSignalingClient']>
     private readonly negotiator: HostNegotiator
     private readonly hostTicket: string
@@ -165,6 +185,12 @@ class RTCTransport extends Transport {
         return this.channels.size
     }
 
+    // ── maxFrameBytes capability (p2p.md §7) ─────────────────────────────────
+
+    override get maxFrameBytes(): number {
+        return RTC_MAX_FRAME_BYTES
+    }
+
     // ── Step (2-5): onChannelOpen ─────────────────────────────────────────────
 
     private onChannelOpen(channel: RTCDataChannelLike, peerId: string): void {
@@ -187,9 +213,30 @@ class RTCTransport extends Transport {
         // The handler is intentionally a single persistent onMessage registration;
         // the ticketConsumed flag gates the two code paths.
         channel.onMessage((buf) => {
-            // Normal post-grant path — forward to TLayer
+            // Normal post-grant path — forward to TLayer.
+            // Chunk frames are reassembled before forwarding; regular frames pass through
+            // with the original buffer reference so call-sites that check reference
+            // equality are unaffected.
             if (actorId !== null) {
-                layer.handleMessage(actorId, buf).catch((error: unknown) => {
+                let frameToHandle: Uint8Array | null = null
+                if (isChunkFrame(buf)) {
+                    // Decode to extract chunk fields, then feed the reassembler.
+                    const { payload } = handshakeDecode(buf)
+                    const parsed = decodeChunkPayload(payload)
+                    if (parsed === null) {
+                        layer.logger.warning(`rtc: malformed chunk payload for actor=${actorId}`)
+                        return
+                    }
+                    const reassembler = this.inboundReassembler.get(actorId)
+                    if (reassembler === undefined) return
+                    const complete = reassembler.feed(parsed.seq, parsed.total, parsed.index, parsed.data)
+                    if (complete === null) return  // waiting for remaining chunks
+                    frameToHandle = complete
+                } else {
+                    // Regular (non-chunked) frame — pass original reference through.
+                    frameToHandle = buf
+                }
+                layer.handleMessage(actorId, frameToHandle).catch((error: unknown) => {
                     const reason = error instanceof Error ? error.message : String(error)
                     layer.logger.error(`rtc: handleMessage rejected for actor=${actorId}: ${reason}`)
                 })
@@ -250,13 +297,37 @@ class RTCTransport extends Transport {
                 actorId = aid
                 this.channels.set(aid, channel)
                 this.peerToActor.set(peerId, aid)
+                this.outboundSeq.set(aid, 0)
+                this.inboundReassembler.set(aid, new ChunkReassembler())
 
                 // Steps (3)(4): register inbound + outbound listeners immediately so the
                 // pendingEmits buffer (TLayer.ts:58-66, cap 256) drains right now rather
                 // than accumulating frames sent during Room.onJoin.
                 layer.on('message', aid, (_id, m) => {
-                    if (channel.isOpen) {
+                    if (!channel.isOpen) return
+                    if (m.byteLength <= RTC_MAX_FRAME_BYTES) {
+                        // Frame fits in a single SCTP message — send as-is.
                         try { channel.sendBinary(m) } catch { /* channel gone between check and send */ }
+                        return
+                    }
+                    // Frame exceeds the RTC ceiling — chunk and send (p2p.md §7).
+                    const seq = this.outboundSeq.get(aid) ?? 0
+                    this.outboundSeq.set(aid, (seq + 1) & 0xFFFF)
+                    layer.logger.debug(
+                        `rtc: chunking ${m.byteLength}-byte frame for actor=${aid} ` +
+                        `(RTC ceiling=${RTC_MAX_FRAME_BYTES}, seq=${seq})`
+                    )
+                    let chunks: Uint8Array[]
+                    try {
+                        chunks = chunkFrame(m, seq)
+                    } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err)
+                        layer.logger.warning(`rtc: frame dropped (too large to chunk) for actor=${aid}: ${msg}`)
+                        return
+                    }
+                    for (const chunk of chunks) {
+                        if (!channel.isOpen) break
+                        try { channel.sendBinary(chunk) } catch { break /* channel gone */ }
                     }
                 })
                 layer.on('kick', aid, (_id, m) => {
@@ -287,6 +358,9 @@ class RTCTransport extends Transport {
         this.closedActors.add(actorId)
         this.channels.delete(actorId)
         this.peerToActor.delete(peerId)
+        this.outboundSeq.delete(actorId)
+        this.inboundReassembler.get(actorId)?.clear()
+        this.inboundReassembler.delete(actorId)
         this.layer?.handleClose(actorId)
     }
 
@@ -313,6 +387,9 @@ class RTCTransport extends Transport {
         const snapshot = new Map(this.channels)
         this.channels.clear()
         this.peerToActor.clear()
+        this.outboundSeq.clear()
+        this.inboundReassembler.forEach(r => r.clear())
+        this.inboundReassembler.clear()
         for (const [actorId, channel] of snapshot) {
             this.closedActors.add(actorId)  // prevent triggerClose from re-firing
             this.sendCloseFrame(channel, shutdownPayload)

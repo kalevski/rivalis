@@ -12,3 +12,13 @@ export { default as RTCTransport } from './RTCTransport'
 
 export type { RTCClientOptions, RTCClientReconnectOptions, GetTicketFn } from './RTCClient'
 export { default as RTCClient } from './RTCClient'
+
+export {
+    RTC_MAX_FRAME_BYTES,
+    CHUNK_DATA_BYTES,
+    CHUNK_CONTROL_TOPIC,
+    isChunkFrame,
+    chunkFrame,
+    decodeChunkPayload,
+    ChunkReassembler,
+} from './peer/RtcFrameChunker'
