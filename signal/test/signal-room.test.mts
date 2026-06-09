@@ -200,6 +200,31 @@ test('signal:ice is forwarded only to the target actor', async () => {
     )
 })
 
+test('signal:offer reaches ONLY the targeted actor — bystander peer is excluded', async () => {
+    const { tl } = setup()
+    const { id: idA, msgs: msgsA } = await admitActor(tl)  // host
+    const { id: idB, msgs: msgsB } = await admitActor(tl)  // sender
+    const { msgs: msgsC } = await admitActor(tl)            // bystander
+
+    const offer = encodeOffer({ to: idA, sdp: 'v=0' })
+    await tl.handleMessage(idB, encode('signal:offer', offer))
+
+    assert.ok(
+        msgsA.some(m => m.topic === 'signal:offer'),
+        'target (A) must receive the relayed offer'
+    )
+    assert.equal(
+        msgsB.filter(m => m.topic === 'signal:offer').length,
+        0,
+        'sender (B) must not receive their own offer'
+    )
+    assert.equal(
+        msgsC.filter(m => m.topic === 'signal:offer').length,
+        0,
+        'bystander (C) must not receive an offer addressed to A'
+    )
+})
+
 test('relay to an unknown actorId is silently dropped (no bounce-back, no crash)', async () => {
     const { tl } = setup()
     const { id: idA, msgs: msgsA } = await admitActor(tl)
