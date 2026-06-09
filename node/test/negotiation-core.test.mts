@@ -20,7 +20,7 @@ import assert from 'node:assert/strict'
 import { createCodec, FieldType, present } from '@rivalis/handshake'
 import { PeerNegotiator, HostNegotiator } from '../lib/main.js'
 import type { RTCAdapters, PeerNegotiatorCallbacks, HostNegotiatorCallbacks } from '../lib/main.js'
-import type { RTCPeerLike, RTCDataChannelLike } from '../lib/main.js'
+import type { RTCPeerLike, RTCDataChannelLike, ChannelReliability } from '../lib/main.js'
 
 // ---------------------------------------------------------------------------
 // Test codec — same schema + major as NegotiationCore, different namespace.
@@ -167,14 +167,16 @@ class MockPeer implements RTCPeerLike {
     private _onLocalCand: ((candidate: string, mid: string) => void) | null = null
 
     readonly channels: MockDataChannel[] = []
+    readonly channelReliabilities: ChannelReliability[] = []
     readonly remoteDescriptions: Array<{ sdp: string; type: string }> = []
     readonly remoteCandidates: Array<{ candidate: string; mid: string }> = []
     readonly localDescriptionCalls: Array<{ type: string | undefined }> = []
     closed = false
 
-    createDataChannel(_label: string, _ordered: boolean): RTCDataChannelLike {
+    createDataChannel(_label: string, reliability: ChannelReliability): RTCDataChannelLike {
         const dc = new MockDataChannel()
         this.channels.push(dc)
+        this.channelReliabilities.push(reliability)
         return dc
     }
     onDataChannel(cb: (dc: RTCDataChannelLike) => void): void { this._onDataChannel = cb }
@@ -378,6 +380,47 @@ suite('PeerNegotiator', () => {
         assert.doesNotThrow(() =>
             signalClient.emit('signal:answer', encodeAnswer('peer-1', 'v=0', 'host-1'))
         )
+    })
+
+})
+
+// ---------------------------------------------------------------------------
+// PeerNegotiator — channel reliability (p2p.md §7)
+// ---------------------------------------------------------------------------
+
+suite('PeerNegotiator — channelReliability', () => {
+
+    const callbacks: PeerNegotiatorCallbacks = { onChannel: () => {}, onPeerStateChange: () => {} }
+
+    test('default reliability is { ordered: true } (WS-like semantics)', () => {
+        const signalClient = new MockSignalClient()
+        const peer = new MockPeer()
+        const adapters: RTCAdapters = {
+            createPeerConnection() { return peer },
+            createSignalingClient() { return signalClient as AnyClient },
+        }
+        const neg = new PeerNegotiator(adapters, 'ws://signal:9000')
+        neg.connect('t', callbacks)
+        signalClient.emit('signal:welcome', encodeWelcome('peer-1', 'host-1'))
+
+        assert.strictEqual(peer.channelReliabilities.length, 1)
+        assert.deepStrictEqual(peer.channelReliabilities[0], { ordered: true })
+    })
+
+    test('custom reliability is forwarded to createDataChannel', () => {
+        const signalClient = new MockSignalClient()
+        const peer = new MockPeer()
+        const adapters: RTCAdapters = {
+            createPeerConnection() { return peer },
+            createSignalingClient() { return signalClient as AnyClient },
+        }
+        const channelReliability: ChannelReliability = { ordered: false, maxRetransmits: 0 }
+        const neg = new PeerNegotiator(adapters, 'ws://signal:9000', 'rivalis', channelReliability)
+        neg.connect('t', callbacks)
+        signalClient.emit('signal:welcome', encodeWelcome('peer-1', 'host-1'))
+
+        assert.strictEqual(peer.channelReliabilities.length, 1)
+        assert.deepStrictEqual(peer.channelReliabilities[0], { ordered: false, maxRetransmits: 0 })
     })
 
 })

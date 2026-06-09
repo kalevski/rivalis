@@ -34,7 +34,7 @@ import {
     CloseCode,
 } from '@rivalis/handshake'
 import { RTCClient } from '../lib/main.js'
-import type { RTCAdapters } from '../lib/main.js'
+import type { RTCAdapters, ChannelReliability } from '../lib/main.js'
 import type { RTCPeerLike, RTCDataChannelLike } from '../lib/main.js'
 
 // ---------------------------------------------------------------------------
@@ -147,9 +147,11 @@ class MockPeer implements RTCPeerLike {
     private _onLocalDesc: ((sdp: string, type: string) => void) | null = null
     private _onLocalCand: ((c: string, m: string) => void) | null = null
     dc: MockDataChannel = new MockDataChannel()
+    lastReliability: ChannelReliability | null = null
     closed = false
 
-    createDataChannel(_label: string, _ordered: boolean): RTCDataChannelLike {
+    createDataChannel(_label: string, reliability: ChannelReliability): RTCDataChannelLike {
+        this.lastReliability = reliability
         return this.dc
     }
     onDataChannel(_cb: (dc: RTCDataChannelLike) => void): void { /* peer is initiator, never answerer */ }
@@ -176,6 +178,7 @@ type AnyClient = any
 function makeClient(opts: {
     reconnect?: boolean
     getTicket?: () => string | Promise<string>
+    channelReliability?: ChannelReliability
 } = {}) {
     const signalClients: MockSignalClient[] = []
     const peers: MockPeer[] = []
@@ -197,6 +200,7 @@ function makeClient(opts: {
         adapters,
         reconnect: opts.reconnect,
         getTicket: opts.getTicket,
+        channelReliability: opts.channelReliability,
     })
 
     return { client, signalClients, peers }
@@ -733,6 +737,36 @@ suite('RTCClient — reconnect', () => {
         await nextTick()
 
         assert.strictEqual(failed.length, 0, 'reconnect_failed must not be emitted on first close')
+    })
+
+})
+
+// ---------------------------------------------------------------------------
+// channelReliability — parity: one reliable channel (p2p.md §7)
+// ---------------------------------------------------------------------------
+
+suite('RTCClient — channelReliability (p2p.md §7)', () => {
+
+    test('default reliability is { ordered: true } — WS-like ordered delivery', async () => {
+        const { client, signalClients, peers } = makeClient()
+        await fullConnect(client, signalClients, peers)
+        assert.deepStrictEqual(peers[0]!.lastReliability, { ordered: true })
+    })
+
+    test('custom reliability { ordered: false, maxRetransmits: 0 } is forwarded to the data channel', async () => {
+        const { client, signalClients, peers } = makeClient({
+            channelReliability: { ordered: false, maxRetransmits: 0 },
+        })
+        await fullConnect(client, signalClients, peers)
+        assert.deepStrictEqual(peers[0]!.lastReliability, { ordered: false, maxRetransmits: 0 })
+    })
+
+    test('parity: default options produce one reliable channel (ordered: true, no maxRetransmits)', async () => {
+        const { client, signalClients, peers } = makeClient()
+        await fullConnect(client, signalClients, peers)
+        const rel = peers[0]!.lastReliability!
+        assert.strictEqual(rel.ordered, true, 'parity: phase-1 channel must be ordered')
+        assert.strictEqual(rel.maxRetransmits, undefined, 'parity: phase-1 channel must not cap retransmits')
     })
 
 })

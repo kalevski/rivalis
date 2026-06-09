@@ -138,7 +138,7 @@ class MockPeer implements RTCPeerLike {
     readonly remoteDescriptions: Array<{ sdp: string; type: string }> = []
     closed = false
 
-    createDataChannel(_label: string, _ordered: boolean): RTCDataChannelLike {
+    createDataChannel(_label: string, _reliability: { ordered: boolean; maxRetransmits?: number }): RTCDataChannelLike {
         return new MockDataChannel()
     }
     onDataChannel(cb: (dc: RTCDataChannelLike) => void): void { this._onDataChannel = cb }

@@ -33,6 +33,7 @@
 
 import { Transport, KickReason, ConnectionLimiter, checkBackpressure, DEFAULT_MAX_BUFFERED_BYTES } from '@rivalis/core'
 import type { TLayer, ConnectionContext, BackpressureDropFn } from '@rivalis/core'
+import type { ChannelReliability } from './peer/RTCPeer'
 import {
     encode,
     CloseCode,
@@ -116,7 +117,17 @@ export type RTCTransportOptions = {
      * to WSTransport's `onBackpressureDrop` (p2p.md §7).
      */
     onBackpressureDrop?: BackpressureDropFn
+    /**
+     * Data channel reliability expectation (p2p.md §7). In phase 1, the host
+     * accepts a single reliable channel established by the connecting RTCClient
+     * peer — the host side does not create the channel. This field documents the
+     * intended reliability for the channel and will be used in future phases that
+     * support multiple channels per peer. Default: `{ ordered: true }`.
+     */
+    channelReliability?: ChannelReliability
 }
+
+export type { ChannelReliability }
 
 // ── RTCTransport ──────────────────────────────────────────────────────────────
 

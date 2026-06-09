@@ -21,7 +21,10 @@
 
 import type { Client } from '@rivalis/core'
 import { createCodec, FieldType, present } from '@rivalis/handshake'
-import type { RTCPeerLike, RTCDataChannelLike } from './RTCPeer'
+import type { RTCPeerLike, RTCDataChannelLike, ChannelReliability } from './RTCPeer'
+
+/** Default channel reliability: ordered delivery, no retransmit cap (p2p.md §7). */
+const DEFAULT_RELIABILITY: ChannelReliability = { ordered: true }
 
 // ── RTCAdapters — injection seam (p2p.md §4.5) ───────────────────────────────
 
@@ -130,6 +133,7 @@ export class PeerNegotiator {
         private readonly adapters: RTCAdapters,
         signalUrl: string,
         private readonly channelLabel: string = 'rivalis',
+        private readonly channelReliability: ChannelReliability = DEFAULT_RELIABILITY,
     ) {
         this.signalClient = adapters.createSignalingClient(signalUrl)
     }
@@ -150,7 +154,7 @@ export class PeerNegotiator {
             const pc = this.adapters.createPeerConnection({ iceServers })
             this.pc = pc
 
-            const dc = pc.createDataChannel(this.channelLabel, true)
+            const dc = pc.createDataChannel(this.channelLabel, this.channelReliability)
             dc.onOpen(() => onChannel(dc))
             pc.onStateChange(onPeerStateChange)
 

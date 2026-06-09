@@ -747,10 +747,15 @@ After the channel opens, the signaling server sees **zero** game traffic.
 - **Reliability/ordering.** Default `{ ordered:true }` ≈ WebSocket semantics (safe drop-in;
   correct for `ttt`/`counter`/`lobby`). Unreliable/unordered (`{ ordered:false,
   maxRetransmits:0 }`) for high-rate state (`arena`, `ARENA_TICK_HZ=30`,
-  `demo/src/protocol.ts:69`) where the newest snapshot supersedes lost ones. Expose
-  per-channel reliability as an `RTCClient`/`RTCTransport` option. Optionally a `Transport`
-  capability descriptor (`{ ordered, reliable, maxFrameBytes }`) a `Room` can query — keep
-  phase-1 to a single reliable channel for parity.
+  `demo/src/protocol.ts:69`) where the newest snapshot supersedes lost ones.
+  **Implemented (task 073):** `ChannelReliability` type (`{ ordered: boolean; maxRetransmits?:
+  number }`) exposed on `RTCClientOptions.channelReliability` and documented on
+  `RTCTransportOptions.channelReliability`. `RTCClient` passes the setting to
+  `PeerNegotiator`, which forwards it to `RTCPeerLike.createDataChannel`. Default is
+  `{ ordered:true }`. Phase 1 uses a single reliable channel for parity — `RTCTransport`
+  accepts whatever channel the peer opens; the reliability option is enforced at the peer side.
+  Optionally a `Transport` capability descriptor (`{ ordered, reliable, maxFrameBytes }`) a
+  `Room` can query — deferred to a later phase.
 - **Frame size.** `WSTransport`'s default max payload is **64 KiB**
   (`DEFAULT_MAX_PAYLOAD = 64 * 1024`, `WSTransport.ts:52`). WebRTC data channels cap a single
   SCTP message to ~16 KiB in practice across implementations. The ceiling is enforced in two

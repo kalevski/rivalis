@@ -20,6 +20,20 @@ import type { PeerConnection, DataChannel, DescriptionType } from 'node-datachan
 // Adapter interfaces — programmed against throughout @rivalis/node
 // ---------------------------------------------------------------------------
 
+/**
+ * Per-channel reliability settings (p2p.md §7).
+ *
+ * Default `{ ordered: true }` ≈ WebSocket semantics (safe drop-in; correct for
+ * `ttt`/`counter`/`lobby`). Use `{ ordered: false, maxRetransmits: 0 }` for
+ * high-rate state (e.g. `arena`, ARENA_TICK_HZ=30) where the newest snapshot
+ * supersedes lost frames. Phase 1 uses a single reliable channel for parity.
+ */
+export type ChannelReliability = {
+    ordered: boolean
+    /** When set, the channel retransmits at most this many times (unreliable mode). */
+    maxRetransmits?: number
+}
+
 export interface RTCDataChannelLike {
     /** Register the message handler. Called once, before the channel opens. */
     onMessage(cb: (buf: Uint8Array) => void): void
@@ -34,7 +48,7 @@ export interface RTCDataChannelLike {
 
 export interface RTCPeerLike {
     /** Create an outbound data channel (caller is the initiating side). */
-    createDataChannel(label: string, ordered: boolean): RTCDataChannelLike
+    createDataChannel(label: string, reliability: ChannelReliability): RTCDataChannelLike
     /** Receive an inbound data channel (answering side). */
     onDataChannel(cb: (channel: RTCDataChannelLike) => void): void
     /** Connection state changes: 'connected' | 'disconnected' | 'failed' | 'closed'. */
@@ -107,8 +121,12 @@ export class NodeDataChannelPeer implements RTCPeerLike {
         })
     }
 
-    createDataChannel(label: string, ordered: boolean): RTCDataChannelLike {
-        return new NodeDCDataChannel(this.pc.createDataChannel(label, { ordered }))
+    createDataChannel(label: string, reliability: ChannelReliability): RTCDataChannelLike {
+        const opts: { ordered: boolean; maxRetransmits?: number } = { ordered: reliability.ordered }
+        if (reliability.maxRetransmits !== undefined) {
+            opts.maxRetransmits = reliability.maxRetransmits
+        }
+        return new NodeDCDataChannel(this.pc.createDataChannel(label, opts))
     }
 
     onDataChannel(cb: (channel: RTCDataChannelLike) => void): void {
@@ -158,7 +176,7 @@ class WeriftPeer implements RTCPeerLike {
         )
     }
 
-    createDataChannel(_label: string, _ordered: boolean): RTCDataChannelLike { return null as never }
+    createDataChannel(_label: string, _reliability: ChannelReliability): RTCDataChannelLike { return null as never }
     onDataChannel(_cb: (channel: RTCDataChannelLike) => void): void {}
     onStateChange(_cb: (state: string) => void): void {}
     onLocalDescription(_cb: (sdp: string, type: string) => void): void {}

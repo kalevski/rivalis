@@ -28,7 +28,7 @@ import { Client } from '@rivalis/core'
 import type { ClientKickedEvent } from '@rivalis/core'
 import { encode, decode, CloseCode, CLOSE_CONTROL_TOPIC, decodeCloseFrame } from '@rivalis/handshake'
 import { createPeerConnection } from './peer/RTCPeer'
-import type { RTCDataChannelLike } from './peer/RTCPeer'
+import type { RTCDataChannelLike, ChannelReliability } from './peer/RTCPeer'
 import { PeerNegotiator } from './peer/NegotiationCore'
 import type { RTCAdapters } from './peer/NegotiationCore'
 import SignalClient from './SignalClient'
@@ -105,7 +105,19 @@ export type RTCClientOptions = {
     adapters?: Partial<RTCAdapters>
     /** RTCDataChannel label. Default: 'rivalis' */
     channelLabel?: string
+    /**
+     * Data channel reliability. Default `{ ordered: true }` ≈ WebSocket semantics
+     * (safe drop-in; correct for `ttt`/`counter`/`lobby`).
+     *
+     * Use `{ ordered: false, maxRetransmits: 0 }` for high-rate state (e.g. `arena`,
+     * ARENA_TICK_HZ=30) where the newest snapshot supersedes any dropped frames.
+     *
+     * Keep phase-1 to the default (one reliable channel) for parity (p2p.md §7).
+     */
+    channelReliability?: ChannelReliability
 }
+
+export type { ChannelReliability }
 
 // ── RTCClient ─────────────────────────────────────────────────────────────────
 
@@ -114,6 +126,7 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
     private readonly signalUrl: string
     private readonly resolvedAdapters: RTCAdapters
     private readonly channelLabel: string
+    private readonly channelReliability: ChannelReliability
     private readonly reconnectConfig: ReconnectConfig | null
     private readonly getTicketFn: GetTicketFn | null
 
@@ -154,6 +167,7 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
         super()
         this.signalUrl = signalUrl
         this.channelLabel = options.channelLabel ?? 'rivalis'
+        this.channelReliability = options.channelReliability ?? { ordered: true }
         this.reconnectConfig = this.resolveReconnect(options.reconnect)
         this.getTicketFn = options.getTicket ?? null
         this.resolvedAdapters = {
@@ -260,7 +274,12 @@ class RTCClient<TTopics extends string = string> extends Client<TTopics> {
 
         // Create a fresh PeerNegotiator per attempt — reusing one would duplicate
         // the persistent event listeners registered in PeerNegotiator.connect().
-        const negotiator = new PeerNegotiator(this.resolvedAdapters, this.signalUrl, this.channelLabel)
+        const negotiator = new PeerNegotiator(
+            this.resolvedAdapters,
+            this.signalUrl,
+            this.channelLabel,
+            this.channelReliability,
+        )
         this.negotiator = negotiator
 
         // Forward signal-level errors and kicks that arrive before the DC opens.

@@ -55,7 +55,7 @@ class MockDataChannel {
 class MockPeerConnection {
     public id: string
     public options: unknown
-    public createdChannels: Array<{ label: string; options: { ordered: boolean } }> = []
+    public createdChannels: Array<{ label: string; options: { ordered: boolean; maxRetransmits?: number } }> = []
     public remoteDescriptions: Array<{ sdp: string; type: string }> = []
     public remoteCandidates: Array<{ candidate: string; mid: string }> = []
     public localDescriptionCalls: Array<{ type: string | undefined }> = []
@@ -71,7 +71,7 @@ class MockPeerConnection {
         this.options = options
     }
 
-    createDataChannel(label: string, options: { ordered: boolean }): MockDataChannel {
+    createDataChannel(label: string, options: { ordered: boolean; maxRetransmits?: number }): MockDataChannel {
         this.createdChannels.push({ label, options })
         return new MockDataChannel()
     }
@@ -233,7 +233,7 @@ suite('NodeDataChannelPeer', () => {
     test('createDataChannel passes label and ordered to the PC and returns RTCDataChannelLike', () => {
         const { peer, pc } = makePeer()
 
-        const ch = peer.createDataChannel('rivalis', true)
+        const ch = peer.createDataChannel('rivalis', { ordered: true })
 
         assert.strictEqual(pc.createdChannels.length, 1)
         assert.strictEqual(pc.createdChannels[0]!.label, 'rivalis')
@@ -244,9 +244,26 @@ suite('NodeDataChannelPeer', () => {
     test('createDataChannel respects ordered=false', () => {
         const { peer, pc } = makePeer()
 
-        peer.createDataChannel('unreliable', false)
+        peer.createDataChannel('unreliable', { ordered: false })
 
         assert.strictEqual(pc.createdChannels[0]!.options.ordered, false)
+    })
+
+    test('createDataChannel passes maxRetransmits to the PC when set', () => {
+        const { peer, pc } = makePeer()
+
+        peer.createDataChannel('arena', { ordered: false, maxRetransmits: 0 })
+
+        assert.strictEqual(pc.createdChannels[0]!.options.ordered, false)
+        assert.strictEqual(pc.createdChannels[0]!.options.maxRetransmits, 0)
+    })
+
+    test('createDataChannel omits maxRetransmits from PC options when not set', () => {
+        const { peer, pc } = makePeer()
+
+        peer.createDataChannel('rivalis', { ordered: true })
+
+        assert.strictEqual('maxRetransmits' in pc.createdChannels[0]!.options, false)
     })
 
     test('onDataChannel fires with an RTCDataChannelLike wrapping the inbound DC', () => {
