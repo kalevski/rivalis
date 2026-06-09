@@ -1020,8 +1020,8 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 ### Phase 1 — Node↔Node P2P
 
 **Repo/build setup**
-- [ ] Add `"signal"`, `"node"` to root `package.json` workspaces. (§5)
-- [ ] `@rivalis/signal` + `@rivalis/node` `package.json`: dual CJS+ESM tsup (mirror fleet); `peerDependencies` `@rivalis/core >=7 <8`, `@toolcase/base|logging`, `ws`; `@rivalis/node` `dependencies: node-datachannel`. (§9)
+- [x] Add `"signal"`, `"node"` to root `package.json` workspaces. (§5)
+- [x] `@rivalis/signal` + `@rivalis/node` `package.json`: dual CJS+ESM tsup (mirror fleet); `peerDependencies` `@rivalis/core >=7 <8`, `@toolcase/base|logging`, `ws`; `@rivalis/node` `dependencies: node-datachannel`. (§9)
 
 **`@rivalis/signal`**
 - [x] `signal/src/wire/` — ~80 lines of schema defs over shared toolkit (§3.5). (§4.3)
