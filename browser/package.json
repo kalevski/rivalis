@@ -15,7 +15,8 @@
     },
     "scripts": {
         "dev": "tsup --watch",
-        "build": "tsup"
+        "build": "tsup",
+        "test": "npm run build && node --test \"test/**/*.test.mts\""
     },
     "peerDependencies": {
         "@rivalis/core": "*",

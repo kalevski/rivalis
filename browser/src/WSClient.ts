@@ -1,6 +1,6 @@
 import { Client } from '@rivalis/core'
 import logging from '@toolcase/logging'
-import { CloseCode, encode, decode } from '@rivalis/handshake'
+import { CloseCode, encode, decode, CLOSE_CONTROL_TOPIC, decodeCloseFrame } from '@rivalis/handshake'
 
 const encoder = new window.TextEncoder()
 const decoder = new window.TextDecoder()
@@ -118,6 +118,8 @@ class WSClient<TTopics extends string = string> extends Client<TTopics> {
 
     private getTicket: GetTicketFn | null = null
 
+    private pendingCloseCode: number | null = null
+
     constructor(baseURL: string, options: WSClientOptions = {}) {
         super()
         this.baseURL = baseURL
@@ -159,6 +161,7 @@ class WSClient<TTopics extends string = string> extends Client<TTopics> {
         // can't accidentally fall back to a stale value via any future
         // code path that reads lastTicket.
         this.lastTicket = null
+        this.pendingCloseCode = null
         if (!this.connected || this.ws === null) {
             return
         }
@@ -269,23 +272,48 @@ class WSClient<TTopics extends string = string> extends Client<TTopics> {
 
     private onMessage = (message: MessageEvent): void => {
         const { topic, payload } = decode(new Uint8Array(message.data as ArrayBuffer))
+        // §3.4: intercept the transport-agnostic close/kick control frame
+        // (p2p.md §3.4). Non-close-code transports (e.g. WebRTC DataChannel)
+        // send this frame immediately before closing; decoding it here means
+        // RTCClient and any future client share the same path — no transport-
+        // specific code needed in each. WSTransport never sends this frame
+        // (it uses native close codes), so WS clients see this only as
+        // defense-in-depth.
+        if (topic === CLOSE_CONTROL_TOPIC) {
+            const { code, reason } = decodeCloseFrame(payload)
+            this.pendingCloseCode = code
+            this.emit('client:kicked', { code, reason } satisfies ClientKickedEvent)
+            return
+        }
         this.emit(topic, payload)
     }
 
     private onClose = (event: CloseEvent): void => {
         this.ws = null
 
+        // Consume the pending close code set by a __rivalis:close control frame
+        // (§3.4). If the frame was received, client:kicked was already emitted in
+        // onMessage; skip the native-code path to avoid a double emission.
+        const pendingCode = this.pendingCloseCode
+        this.pendingCloseCode = null
+
         // 6.3: server-initiated app-level closes carry a 4xxx code and
         // (usually) a reason string. Surface them as a typed event so
         // consumers don't have to peek inside the disconnect payload
-        // to find out why.
-        if (event.code >= 4000 && event.code < 5000) {
+        // to find out why. Only emit when no control frame was received,
+        // because onMessage already emitted client:kicked in that case.
+        if (pendingCode === null && event.code >= 4000 && event.code < 5000) {
             this.emit('client:kicked', { code: event.code, reason: event.reason ?? '' } satisfies ClientKickedEvent)
         }
 
         this.emit('client:disconnect', encoder.encode(event.reason))
 
-        if (this.shouldReconnect(event.code)) {
+        // Use the control-frame code when present (p2p.md §3.4): transports
+        // that lack native close codes (RTC DataChannel closes with 1000)
+        // carry the kick semantics in the __rivalis:close frame instead. The
+        // NO_RECONNECT_CODES gate therefore works identically across transports.
+        const effectiveCode = pendingCode ?? event.code
+        if (this.shouldReconnect(effectiveCode)) {
             this.scheduleReconnect()
             return
         }

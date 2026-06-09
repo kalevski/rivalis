@@ -963,7 +963,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] Reserve control topic `__rivalis:close` in `handshake` carrying encoded `{ code, reason }`; honor existing `__` reserved-prefix guard. (§3.4) — `CLOSE_CONTROL_TOPIC`, `encodeCloseFrame`, `decodeCloseFrame` in `handshake/src/closeFrame.ts`; exported from `handshake/src/main.ts`; tests in `handshake/test/closeFrame.test.mts`.
 - [x] Preserve 123-byte reason ceiling (`MAX_CLOSE_REASON_BYTES`) in the convention. (§3.4) — enforced in `encodeCloseFrame` via UTF-8 boundary-safe truncation; `MAX_CLOSE_REASON_BYTES = 123` exported.
 - [x] `WSTransport` unchanged (keeps native close frames). (§3.4) — verified 2026-06-09; test in `core/test/wstransport-native-close-parity.test.mts`.
-- [ ] Client-side decode of `__rivalis:close` → `client:kicked { code, reason }`; reuse `NO_RECONNECT_CODES = {4001,4003,4004}` gate. (§3.4)
+- [x] Client-side decode of `__rivalis:close` → `client:kicked { code, reason }`; reuse `NO_RECONNECT_CODES = {4001,4003,4004}` gate. (§3.4) — `browser/src/WSClient.ts` `onMessage` intercepts `CLOSE_CONTROL_TOPIC`, decodes via `decodeCloseFrame`, emits `client:kicked`, and uses `pendingCloseCode` as `effectiveCode` in the `shouldReconnect` gate; native 4xxx path deduplicates via the same field. Tests in `browser/test/close-frame.test.mts`.
 
 **F8 / §3.7 — `Room.getActor(id)`**
 - [x] Add `protected getActor(actorId): Actor | null` to `core/src/Room.ts`. (§3.7) — visibility locked `protected` per D8 (decided 2026-06-09).
