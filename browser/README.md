@@ -194,6 +194,31 @@ CloseCode.RATE_LIMITED     // 4005 — pre-handshake connection limiter
 
 `client:kicked` fires for any 4xxx code with the parsed `{ code, reason }` so you don't have to peek into the close payload yourself.
 
+## Browser-as-host (Phase 3): trust note
+
+Phase 3 of the Rivalis P2P roadmap adds a browser `RTCTransport` so an elected browser peer can act as the room host — no dedicated server required.
+
+**Suited for: casual and co-operative play** where all participants trust each other equally (local-network sessions, friend lobbies, party games).
+
+**Not suited for: competitive or authoritative games.** A browser host runs inside the same JavaScript environment as every other peer. Any player who becomes the host can inspect or modify in-memory room state, forge broadcast messages, and manipulate game outcomes. There is no trusted boundary between the host and the other players.
+
+For competitive, ranked, or monetised games, always run a **Node host** instead — it executes in a controlled server environment that peers cannot inspect or tamper with:
+
+```ts
+// Node host — server-side authority; peers cannot read or alter its state
+import { RTCTransport } from '@rivalis/node'
+
+const rivalis = new Rivalis({
+    transports: [new RTCTransport({ signalUrl, ticket })],
+    authMiddleware: new GameAuthMiddleware()
+})
+rivalis.rooms.define('game', GameRoom)
+```
+
+The classic WebSocket path (`WSTransport` from `@rivalis/core/transports/ws`) carries the same server-side authority guarantee and is the simplest choice when all clients connect from browsers to a Node server.
+
+> **Summary:** browser-host = casual/co-op; Node host = competitive/authoritative.
+
 ## License
 
 MIT — see [LICENSE](https://github.com/kalevski/rivalis/blob/main/LICENSE).

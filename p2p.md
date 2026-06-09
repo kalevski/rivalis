@@ -844,8 +844,9 @@ After the channel opens, the signaling server sees **zero** game traffic.
   `TokenBucketRateLimiter` default capacity 30 / refill 30/s) — so it applies to WebRTC peers
   automatically, no transport work.
 - **Browser-host trust note:** a browser host is only as trustworthy as the client running
-  it. Document that browser-host (phase 3) suits casual/co-op; competitive/authoritative
-  games should use a Node host (phase 1).
+  it. Browser-host (phase 3) suits casual/co-op; competitive/authoritative games must use
+  a Node host (phase 1). Documented in `browser/README.md` §"Browser-as-host (Phase 3):
+  trust note".
 
 ---
 
@@ -1145,7 +1146,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] NAT/TURN CI-optional: coturn container forcing `iceTransportPolicy:'relay'`. (§10) — `node/test/rtc-nat-turn-relay.test.mts`; gated on `COTURN_HOST`+`COTURN_TURN_SECRET` env vars + node-datachannel availability; wraps `createPeerConnection` to inject `iceTransportPolicy:'relay'`; `NodeDataChannelPeer` updated to forward `iceTransportPolicy` from `RTCConfiguration`; task 077, 2026-06-09.
 - [x] Frame-size test: oversized `broadcast` chunks or is reported via capability — never silently dropped. (§10) — `node/test/rtc-frame-size.test.mts` (task 078, 2026-06-09): base-class `maxFrameBytes=null`, broadcast to two actors (each gets chunks within ceiling), independent reassembly, oversized (>255 chunks) logged as warning + nothing sent to any actor (never partial).
 - [x] Multi-transport test: one `Rivalis` `[WSTransport, RTCTransport]`; WS client + RTC peer in same room see each other. (§10, §3.6) — `node/test/ws-rtc-multi-transport.test.mts`; InProcessSignalBus wires the RTC leg in-process; two tests: coexistence (actorCount=2) + cross-transport broadcast (RTC→WS and WS→RTC); gated on node-datachannel availability; task 079, 2026-06-09.
-- [ ] Browser-host trust note in docs (casual/co-op vs Node host for competitive). (§8)
+- [x] Browser-host trust note in docs (casual/co-op vs Node host for competitive). (§8) — `browser/README.md` §"Browser-as-host (Phase 3): trust note"; task 080, 2026-06-09.
 
 ### Phase 3 — Browser-as-host (serverless P2P)
 
