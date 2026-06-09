@@ -31,8 +31,8 @@
  *                signaling leg is bypassed or saturated.
  */
 
-import { Transport, KickReason, ConnectionLimiter } from '@rivalis/core'
-import type { TLayer, ConnectionContext } from '@rivalis/core'
+import { Transport, KickReason, ConnectionLimiter, checkBackpressure, DEFAULT_MAX_BUFFERED_BYTES } from '@rivalis/core'
+import type { TLayer, ConnectionContext, BackpressureDropFn } from '@rivalis/core'
 import {
     encode,
     CloseCode,
@@ -54,6 +54,8 @@ import {
     decodeChunkPayload,
     ChunkReassembler,
 } from './peer/RtcFrameChunker'
+
+export type { BackpressureDropFn }
 
 // ── Welcome codec (subset of NegotiationCore's signal wire codec) ─────────────
 // Same schema major and field order → bitwise-identical binary. Namespace differs
@@ -102,6 +104,18 @@ export type RTCTransportOptions = {
      * `CloseCode.RATE_LIMITED` before `AuthMiddleware` is invoked.
      */
     peerLimiter?: ConnectionLimiter
+    /**
+     * Maximum bytes buffered on a data channel before an outbound frame is
+     * dropped. Uses the same default (1 MiB) as WSTransport so the two
+     * transports behave identically out of the box.
+     */
+    maxBufferedBytes?: number
+    /**
+     * Invoked when an outbound frame is dropped because the data channel's
+     * `bufferedAmount` exceeds `maxBufferedBytes`. Identical hook signature
+     * to WSTransport's `onBackpressureDrop` (p2p.md §7).
+     */
+    onBackpressureDrop?: BackpressureDropFn
 }
 
 // ── RTCTransport ──────────────────────────────────────────────────────────────
@@ -135,11 +149,15 @@ class RTCTransport extends Transport {
     private readonly negotiator: HostNegotiator
     private readonly hostTicket: string
     private readonly peerLimiter: ConnectionLimiter | null
+    private readonly maxBufferedBytes: number
+    private readonly onBackpressureDrop: BackpressureDropFn | null
 
     constructor(options: RTCTransportOptions) {
         super()
         this.hostTicket = options.ticket
         this.peerLimiter = options.peerLimiter ?? null
+        this.maxBufferedBytes = options.maxBufferedBytes ?? DEFAULT_MAX_BUFFERED_BYTES
+        this.onBackpressureDrop = options.onBackpressureDrop ?? null
 
         const resolvedAdapters: RTCAdapters = {
             createPeerConnection: options.adapters?.createPeerConnection ?? createPeerConnection,
@@ -305,6 +323,9 @@ class RTCTransport extends Transport {
                 // than accumulating frames sent during Room.onJoin.
                 layer.on('message', aid, (_id, m) => {
                     if (!channel.isOpen) return
+                    if (checkBackpressure(aid, channel.bufferedAmount, this.maxBufferedBytes, this.onBackpressureDrop, (msg) => layer.logger.warning(msg))) {
+                        return
+                    }
                     if (m.byteLength <= RTC_MAX_FRAME_BYTES) {
                         // Frame fits in a single SCTP message — send as-is.
                         try { channel.sendBinary(m) } catch { /* channel gone between check and send */ }

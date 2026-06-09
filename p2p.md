@@ -788,11 +788,14 @@ After the channel opens, the signaling server sees **zero** game traffic.
   **dropped** — never truncated silently. Frames ≤ `RTC_MAX_FRAME_BYTES` bypass all chunking
   and are sent/received as-is (no allocation, reference equality preserved).
 - **Backpressure** is a shared concern, not WS's alone. `WSTransport` drops when
-  `socket.bufferedAmount > maxBufferedBytes` (default **1 MiB**, `WSTransport.ts:70`) and
-  invokes an `onBackpressureDrop(actorId, bufferedAmount)` hook (`:262-266`).
-  `RTCDataChannel.bufferedAmount` + `bufferedAmountLowThreshold` is the exact analog. Factor
-  the drop-or-escalate decision into a tiny shared helper both transports call, so the policy
-  (and the hook signature) is identical.
+  `socket.bufferedAmount > maxBufferedBytes` (default **1 MiB**) and invokes an
+  `onBackpressureDrop(actorId, bufferedAmount)` hook. `RTCDataChannel.bufferedAmount` is the
+  exact analog on the RTC side. Both transports delegate the drop-or-escalate decision to the
+  same shared helper `checkBackpressure` (`core/src/transports/backpressure.ts`), so the policy
+  and hook signature are always identical. `RTCTransportOptions` accepts the same
+  `maxBufferedBytes` (default 1 MiB) and `onBackpressureDrop` as `WSTransportOptions`.
+  `RTCDataChannelLike.bufferedAmount` is exposed as a getter so the adapter interface tracks the
+  transport-native queue depth without transport-specific code escaping the helper.
 - **Liveness** is per-transport. WS uses a ping/pong heartbeat (default 30 s interval,
   2-miss threshold → `socket.terminate()`, `WSTransport.ts:134-141,runHeartbeat`). RTC relies
   on `pc.onconnectionstatechange` (ICE/DTLS consent freshness) → `handleClose` on

@@ -8,14 +8,15 @@ import CustomLoggerFactory from '../CustomLoggerFactory'
 import type TLayer from '../TLayer'
 import Transport from '../Transport'
 import type { ConnectionContext } from '../types'
+import { checkBackpressure, DEFAULT_MAX_BUFFERED_BYTES } from './backpressure'
+
+export type { BackpressureDropFn } from './backpressure'
 
 type HeartbeatOptions = { intervalMs?: number; missThreshold?: number }
 
 export type AllowedOrigins = ReadonlyArray<string> | ((origin: string | undefined) => boolean)
 
 export type TicketSource = 'query' | 'protocol'
-
-export type BackpressureDropFn = (actorId: string, bufferedAmount: number) => void
 
 export type WSTransportOptions = {
     heartbeat?: false | HeartbeatOptions
@@ -68,7 +69,7 @@ class WSTransport extends Transport {
 
     private heartbeatTimer: NodeJS.Timeout | null = null
 
-    private maxBufferedBytes: number = 1024 * 1024
+    private maxBufferedBytes: number = DEFAULT_MAX_BUFFERED_BYTES
 
     private resolvedMaxPayload: number = DEFAULT_MAX_PAYLOAD
 
@@ -273,9 +274,7 @@ class WSTransport extends Transport {
             if (socket.readyState !== WebSocket.OPEN) {
                 return
             }
-            if (socket.bufferedAmount > this.maxBufferedBytes) {
-                this.logger.warning(`backpressure: dropping message for actor=${aid}, buffered=${socket.bufferedAmount} bytes (limit=${this.maxBufferedBytes})`)
-                this.onBackpressureDrop?.(aid, socket.bufferedAmount)
+            if (checkBackpressure(aid, socket.bufferedAmount, this.maxBufferedBytes, this.onBackpressureDrop, (msg) => this.logger.warning(msg))) {
                 return
             }
             socket.send(message)

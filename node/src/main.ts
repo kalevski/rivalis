@@ -7,7 +7,7 @@ export { PeerNegotiator, HostNegotiator } from './peer/NegotiationCore'
 export type { SignalTopic, SignalClientOptions } from './SignalClient'
 export { default as SignalClient } from './SignalClient'
 
-export type { RTCTransportOptions } from './RTCTransport'
+export type { RTCTransportOptions, BackpressureDropFn } from './RTCTransport'
 export { default as RTCTransport } from './RTCTransport'
 
 export type { RTCClientOptions, RTCClientReconnectOptions, GetTicketFn } from './RTCClient'

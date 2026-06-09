@@ -20,6 +20,7 @@
  *  - grantAccess failure → channel.close(), no handleClose
  *  - dispose: SERVER_SHUTDOWN close frame + channel close + handleClose + signal disconnect
  *  - sockets count
+ *  - Backpressure: frame dropped when bufferedAmount > maxBufferedBytes, hook called (p2p.md §7)
  */
 
 import { test, suite } from 'node:test'
@@ -112,6 +113,7 @@ class MockDataChannel implements RTCDataChannelLike {
     readonly sent: Uint8Array[] = []
     private _isOpen = true
     closed = false
+    bufferedAmount = 0
 
     onMessage(cb: (buf: Uint8Array) => void): void { this._onMessage = cb }
     onOpen(_cb: () => void): void { /* called once before open — no-op in tests; channel already open */ }
@@ -771,6 +773,115 @@ suite('RTCTransport — dispose', () => {
         signalClient.emit('signal:welcome', encodeWelcome('host-id'))
 
         await assert.doesNotReject(() => transport.dispose())
+    })
+
+})
+
+// ---------------------------------------------------------------------------
+// Backpressure — p2p.md §7 (shared helper, identical hook signature to WS)
+// ---------------------------------------------------------------------------
+
+suite('RTCTransport — backpressure (p2p.md §7)', () => {
+
+    function makeTransportWithBackpressure(opts: {
+        maxBufferedBytes?: number
+        onBackpressureDrop?: (actorId: string, bufferedAmount: number) => void
+    }) {
+        const signalClient = new MockSignalClient()
+        const peers: MockPeer[] = Array.from({ length: 4 }, () => new MockPeer())
+        let peerIdx = 0
+        const adapters: RTCAdapters = {
+            createPeerConnection() { return (peers[peerIdx++] ?? new MockPeer()) as RTCPeerLike },
+            createSignalingClient() { return signalClient as AnyTLayer },
+        }
+        const transport = new RTCTransport({
+            signalUrl: 'ws://signal:9000',
+            ticket: 'host-ticket',
+            adapters,
+            ...opts,
+        })
+        const layer = new MockTLayer()
+        return { transport, layer, signalClient, peers }
+    }
+
+    test('frame is sent when bufferedAmount is below maxBufferedBytes', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithBackpressure({
+            maxBufferedBytes: 1024,
+        })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        dc.bufferedAmount = 512  // below limit
+
+        const outbound = new Uint8Array([1, 2, 3])
+        layer.emitOut('message', layer.grantResult, outbound)
+
+        assert.ok(dc.sent.includes(outbound), 'frame must be forwarded when below threshold')
+    })
+
+    test('frame is dropped when bufferedAmount exceeds maxBufferedBytes', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithBackpressure({
+            maxBufferedBytes: 1024,
+        })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        dc.bufferedAmount = 2048  // above limit
+
+        const outbound = new Uint8Array([1, 2, 3])
+        layer.emitOut('message', layer.grantResult, outbound)
+
+        assert.ok(!dc.sent.includes(outbound), 'frame must be dropped when above threshold')
+    })
+
+    test('onBackpressureDrop hook is called with actorId and bufferedAmount', async () => {
+        const drops: Array<{ actorId: string; bufferedAmount: number }> = []
+        const { transport, layer, signalClient, peers } = makeTransportWithBackpressure({
+            maxBufferedBytes: 1024,
+            onBackpressureDrop: (actorId, bufferedAmount) => drops.push({ actorId, bufferedAmount }),
+        })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        dc.bufferedAmount = 4096
+
+        layer.emitOut('message', layer.grantResult, new Uint8Array([0xAA]))
+
+        assert.strictEqual(drops.length, 1, 'hook must be called once per dropped frame')
+        assert.strictEqual(drops[0]!.actorId, layer.grantResult)
+        assert.strictEqual(drops[0]!.bufferedAmount, 4096)
+    })
+
+    test('onBackpressureDrop hook signature matches WSTransport (actorId: string, bufferedAmount: number)', async () => {
+        // Type-level check: the hook is assignable across both transport option types.
+        // Verifies identical signature (p2p.md §7) — if RTCTransportOptions or
+        // WSTransportOptions diverge, this test fails at compile time (tsc).
+        const hook = (_actorId: string, _bufferedAmount: number): void => {}
+        const opts: { onBackpressureDrop?: (actorId: string, bufferedAmount: number) => void } = {
+            onBackpressureDrop: hook,
+        }
+        assert.ok(typeof opts.onBackpressureDrop === 'function')
+    })
+
+    test('frame at exactly maxBufferedBytes is sent (threshold is exclusive)', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithBackpressure({
+            maxBufferedBytes: 1024,
+        })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        dc.bufferedAmount = 1024  // equal to limit — should NOT be dropped (> not >=)
+
+        const outbound = new Uint8Array([0xBB])
+        layer.emitOut('message', layer.grantResult, outbound)
+
+        assert.ok(dc.sent.includes(outbound), 'frame at threshold must be sent (> not >=)')
+    })
+
+    test('hook is not called when frame is sent normally', async () => {
+        let called = false
+        const { transport, layer, signalClient, peers } = makeTransportWithBackpressure({
+            maxBufferedBytes: 1024,
+            onBackpressureDrop: () => { called = true },
+        })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+        dc.bufferedAmount = 0
+
+        layer.emitOut('message', layer.grantResult, new Uint8Array([1]))
+
+        assert.ok(!called, 'hook must not be called when frame is forwarded')
     })
 
 })

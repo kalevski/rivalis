@@ -123,6 +123,7 @@ class MockDataChannel implements RTCDataChannelLike {
     readonly sent: Uint8Array[] = []
     private _isOpen = false
     closed = false
+    bufferedAmount = 0
 
     onMessage(cb: (buf: Uint8Array) => void): void { this._onMessage = cb }
     onOpen(cb: () => void): void { this._onOpen = cb }

@@ -28,6 +28,8 @@ export interface RTCDataChannelLike {
     sendBinary(buf: Uint8Array): void
     close(): void
     readonly isOpen: boolean
+    /** Bytes currently queued for delivery (analog of WebSocket.bufferedAmount). */
+    readonly bufferedAmount: number
 }
 
 export interface RTCPeerLike {
@@ -90,6 +92,8 @@ export class NodeDCDataChannel implements RTCDataChannelLike {
     close(): void { this.dc.close() }
 
     get isOpen(): boolean { return this.dc.isOpen() }
+
+    get bufferedAmount(): number { return this.dc.bufferedAmount() }
 }
 
 export class NodeDataChannelPeer implements RTCPeerLike {

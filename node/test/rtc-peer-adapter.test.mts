@@ -37,6 +37,7 @@ class MockDataChannel {
     public sent: Buffer[] = []
     public _open = true
     public _closed = false
+    public _bufferedAmount = 0
 
     onMessage(cb: (msg: Buffer | string) => void): void { this._messageHandler = cb }
     onOpen(cb: () => void): void { this._openHandler = cb }
@@ -44,6 +45,7 @@ class MockDataChannel {
     sendMessageBinary(buf: Buffer): void { this.sent.push(buf) }
     close(): void { this._closed = true; this._open = false }
     isOpen(): boolean { return this._open }
+    bufferedAmount(): number { return this._bufferedAmount }
 
     emitMessage(msg: Buffer | string): void { this._messageHandler?.(msg) }
     emitOpen(): void { this._openHandler?.() }
@@ -126,6 +128,7 @@ suite('RTCPeerLike interface surface', () => {
         assert.strictEqual(typeof c.sendBinary, 'function')
         assert.strictEqual(typeof c.close, 'function')
         assert.strictEqual(typeof c.isOpen, 'boolean')
+        assert.strictEqual(typeof c.bufferedAmount, 'number')
     })
 
 })
