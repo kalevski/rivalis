@@ -11,8 +11,8 @@
  *   the actor came through.
  *
  * Constraints (documented here so they are visible alongside the test):
- *   1. All transports share a single AuthMiddleware and RateLimiter
- *      (per-transport overrides are deferred to Phase 4, task 043/086).
+ *   1. All transports share a single AuthMiddleware and RateLimiter by default;
+ *      per-transport overrides are opt-in (p2p.md §3.6, task 086).
  *   2. actorId allocation is CSPRNG-based and globally unique across transports
  *      inside one Rivalis instance.
  *   3. Room.onJoin / onLeave / onMessage are transport-agnostic; a Room subclass

@@ -106,33 +106,38 @@ general query API.
 
 **Cross-reference:** `p2p.md §3.7`, `§4.3`, `§13.8`; task list D8 (Phase −1).
 
-#### Per-transport auth/rate-limit override (D9 — decided 2026-06-09)
+#### Per-transport auth/rate-limit override (D9 — decided 2026-06-09; implemented Phase 4, 2026-06-09)
 
-**Decision:** **defer** to Phase 4.
+**Phase 0 decision:** defer to Phase 4.
 
-Per-transport `authMiddleware?` / `rateLimiter?` overrides on `Transport` subclasses
-are **not** shipped in Phase 0. `ConfigOptions` (`Config.ts:8-14`) is unchanged.
+Per-transport overrides were deferred from Phase 0 because the feature is strictly
+additive and separate Rivalis apps already cover the star topology. `ConfigOptions`
+(`Config.ts:8-14`) was left unchanged.
 
-**Rationale:**
+**Phase 4 implementation (task 086, 2026-06-09):**
 
-The feature is strictly additive — it does not alter the existing single-auth /
-single-rateLimiter contract. The driving use case ("WS peers authenticate by
-cookie, RTC peers by signaling token") is already fully solvable today by running
-two separate `Rivalis` apps, which is exactly the pattern `fleet/` established.
-Because separate apps already cover the star topology, the urgency is low and the
-scope of Phase 0 should not widen for a convenience feature. Implementing it later
-as an opt-in addition to `ConfigOptions` carries zero risk of breaking the API;
-deferring now keeps Phase 0 focused on the blockers (`Transport` export, isomorphic
-kernel split, `Client` contract) that pay for themselves regardless of P2P.
+`Transport` gains two optional fields:
 
-**Deferred work tracked in:** Phase 4, task `086-core-low-per-transport-admission-impl.md`
-and `043-core-low-per-transport-admission-override.md`.
+```ts
+authMiddleware?: AuthMiddleware<any>   // undefined = use global
+rateLimiter?:    RateLimiter | null    // undefined = use global; null = disable for this transport
+```
 
-**Phase 0 impact:** none. `Config.ts:8-14` is untouched; no tracking stub or
-placeholder is added. When Phase 4 lands, `Transport` gains optional
-`authMiddleware?: AuthMiddleware<any>` and `rateLimiter?: RateLimiter | null`;
-`TLayer` prefers the transport's when present, falls back to the global `Config`
-default. The change will be backward-compatible and additive.
+`TLayer.grantAccess` accepts an optional 3rd argument `transport?: Transport`. When
+supplied, `transport.authMiddleware` (if defined) takes precedence over the global
+`authMiddleware`. All first-party transports pass `this` so the override is honored
+automatically; third-party transports that do not pass it continue to use the global
+(backward-compatible).
+
+`TLayer` tracks the transport for each admitted actor in `actorTransports: Map<string,
+Transport>`. `handleMessage` and `handleClose` resolve the effective rate limiter from
+the actor's transport entry (`undefined` → fall back to global, `null` → no rate
+limiting for this transport, `RateLimiter` instance → use it). `release()` is called
+on whichever limiter was used.
+
+`ConfigOptions` is **unchanged** — all additions are on `Transport` (additive).
+
+**Tests:** `core/test/per-transport-admission.test.mts` (AC1–AC7).
 
 **Cross-reference:** `p2p.md §3.6`, `§12 Phase 4`, `§13.9`; task list D9 (Phase −1).
 

@@ -224,7 +224,7 @@ class WSTransport extends Transport {
         const ticketFingerprint = this.fingerprint(ticket)
         let resolvedActorId: string
         try {
-            resolvedActorId = await this.transportLayer.grantAccess(ticket, connectionCtx)
+            resolvedActorId = await this.transportLayer.grantAccess(ticket, connectionCtx, this)
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error)
             this.logger.debug(`grant access failure, ticket=${ticketFingerprint}, reason=${reason}`)

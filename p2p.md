@@ -374,9 +374,12 @@ constructor calls `transport.onInitialize(this.transportLayer)` for each
 
   #### Constraints
 
-  1. **Shared admission.** All transports use the same `authMiddleware` and `rateLimiter`
-     configured in `ConfigOptions`. Per-transport overrides are deferred to Phase 4
-     (§13 D9, task 043/086).
+  1. **Shared admission (default); per-transport override (opt-in).** All transports share
+     the same `authMiddleware` and `rateLimiter` configured in `ConfigOptions` by default.
+     A transport may override either by setting `transport.authMiddleware` and/or
+     `transport.rateLimiter`; `TLayer` prefers the transport's value when present, else falls
+     back to the global. `null` on `transport.rateLimiter` disables rate limiting for that
+     transport. Implemented in Phase 4 (task 086).
   2. **Globally unique actor ids.** `TLayer.grantAccess` allocates a CSPRNG `actorId`
      (`generateId(16)`, 64 bits of entropy, 8 retries on collision) that is unique across
      the entire Rivalis instance, not just within a transport.
@@ -393,12 +396,11 @@ constructor calls `transport.onInitialize(this.transportLayer)` for each
 
   Tested in `core/test/multi-transport-one-room.test.mts`.
 
-- **Optional per-transport auth/rate-limit override.** Allow a transport to carry its own
-  `authMiddleware?` / `rateLimiter?`; `TLayer` uses the transport's if present, else the
-  global `Config` default. Keeps the simple case one-line, unlocks "WS peers authenticate by
-  cookie, RTC peers by signaling token." Strictly additive to `ConfigOptions`
-  (`Config.ts:8-14`). Recommend **defer** (§13) — separate Rivalis apps already cover the
-  star topology.
+- **Optional per-transport auth/rate-limit override.** `Transport` exposes optional
+  `authMiddleware?: AuthMiddleware<any>` and `rateLimiter?: RateLimiter | null` fields.
+  `TLayer` uses the transport's values when present (passed via the `transport?` 3rd arg of
+  `grantAccess`), else falls back to the global `Config` default. Strictly additive to
+  `ConfigOptions` (`Config.ts:8-14`). Implemented in Phase 4 (task 086).
 
 ### 3.7 Add `Room.getActor(id)` (fixes F8) — required by signaling
 
@@ -1158,7 +1160,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 **§3.6 — Multi-transport (cheap docs/test wins)**
 - [x] Document + test "one `Room`, many transports" wiring. (§3.6) — task 042, 2026-06-09; wiring + constraints in §3.6; tests in `core/test/multi-transport-one-room.test.mts`.
-- [x] Per-transport `authMiddleware?`/`rateLimiter?` override — **defer** per D9 (track only). (§3.6) — deferred design documented in `core/CHANGELOG.md` D9; Phase 4 implementation in task `086-core-low-per-transport-admission-impl.md`; task `043-core-low-per-transport-admission-override.md` closed 2026-06-09.
+- [x] Per-transport `authMiddleware?`/`rateLimiter?` override — **implemented** in Phase 4. (§3.6) — deferred design in `core/CHANGELOG.md` D9; Phase 4 implementation in task `086-core-low-per-transport-admission-impl.md`, 2026-06-09.
 
 **Phase 0 exit gate**
 - [x] Contract-conformance test suite across browser WSClient + node WSClient (initially red = F3 spec). (§10) — `core/test/client-conformance.test.mts`; S3 (`connected` during CONNECTING) is the red spec: node WSClient passes (readyState-based), browser WSClient fails (`this.ws !== null`). Suite turns fully green once browser WSClient's `connected` getter is made readyState-based (§3.2).
@@ -1221,7 +1223,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 - [x] Unreliable/unordered + dual-channel for high-rate state (`arena`, `{ ordered:false, maxRetransmits:0 }`). (§7, §12) — task 084, 2026-06-09. `RTCClientOptions.dualChannel` + `unreliableTopics`; `RTCTransportOptions.unreliableTopics`; `':unreliable'` label suffix convention; `pendingUnreliableByPeer` buffer for timing race; no chunking on unreliable (frames >16 KiB dropped with warning); `extractFrameTopic()` fast routing; default single-channel unchanged.
 - [x] `Transport` capability descriptor `{ ordered, reliable, maxFrameBytes }` a `Room` can query. (§7, §12) — `TransportCapability` type in `core/src/types.ts`; `Transport.capabilities` getter; `TLayer.registerCapabilities` + `TLayer.capabilities` with conservative multi-transport merge; `Room.transportCapabilities` protected getter; WS + RTC report accurate values; task 085, 2026-06-09.
-- [ ] Per-transport auth/rate-limit override (the deferred D9). (§3.6, §12)
+- [x] Per-transport auth/rate-limit override (the deferred D9). (§3.6, §12) — `Transport` gains optional `authMiddleware?: AuthMiddleware<any>` and `rateLimiter?: RateLimiter | null`; `TLayer.grantAccess` accepts an optional `transport?` 3rd arg and prefers `transport.authMiddleware` when set; `TLayer.handleMessage`/`handleClose` resolve the effective `rateLimiter` from the actor's transport (`undefined` → fall back to global, `null` → no rate limiting); `actorTransports` map tracks per-actor transport reference; all first-party transports (`WSTransport`, node+browser `RTCTransport`) pass `this` to `grantAccess`; tests in `core/test/per-transport-admission.test.mts`; task 086, 2026-06-09.
 - [ ] Pure-JS STUN dev-only responder behind a flag. (§4.3, §12)
 - [ ] `werift` dev/CI fallback behind a flag (no native build). (§4.5, §12)
 

@@ -374,7 +374,7 @@ class RTCTransport extends Transport {
 
                 let aid: string
                 try {
-                    aid = await layer.grantAccess(peerTicket, ctx)
+                    aid = await layer.grantAccess(peerTicket, ctx, this)
                 } catch {
                     // Auth or room-admission failure — close without a game-level close frame
                     // (pre-join rejection; peer has not joined any room yet).

@@ -286,7 +286,7 @@ class RTCTransport extends Transport {
 
                 let aid: string
                 try {
-                    aid = await layer.grantAccess(peerTicket, ctx)
+                    aid = await layer.grantAccess(peerTicket, ctx, this)
                 } catch {
                     channel.close()
                     return

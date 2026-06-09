@@ -1,3 +1,5 @@
+import type AuthMiddleware from './AuthMiddleware'
+import type RateLimiter from './RateLimiter'
 import type TLayer from './TLayer'
 import type { TransportCapability } from './types'
 
@@ -15,6 +17,20 @@ export type { TransportCapability }
  * only if the transport owns resources that need teardown.
  */
 abstract class Transport {
+
+    /**
+     * Per-transport auth middleware override. When set, `TLayer.grantAccess`
+     * uses this instead of the global `Config.authMiddleware` for connections
+     * arriving on this transport. Leave `undefined` to fall back to the global.
+     */
+    authMiddleware?: AuthMiddleware<any>
+
+    /**
+     * Per-transport rate-limiter override. When set, `TLayer.handleMessage`
+     * uses this instead of the global `Config.rateLimiter`.
+     * `undefined` → use global; `null` → disable rate limiting for this transport.
+     */
+    rateLimiter?: RateLimiter | null
 
     abstract onInitialize(transportLayer: TLayer<any>): void
 

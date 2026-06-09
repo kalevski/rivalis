@@ -3,6 +3,7 @@ import type { LoggerFactory } from '@toolcase/logging'
 import AuthMiddleware from './AuthMiddleware'
 import CustomLoggerFactory from './CustomLoggerFactory'
 import RateLimiter from './RateLimiter'
+import Transport from './Transport'
 import { decode, encode, MAX_CLOSE_REASON_BYTES } from '@rivalis/handshake'
 import KickReason from './KickReason'
 import type { ConnectionContext, EventFn, EventType, GetRoomFn, TransportCapability } from './types'
@@ -38,6 +39,8 @@ class TLayer<TActorData = Record<string, unknown>> {
     private getRoom: GetRoomFn<TActorData>
 
     private roomIds: Map<string, string> = new Map()
+
+    private actorTransports: Map<string, Transport> = new Map()
 
     private emitter: EventEmitter
 
@@ -171,8 +174,9 @@ class TLayer<TActorData = Record<string, unknown>> {
         }
     }
 
-    async grantAccess(ticket: string, context?: ConnectionContext): Promise<string> {
-        const result = await this.authMiddleware.authenticate(ticket, context)
+    async grantAccess(ticket: string, context?: ConnectionContext, transport?: Transport): Promise<string> {
+        const effectiveAuth = transport?.authMiddleware ?? this.authMiddleware
+        const result = await effectiveAuth.authenticate(ticket, context)
         if (result === null) {
             throw new Error('invalid ticket')
         }
@@ -215,6 +219,9 @@ class TLayer<TActorData = Record<string, unknown>> {
         }
 
         this.roomIds.set(actorId, roomId)
+        if (transport !== undefined) {
+            this.actorTransports.set(actorId, transport)
+        }
         try {
             room.handleJoin(actorId, data)
         } catch (error) {
@@ -222,6 +229,7 @@ class TLayer<TActorData = Record<string, unknown>> {
             // every entry that handleJoin / TLayer registered so the actor
             // does not linger as a half-joined ghost.
             this.roomIds.delete(actorId)
+            this.actorTransports.delete(actorId)
             this.pendingEmits.delete(`message:${actorId}`)
             this.pendingEmits.delete(`kick:${actorId}`)
             this.emitter.removeAllListeners(`message:${actorId}`)
@@ -248,8 +256,12 @@ class TLayer<TActorData = Record<string, unknown>> {
             this.roomIds.delete(actorId)
             return this.kick(actorId, Buffer.from(KickReason.INVALID_MESSAGE, 'utf-8'))
         }
-        if (this.rateLimiter !== null) {
-            const allowed = await this.rateLimiter.check(actorId)
+        const actorTransport = this.actorTransports.get(actorId)
+        const effectiveRateLimiter = actorTransport !== undefined && actorTransport.rateLimiter !== undefined
+            ? actorTransport.rateLimiter
+            : this.rateLimiter
+        if (effectiveRateLimiter !== null) {
+            const allowed = await effectiveRateLimiter.check(actorId)
             if (allowed === false) {
                 this.logger.debug(`actor id=${actorId} rate limited, dropping frame`)
                 this.kick(actorId, Buffer.from(KickReason.RATE_LIMITED, 'utf-8'))
@@ -276,6 +288,8 @@ class TLayer<TActorData = Record<string, unknown>> {
         const roomId = this.roomIds.get(actorId)
         const room = roomId !== undefined ? this.getRoom(roomId) : null
         this.roomIds.delete(actorId)
+        const closingTransport = this.actorTransports.get(actorId)
+        this.actorTransports.delete(actorId)
         try {
             if (room !== null) {
                 room.handleLeave(actorId)
@@ -290,9 +304,12 @@ class TLayer<TActorData = Record<string, unknown>> {
             this.emitter.removeAllListeners(`kick:${actorId}`)
             this.pendingEmits.delete(`message:${actorId}`)
             this.pendingEmits.delete(`kick:${actorId}`)
-            if (this.rateLimiter !== null) {
+            const effectiveRateLimiter = closingTransport !== undefined && closingTransport.rateLimiter !== undefined
+                ? closingTransport.rateLimiter
+                : this.rateLimiter
+            if (effectiveRateLimiter !== null) {
                 try {
-                    this.rateLimiter.release(actorId)
+                    effectiveRateLimiter.release(actorId)
                 } catch (error) {
                     const reason = error instanceof Error ? error.message : String(error)
                     this.logger.warning(`rateLimiter.release threw for actor id=${actorId}: ${reason}`)
