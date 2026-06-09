@@ -26,21 +26,24 @@ const codec = createCodec({
     major: SIGNAL_WIRE_MAJOR,
     schema: {
         Welcome: [
-            { key: 'youId', type: F.STRING, rule: 'optional' },
-            { key: 'hostId', type: F.STRING, rule: 'optional' },
+            { key: 'youId',      type: F.STRING, rule: 'optional' },
+            { key: 'hostId',     type: F.STRING, rule: 'optional' },
             { key: 'iceServers', type: F.STRING, rule: 'optional' }, // JSON RTCIceServer[]
         ],
         Offer: [
-            { key: 'to', type: F.STRING, rule: 'optional' },
-            { key: 'sdp', type: F.STRING, rule: 'optional' },
+            { key: 'to',   type: F.STRING, rule: 'optional' },
+            { key: 'sdp',  type: F.STRING, rule: 'optional' },
+            { key: 'from', type: F.STRING, rule: 'optional' }, // sender's youId (tag 3)
         ],
         Answer: [
-            { key: 'to', type: F.STRING, rule: 'optional' },
-            { key: 'sdp', type: F.STRING, rule: 'optional' },
+            { key: 'to',   type: F.STRING, rule: 'optional' },
+            { key: 'sdp',  type: F.STRING, rule: 'optional' },
+            { key: 'from', type: F.STRING, rule: 'optional' }, // sender's youId (tag 3)
         ],
         IceCandidate: [
-            { key: 'to', type: F.STRING, rule: 'optional' },
+            { key: 'to',        type: F.STRING, rule: 'optional' },
             { key: 'candidate', type: F.STRING, rule: 'optional' }, // JSON RTCIceCandidateInit
+            { key: 'from',      type: F.STRING, rule: 'optional' }, // sender's youId (tag 3)
         ],
     }
 })
@@ -53,9 +56,9 @@ export type WelcomePayload = {
     iceServers: string     // JSON-encoded RTCIceServer[]
 }
 
-export type OfferPayload = { to: string; sdp: string }
-export type AnswerPayload = { to: string; sdp: string }
-export type IceCandidatePayload = { to: string; candidate: string }
+export type OfferPayload = { to: string; sdp: string; from?: string }
+export type AnswerPayload = { to: string; sdp: string; from?: string }
+export type IceCandidatePayload = { to: string; candidate: string; from?: string }
 
 // ── Encode / decode ───────────────────────────────────────────────────────────
 
@@ -75,30 +78,42 @@ export function decodeWelcome(frame: Uint8Array): WelcomePayload {
 }
 
 export function encodeOffer(p: OfferPayload): Uint8Array {
-    return codec.encode('Offer', { to: p.to, sdp: p.sdp })
+    const msg: Record<string, unknown> = { to: p.to, sdp: p.sdp }
+    if (p.from) msg.from = p.from
+    return codec.encode('Offer', msg)
 }
 
 export function decodeOffer(frame: Uint8Array): OfferPayload {
     const m = codec.decode('Offer', frame)
-    return { to: m.to ?? '', sdp: m.sdp ?? '' }
+    const result: OfferPayload = { to: m.to ?? '', sdp: m.sdp ?? '' }
+    if (present(m, 'from')) result.from = String(m.from)
+    return result
 }
 
 export function encodeAnswer(p: AnswerPayload): Uint8Array {
-    return codec.encode('Answer', { to: p.to, sdp: p.sdp })
+    const msg: Record<string, unknown> = { to: p.to, sdp: p.sdp }
+    if (p.from) msg.from = p.from
+    return codec.encode('Answer', msg)
 }
 
 export function decodeAnswer(frame: Uint8Array): AnswerPayload {
     const m = codec.decode('Answer', frame)
-    return { to: m.to ?? '', sdp: m.sdp ?? '' }
+    const result: AnswerPayload = { to: m.to ?? '', sdp: m.sdp ?? '' }
+    if (present(m, 'from')) result.from = String(m.from)
+    return result
 }
 
 export function encodeIceCandidate(p: IceCandidatePayload): Uint8Array {
-    return codec.encode('IceCandidate', { to: p.to, candidate: p.candidate })
+    const msg: Record<string, unknown> = { to: p.to, candidate: p.candidate }
+    if (p.from) msg.from = p.from
+    return codec.encode('IceCandidate', msg)
 }
 
 export function decodeIceCandidate(frame: Uint8Array): IceCandidatePayload {
     const m = codec.decode('IceCandidate', frame)
-    return { to: m.to ?? '', candidate: m.candidate ?? '' }
+    const result: IceCandidatePayload = { to: m.to ?? '', candidate: m.candidate ?? '' }
+    if (present(m, 'from')) result.from = String(m.from)
+    return result
 }
 
 /**
