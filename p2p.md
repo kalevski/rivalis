@@ -309,7 +309,7 @@ The project has/needs three protobuf-on-`@toolcase/serializer` codecs. Extract t
 **discipline** (not the schemas) into one place so signaling doesn't hand-copy fleet's 417-line
 codec:
 
-- A small helper (in `handshake`, or a new `@rivalis/wire` if external consumers want it)
+- A small helper (in `@rivalis/handshake` — home confirmed by D7, decided 2026-06-09)
   wrapping `@toolcase/serializer` with: the 2-byte `[major, minor]` version header
   (`fleet/src/wire/serializer.ts` `WIRE_MAJOR=PROTOCOL_VERSION`, `WIRE_MINOR=0`,
   `HEADER_BYTES=2`), the append-only positional-tag rule (tags are assigned by field order;
@@ -868,8 +868,11 @@ without touching the game-logic API.
    base64(HMAC_SHA1(secret, username))`) — coturn's `static-auth-secret` REST scheme validates
    them natively. The shared secret never leaves the server. Full rationale in
    `signal/CHANGELOG.md` D6.
-7. **Shared codec toolkit home (§3.5):** fold into `@rivalis/handshake` (recommended) vs new
-   `@rivalis/wire` package.
+7. **Shared codec toolkit home (§3.5):** ✅ **Decided 2026-06-09 — fold into `@rivalis/handshake` confirmed.**
+   The typed-codec discipline (2-byte `[major,minor]` version header, append-only positional
+   tags, `present()`-based decode, `WireVersionError` on major mismatch, baked-in lazy loader)
+   lives in `@rivalis/handshake`. No new `@rivalis/wire` package is created. Full rationale in
+   `handshake/CHANGELOG.md` D7.
 8. **`Room.getActor` visibility (§3.7):** `protected` (recommended — signaling subclass uses
    it, app code rarely needs it) vs `public`.
 9. **Per-transport auth/rate-limit override (§3.6):** ship now vs defer (separate Rivalis
@@ -905,7 +908,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] **D4** Node WebRTC lib: `node-datachannel` default, `werift` dev/CI fallback (`RIVALIS_WEBRTC_BACKEND=werift`). (§4.5, §13.4) — decided 2026-06-09; rationale in `node/CHANGELOG.md`.
 - [x] **D5** v1 host location: Node-host-first confirmed — browser-as-host deferred to Phase 3. (§13.5) — decided 2026-06-09; rationale in `node/CHANGELOG.md`.
 - [x] **D6** TURN relay: coturn sidecar confirmed; pure-JS STUN dev-only behind `RIVALIS_STUN_DEV=true`; no JS production TURN. (§4.3, §13.6) — decided 2026-06-09; rationale in `signal/CHANGELOG.md`.
-- [ ] **D7** Shared codec toolkit home: confirm fold into `@rivalis/handshake` (vs new `@rivalis/wire`). (§3.5, §13.7)
+- [x] **D7** Shared codec toolkit home: fold into `@rivalis/handshake` confirmed — typed-codec discipline (2-byte header, append-only tags, lazy-require, `WireVersionError`) lives in `handshake`; no new `@rivalis/wire` package. (§3.5, §13.7) — decided 2026-06-09; rationale in `handshake/CHANGELOG.md`.
 - [ ] **D8** `Room.getActor` visibility: confirm `protected` (vs `public`). (§3.7, §13.8)
 - [ ] **D9** Per-transport auth/rate-limit override: confirm **defer**. (§3.6, §13.9)
 - [ ] **D10** Package names: confirm `@rivalis/signal` + `@rivalis/node`. (§13.10)
@@ -945,7 +948,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [ ] Add Node strict-ESM smoke test: `node --input-type=module -e "import '@rivalis/handshake'"` (and `'@rivalis/core'`). (§10)
 
 **F4 / §3.5 — Shared typed-codec toolkit**
-- [ ] Build codec helper (home per D7) wrapping `@toolcase/serializer`: 2-byte `[major,minor]` header, append-only positional tags, `present()`-based decode, `WireVersionError` on major mismatch, baked-in lazy loader. (§3.5)
+- [ ] Build codec helper in `@rivalis/handshake` (D7 — decided 2026-06-09) wrapping `@toolcase/serializer`: 2-byte `[major,minor]` header, append-only positional tags, `present()`-based decode, `WireVersionError` on major mismatch, baked-in lazy loader. (§3.5)
 - [ ] Unit-test version-header + append-only + `WireVersionError`. (§10)
 
 **§3.4 — Transport-agnostic close/kick control frames**
