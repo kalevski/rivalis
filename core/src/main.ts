@@ -7,6 +7,7 @@ import ConnectionLimiter from './ConnectionLimiter'
 import KickReason from './KickReason'
 import Room from './Room'
 import Actor from './Actor'
+import Transport from './Transport'
 import CustomLoggerFactory from './CustomLoggerFactory'
 
 import WSTransport from './transports/WSTransport'
@@ -50,5 +51,6 @@ export {
     TokenBucketRateLimiter,
     ConnectionLimiter,
     Room,
-    Actor
+    Actor,
+    Transport
 }
