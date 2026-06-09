@@ -116,9 +116,10 @@ export class NodeDataChannelPeer implements RTCPeerLike {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     constructor(config: RTCConfiguration, ndc?: any) {
         const lib = ndc ?? requireNodeDataChannel()
-        this.pc = new lib.PeerConnection('', {
-            iceServers: mapIceServers(config),
-        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const options: Record<string, any> = { iceServers: mapIceServers(config) }
+        if (config.iceTransportPolicy) options['iceTransportPolicy'] = config.iceTransportPolicy
+        this.pc = new lib.PeerConnection('', options)
     }
 
     createDataChannel(label: string, reliability: ChannelReliability): RTCDataChannelLike {
