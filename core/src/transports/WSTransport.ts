@@ -153,6 +153,7 @@ class WSTransport extends Transport {
         this.logger = transportLayer.logging.getLogger('transport:websocket')
         this.ws?.off('connection', this.handleReject)
         this.ws?.on('connection', this.handleConnect)
+        transportLayer.registerCapabilities(this.capabilities)
         this.logger.info('initialized')
     }
 

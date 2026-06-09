@@ -3,7 +3,7 @@ import Actor from './Actor'
 import KickReason from './KickReason'
 import type RoomManager from './RoomManager'
 import type TLayer from './TLayer'
-import type { ForEachFn, TopicListener } from './types'
+import type { ForEachFn, TopicListener, TransportCapability } from './types'
 
 const PRESENCE_JOIN_TOPIC = '__presence:join'
 const PRESENCE_LEAVE_TOPIC = '__presence:leave'
@@ -100,6 +100,24 @@ abstract class Room<TActorData = Record<string, unknown>> {
 
     get actorCount(): number {
         return this.actors.size
+    }
+
+    /**
+     * Capability descriptor of the transport(s) attached to this room (p2p.md §7, §12 Phase 4).
+     *
+     * Returns `null` when no transport has registered capabilities yet (rare — only possible
+     * if a `StubTransport` that skips `registerCapabilities` is the sole transport). Otherwise
+     * returns the merged descriptor across all configured transports:
+     *
+     * - `ordered` — `true` when every transport delivers frames in send order.
+     * - `reliable` — `true` when every transport guarantees delivery.
+     * - `maxFrameBytes` — the smallest per-frame ceiling across transports; `null` = no limit.
+     *
+     * Typical values: WS → `{ ordered:true, reliable:true, maxFrameBytes:65536 }`; RTC primary
+     * channel → `{ ordered:true, reliable:true, maxFrameBytes:16384 }`.
+     */
+    protected get transportCapabilities(): TransportCapability | null {
+        return this.transportLayer?.capabilities ?? null
     }
 
     /**

@@ -5,7 +5,7 @@ import CustomLoggerFactory from './CustomLoggerFactory'
 import RateLimiter from './RateLimiter'
 import { decode, encode, MAX_CLOSE_REASON_BYTES } from '@rivalis/handshake'
 import KickReason from './KickReason'
-import type { ConnectionContext, EventFn, EventType, GetRoomFn } from './types'
+import type { ConnectionContext, EventFn, EventType, GetRoomFn, TransportCapability } from './types'
 
 const truncateCloseReason = (payload: Uint8Array): Uint8Array => {
     if (payload.byteLength <= MAX_CLOSE_REASON_BYTES) {
@@ -59,6 +59,15 @@ class TLayer<TActorData = Record<string, unknown>> {
 
     private static readonly MAX_PENDING_EMITS_PER_KEY = 256
 
+    /**
+     * Merged transport capabilities registered by all transports during
+     * `onInitialize`. Multiple transports are merged conservatively:
+     * `ordered`/`reliable` are AND-ed; `maxFrameBytes` takes the minimum
+     * non-null value so rooms see the most restrictive limit across all
+     * admitted connection paths.
+     */
+    private _capabilities: TransportCapability | null = null
+
     constructor(
         authMiddleware: AuthMiddleware<TActorData>,
         getRoomFn: GetRoomFn<TActorData>,
@@ -77,6 +86,39 @@ class TLayer<TActorData = Record<string, unknown>> {
 
     get connections(): number {
         return this.roomIds.size
+    }
+
+    /**
+     * Register (or merge) a transport's capability descriptor.
+     * Called by each transport from its `onInitialize` so that the
+     * resulting `capabilities` snapshot reflects every admitted path.
+     *
+     * Merge rules for multiple transports:
+     * - `ordered`/`reliable` — AND (both must be true for the merged result to be true)
+     * - `maxFrameBytes` — minimum of non-null values; `null` (no limit) defers to
+     *   the other transport's limit; both null → null.
+     */
+    registerCapabilities(caps: TransportCapability): void {
+        if (this._capabilities === null) {
+            this._capabilities = { ...caps }
+            return
+        }
+        const prev = this._capabilities
+        const mergedMax =
+            prev.maxFrameBytes === null && caps.maxFrameBytes === null ? null
+            : prev.maxFrameBytes === null ? caps.maxFrameBytes
+            : caps.maxFrameBytes === null ? prev.maxFrameBytes
+            : Math.min(prev.maxFrameBytes, caps.maxFrameBytes)
+        this._capabilities = {
+            ordered: prev.ordered && caps.ordered,
+            reliable: prev.reliable && caps.reliable,
+            maxFrameBytes: mergedMax,
+        }
+    }
+
+    /** Merged capability descriptor for all registered transports, or `null` if none registered yet. */
+    get capabilities(): TransportCapability | null {
+        return this._capabilities
     }
 
     on = (event: EventType, actorId: string, eventListener: EventFn, context?: unknown): void => {

@@ -1,4 +1,7 @@
 import type TLayer from './TLayer'
+import type { TransportCapability } from './types'
+
+export type { TransportCapability }
 
 /**
  * Base class for all wire transports. A transport translates between
@@ -33,6 +36,20 @@ abstract class Transport {
      */
     get maxFrameBytes(): number | null {
         return null
+    }
+
+    /**
+     * Full capability descriptor for this transport (p2p.md §7, §12 Phase 4).
+     *
+     * The default implementation derives `maxFrameBytes` from `this.maxFrameBytes`
+     * and assumes ordered + reliable delivery — correct for WS (TCP) and the RTC
+     * primary channel (`{ ordered: true }`, no `maxRetransmits`). Override when a
+     * transport provides different guarantees.
+     *
+     * Rooms can read the merged capability via `this.transportCapabilities`.
+     */
+    get capabilities(): TransportCapability {
+        return { ordered: true, reliable: true, maxFrameBytes: this.maxFrameBytes }
     }
 
     dispose(): void | Promise<void> {}

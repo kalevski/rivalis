@@ -771,8 +771,18 @@ After the channel opens, the signaling server sees **zero** game traffic.
   `PeerNegotiator`, which forwards it to `RTCPeerLike.createDataChannel`. Default is
   `{ ordered:true }`. Phase 1 uses a single reliable channel for parity — `RTCTransport`
   accepts whatever channel the peer opens; the reliability option is enforced at the peer side.
-  Optionally a `Transport` capability descriptor (`{ ordered, reliable, maxFrameBytes }`) a
-  `Room` can query — deferred to a later phase.
+  **Implemented (task 085) — transport capability descriptor.** `TransportCapability`
+  (`{ ordered: boolean; reliable: boolean; maxFrameBytes: number | null }`) is defined in
+  `core/src/types.ts` and re-exported from `@rivalis/core`. `Transport` base class exposes
+  `get capabilities(): TransportCapability` (default: `{ ordered:true, reliable:true,
+  maxFrameBytes: this.maxFrameBytes }`). Each transport registers its capability with `TLayer`
+  by calling `transportLayer.registerCapabilities(this.capabilities)` from `onInitialize`.
+  `TLayer` merges multiple transports conservatively (AND `ordered`/`reliable`; min
+  `maxFrameBytes`, treating `null` as "no limit"). `Room` exposes
+  `protected get transportCapabilities(): TransportCapability | null` that reads the merged
+  value from its `TLayer`. WS → `{ ordered:true, reliable:true, maxFrameBytes:maxPayload }`;
+  RTC primary channel → `{ ordered:true, reliable:true, maxFrameBytes:16384 }`. Tests:
+  `core/test/transport-capability.test.mts`; task 085, 2026-06-09.
 
   **Implemented (task 084) — dual-channel unreliable routing.** An optional second data
   channel (`{ ordered:false, maxRetransmits:0 }`) is opened alongside the primary reliable
@@ -1210,7 +1220,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 ### Phase 4 — Optional (realtime-grade + zero-native dev)
 
 - [x] Unreliable/unordered + dual-channel for high-rate state (`arena`, `{ ordered:false, maxRetransmits:0 }`). (§7, §12) — task 084, 2026-06-09. `RTCClientOptions.dualChannel` + `unreliableTopics`; `RTCTransportOptions.unreliableTopics`; `':unreliable'` label suffix convention; `pendingUnreliableByPeer` buffer for timing race; no chunking on unreliable (frames >16 KiB dropped with warning); `extractFrameTopic()` fast routing; default single-channel unchanged.
-- [ ] `Transport` capability descriptor `{ ordered, reliable, maxFrameBytes }` a `Room` can query. (§7, §12)
+- [x] `Transport` capability descriptor `{ ordered, reliable, maxFrameBytes }` a `Room` can query. (§7, §12) — `TransportCapability` type in `core/src/types.ts`; `Transport.capabilities` getter; `TLayer.registerCapabilities` + `TLayer.capabilities` with conservative multi-transport merge; `Room.transportCapabilities` protected getter; WS + RTC report accurate values; task 085, 2026-06-09.
 - [ ] Per-transport auth/rate-limit override (the deferred D9). (§3.6, §12)
 - [ ] Pure-JS STUN dev-only responder behind a flag. (§4.3, §12)
 - [ ] `werift` dev/CI fallback behind a flag (no native build). (§4.5, §12)

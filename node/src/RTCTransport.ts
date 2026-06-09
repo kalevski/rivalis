@@ -263,6 +263,7 @@ class RTCTransport extends Transport {
             })
         })
 
+        layer.registerCapabilities(this.capabilities)
         this.signalClient.connect(this.hostTicket)
     }
 
