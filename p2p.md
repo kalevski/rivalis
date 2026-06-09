@@ -348,10 +348,51 @@ shared helper, not a fork of fleet's 417-line file, and F5's lazy loader is solv
 constructor calls `transport.onInitialize(this.transportLayer)` for each
 (`Rivalis.ts:33-34`). Two cheap wins:
 
-- **Document and test "one `Room`, many transports."** A host can run
-  `transports: [ new WSTransport(...), new RTCTransport(...) ]` and both feed the *same*
-  rooms via the *same* `TLayer`. A WS client and an RTC peer can sit in the same `TttRoom`.
-  This works mechanically once F1 lands; it just needs to be a supported, tested story.
+- **✅ Document and test "one `Room`, many transports" (task 042, 2026-06-09).**
+
+  #### Wiring
+
+  Every transport in the array receives the **exact same `TLayer` reference** from
+  `Rivalis.constructor`. Once each transport calls `tl.grantAccess(ticket, context)`, the
+  actor is registered in that shared `TLayer` and joins whichever room `AuthResult.roomId`
+  names. From that point, the actor is completely opaque to the room — `actorCount`,
+  `each()`, `broadcast()`, `send()`, `kick()` all operate on the merged actor set regardless
+  of which transport admitted them.
+
+  ```ts
+  // Both transports feed one room space via one TLayer.
+  const rivalis = new Rivalis<ActorData>({
+      transports: [
+          new WSTransport({ port }),     // WS clients connect here
+          new RTCTransport({ signalUrl }) // RTC peers connect here (Phase 1)
+      ],
+      authMiddleware: new ArenaAuthMiddleware()
+  })
+  rivalis.rooms.define('ttt', TttRoom) // TttRoom is transport-agnostic
+  rivalis.rooms.create('ttt', 'game-1')
+  ```
+
+  #### Constraints
+
+  1. **Shared admission.** All transports use the same `authMiddleware` and `rateLimiter`
+     configured in `ConfigOptions`. Per-transport overrides are deferred to Phase 4
+     (§13 D9, task 043/086).
+  2. **Globally unique actor ids.** `TLayer.grantAccess` allocates a CSPRNG `actorId`
+     (`generateId(16)`, 64 bits of entropy, 8 retries on collision) that is unique across
+     the entire Rivalis instance, not just within a transport.
+  3. **Transport-opaque rooms.** `Room.onJoin/onLeave/onMessage` receive an `Actor` with no
+     indication of which transport admitted it. Transport-kind information is available via
+     `ConnectionContext` (§3.1) if an auth middleware inspects it, but does not surface in
+     the room API.
+  4. **Pre-listener buffer applies to all transports.** Each transport must register
+     `tl.on('message', actorId, …)` and `tl.on('kick', actorId, …)` promptly after
+     `grantAccess` returns. `TLayer` buffers up to 256 outbound frames per actor key while
+     no listener is registered (`pendingEmits`, `TLayer.ts:58-66`) and flushes them on the
+     first `on`/`once` — so a slow transport risks overflowing that buffer on a chatty
+     `onJoin`.
+
+  Tested in `core/test/multi-transport-one-room.test.mts`.
+
 - **Optional per-transport auth/rate-limit override.** Allow a transport to carry its own
   `authMiddleware?` / `rateLimiter?`; `TLayer` uses the transport's if present, else the
   global `Config` default. Keeps the simple case one-line, unlocks "WS peers authenticate by
@@ -969,7 +1010,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] Add `protected getActor(actorId): Actor | null` to `core/src/Room.ts`. (§3.7) — visibility locked `protected` per D8 (decided 2026-06-09).
 
 **§3.6 — Multi-transport (cheap docs/test wins)**
-- [ ] Document + test "one `Room`, many transports" wiring (mechanically works once F1 lands). (§3.6)
+- [x] Document + test "one `Room`, many transports" wiring. (§3.6) — task 042, 2026-06-09; wiring + constraints in §3.6; tests in `core/test/multi-transport-one-room.test.mts`.
 - [ ] Per-transport `authMiddleware?`/`rateLimiter?` override — **defer** per D9 (track only). (§3.6)
 
 **Phase 0 exit gate**
