@@ -453,38 +453,67 @@ Full mesh / lockstep / CRDT is a different programming model and stays out of sc
 ### 4.2 `RTCTransport` (host) — satisfies the same five-step `Transport` seam
 
 Maps 1:1 onto the five-step seam from §1. The only substitution is `RTCDataChannel` for
-`ws.WebSocket`.
+`ws.WebSocket`. Implemented in `node/src/RTCTransport.ts` (task 061).
+
+**Ticket protocol:** WebSocket expresses the auth ticket in the URL or `Sec-WebSocket-Protocol`
+header; `RTCDataChannel` has no equivalent handshake header. The peer sends its game-room auth
+ticket as UTF-8 bytes in the **first binary message** on the data channel. `RTCTransport` reads
+that first message, calls `grantAccess`, then switches to normal game-frame forwarding.
+This keeps the signaling wire and the game wire independent — the signal server sees only
+SDP/ICE; the game ticket never touches the signal layer.
 
 ```ts
-// @rivalis/node — node/src/RTCTransport.ts (sketch)
-import { Transport, type TLayer, type ConnectionContext } from '@rivalis/core'
-import type { RTCPeerLike, RTCDataChannelLike } from './peer/RTCPeer'   // §4.5 adapter
-import { SignalClient } from './SignalClient'                           // a Client to @rivalis/signal
-
+// node/src/RTCTransport.ts (actual implementation — abridged)
 class RTCTransport extends Transport {
-    private layer: TLayer<any> | null = null
-    private channels = new Map<string, RTCDataChannelLike>()   // actorId -> channel
+    // actorId → open data channel (post-grant)
+    private readonly channels = new Map<string, RTCDataChannelLike>()
+    // peerId → actorId — routes PC state-change events to handleClose
+    private readonly peerToActor = new Map<string, string>()
+    // prevents double-close when both DC.onClose and PC state-change fire
+    private readonly closedActors = new Set<string>()
 
     override onInitialize(layer: TLayer<any>): void {
         this.layer = layer
-        this.signal.connect(this.ticket)                  // (1) become host in SignalRoom
-        this.signal.on('signal:offer', this.onPeerOffer)  // a peer wants in
-        this.signal.on('signal:ice',   this.onPeerIce)
+        this.signalClient.on('signal:welcome', (payload) => {
+            const { myId, iceServers } = decodeWelcome(payload)
+            this.negotiator.initialize(myId, iceServers, {  // HostNegotiator (§4.5)
+                onChannel:         (channel, peerId) => this.onChannelOpen(channel, peerId),
+                onPeerStateChange: (peerId, state)   => this.onPeerStateChange(peerId, state),
+            })
+        })
+        this.signalClient.connect(this.hostTicket)        // (1) become host in SignalRoom
     }
 
-    private async onChannelOpen(pc: RTCPeerLike, channel: RTCDataChannelLike, peerTicket: string, peerId: string): Promise<void> {
-        const ctx: ConnectionContext = { kind: 'webrtc', remoteId: peerId }
-        const actorId = await this.layer!.grantAccess(peerTicket, ctx)   // (2) §3.1 context
-        this.channels.set(actorId, channel)
-        // (3)(4) register inbound + outbound BEFORE any onJoin send can occur — see note below.
-        channel.onMessage(buf => this.layer!.handleMessage(actorId, toU8(buf)))
-        this.layer!.on('message', actorId, (_, m) => channel.sendBinary(m))
-        this.layer!.on('kick',    actorId, (_, m) => { this.sendCloseFrame(channel, m); channel.close() }) // §3.4
-        pc.onStateChange(s => { if (s === 'disconnected' || s === 'closed' || s === 'failed') this.layer!.handleClose(actorId) }) // (5)
+    private onChannelOpen(channel: RTCDataChannelLike, peerId: string): void {
+        let actorId: string | null = null
+        channel.onClose(() => { if (actorId) this.triggerClose(actorId, peerId) })
+        channel.onMessage((buf) => {
+            if (actorId !== null) {
+                this.layer!.handleMessage(actorId, buf)   // (3) normal game frames
+                return
+            }
+            // First message is the peer's game-room auth ticket (UTF-8)
+            const peerTicket = new TextDecoder().decode(buf)
+            const ctx = { kind: 'webrtc', remoteId: peerId }
+            void (async () => {
+                const aid = await this.layer!.grantAccess(peerTicket, ctx)  // (2) §3.1 context
+                actorId = aid
+                this.channels.set(aid, channel)
+                this.peerToActor.set(peerId, aid)
+                // (4) register outbound listeners immediately — flushes pendingEmits
+                this.layer!.on('message', aid, (_, m) => channel.sendBinary(m))
+                this.layer!.on('kick',    aid, (_, m) => { this.sendCloseFrame(channel, m); channel.close() }) // §3.4
+            })()
+        })
     }
 
-    override get sockets(): number { return this.channels.size }   // open DC count
-    override async dispose(): Promise<void> { /* close all channels + pcs + signal client */ }
+    private onPeerStateChange(peerId: string, state: string): void {
+        if (state === 'disconnected' || state === 'closed' || state === 'failed') {
+            this.negotiator.closePeer(peerId)
+            const aid = this.peerToActor.get(peerId)
+            if (aid) this.triggerClose(aid, peerId)    // (5)
+        }
+    }
 }
 ```
 
@@ -493,16 +522,21 @@ calls `actor.send(...)` immediately. Outbound frames emitted before the transpor
 `on('message', actorId, …)` are not lost — `TLayer` buffers them per-actor (`pendingEmits`,
 keyed `message:<actorId>`, capped at `MAX_PENDING_EMITS_PER_KEY = 256`, `TLayer.ts:58-66`)
 and flushes on listener registration (`flushPending`, `:127-132`). So the order in
-`onChannelOpen` above is safe, but `RTCTransport` should register the `message`/`kick`
-listeners promptly after `grantAccess` (as shown) so the buffer drains immediately rather
-than risking the 256-frame overflow on a chatty `onJoin`.
+`onChannelOpen` above is safe, but `RTCTransport` registers the `message`/`kick`
+listeners immediately after `grantAccess` (in the same microtask) so the buffer drains
+right away rather than risking the 256-frame overflow on a chatty `onJoin`.
+
+**Double-close guard:** both `DC.onClose` and PC state-change (`disconnected/failed/closed`)
+can fire for the same peer. `RTCTransport` uses a `closedActors: Set<string>` guard and a
+`peerToActor: Map<string, string>` map so `TLayer.handleClose` is called exactly once per
+actor regardless of which event fires first.
 
 A host is then literally the WS bootstrap with one line changed
 (compare `demo/src/server/index.ts:29-34`):
 
 ```ts
 const rivalis = new Rivalis<ActorData>({
-    transports: [ new RTCTransport({ signalUrl, ticket, room: 'ttt' }) ],   // ← only this differs
+    transports: [ new RTCTransport({ signalUrl, ticket }) ],   // ← only this differs
     authMiddleware: new ArenaAuthMiddleware()
 })
 rivalis.rooms.define('ttt', TttRoom)   // ← unchanged game logic
