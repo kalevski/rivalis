@@ -11,19 +11,7 @@ import Transport from './Transport'
 import Client from './Client'
 import CustomLoggerFactory from './CustomLoggerFactory'
 
-import WSTransport from './transports/WSTransport'
-
-import WSClient from './clients/WSClient'
-
 const logging = CustomLoggerFactory.Instance
-
-const Transports = {
-    WSTransport
-}
-
-const Clients = {
-    WSClient
-}
 
 export type { TopicListener, ForEachFn, GetRoomFn, EventFn, EventType, ConnectionContext } from './types'
 export type { AuthResult } from './AuthMiddleware'
@@ -42,8 +30,6 @@ export type { ClientEvent, ClientKickedEvent } from './Client'
 
 export {
     Rivalis,
-    Transports,
-    Clients,
     logging,
     AuthMiddleware,
     LegacyAuthMiddleware,
