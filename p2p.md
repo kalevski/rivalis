@@ -953,7 +953,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 **F5 / §3.3a / §3.5 — Kernel ESM safety (lazy serializer)**
 - [x] Convert `handshake/src/serializer.ts:1` top-level serializer import → lazy `createRequire(import.meta.url) ?? require` loader. (§3.3a, §3.5, §9) — gated on D2 (locked 2026-06-09; convert confirmed — see `handshake/CHANGELOG.md`)
-- [ ] Add Node strict-ESM smoke test: `node --input-type=module -e "import '@rivalis/handshake'"` (and `'@rivalis/core'`). (§10)
+- [x] Add Node strict-ESM smoke test: `node --input-type=module -e "import '@rivalis/handshake'"` (and `'@rivalis/core'`). (§10)
 
 **F4 / §3.5 — Shared typed-codec toolkit**
 - [ ] Build codec helper in `@rivalis/handshake` (D7 — decided 2026-06-09) wrapping `@toolcase/serializer`: 2-byte `[major,minor]` header, append-only positional tags, `present()`-based decode, `WireVersionError` on major mismatch, baked-in lazy loader. (§3.5)
