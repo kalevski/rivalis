@@ -1,4 +1,4 @@
-import { Broadcast } from '@toolcase/base'
+import { Client } from '@rivalis/core'
 import logging from '@toolcase/logging'
 import { CloseCode, encode, decode } from '@rivalis/handshake'
 
@@ -94,8 +94,9 @@ type BuiltInEvent =
     | 'client:kicked'
     | 'client:reconnecting'
     | 'client:reconnect_failed'
+    | 'client:error'
 
-class WSClient<TTopics extends string = string> extends Broadcast {
+class WSClient<TTopics extends string = string> extends Client<TTopics> {
 
     private logger = logging.getLogger('ws client')
 
@@ -201,7 +202,7 @@ class WSClient<TTopics extends string = string> extends Broadcast {
         throw new Error(`send error: invalid payload=${payload}, must be a string or Buffer`)
     }
 
-    // 6.5: typed overloads for `on` / `once` / `off`. The first five
+    // 6.5: typed overloads for `on` / `once` / `off`. The first six
     // overloads cover the framework-emitted events with their actual
     // payload shapes; the next is the user-topic overload constrained
     // by the optional `TTopics` generic; the final overload preserves
@@ -212,6 +213,7 @@ class WSClient<TTopics extends string = string> extends Broadcast {
     override on(event: 'client:kicked', listener: (info: ClientKickedEvent) => void, context?: unknown): this
     override on(event: 'client:reconnecting', listener: (payload: Uint8Array) => void, context?: unknown): this
     override on(event: 'client:reconnect_failed', listener: () => void, context?: unknown): this
+    override on(event: 'client:error', listener: (error: Error) => void, context?: unknown): this
     override on<K extends TTopics>(event: K, listener: (payload: Uint8Array, topic: K) => void, context?: unknown): this
     override on(event: string | symbol, listener: (...args: any[]) => void, context?: unknown): this
     override on(event: string | symbol, listener: (...args: any[]) => void, context?: unknown): this {
@@ -223,6 +225,7 @@ class WSClient<TTopics extends string = string> extends Broadcast {
     override once(event: 'client:kicked', listener: (info: ClientKickedEvent) => void, context?: unknown): this
     override once(event: 'client:reconnecting', listener: (payload: Uint8Array) => void, context?: unknown): this
     override once(event: 'client:reconnect_failed', listener: () => void, context?: unknown): this
+    override once(event: 'client:error', listener: (error: Error) => void, context?: unknown): this
     override once<K extends TTopics>(event: K, listener: (payload: Uint8Array, topic: K) => void, context?: unknown): this
     override once(event: string | symbol, listener: (...args: any[]) => void, context?: unknown): this
     override once(event: string | symbol, listener: (...args: any[]) => void, context?: unknown): this {
@@ -243,17 +246,18 @@ class WSClient<TTopics extends string = string> extends Broadcast {
         }
         this.ws.onopen = this.onOpen
         this.ws.onclose = this.onClose
-        // Native browser WebSocket and the `ws` Node polyfill both surface
-        // connection-refused / TLS / protocol errors via 'error' before
-        // 'close'. Browsers carry no actionable detail in the event (by
-        // spec), and ws's underlying EventEmitter throws on unhandled
-        // 'error'. A no-op handler suppresses both — `onclose` is the
-        // single source of truth for failure paths.
+        // Native browser WebSocket surfaces connection-refused / TLS /
+        // protocol errors via 'error' before 'close'. Browsers carry no
+        // actionable detail in the event (by spec), so we emit a generic
+        // `client:error`. The `onclose` handler remains the single source
+        // of truth for the reconnect path.
         this.ws.onerror = this.onError
         this.ws.binaryType = 'arraybuffer'
     }
 
-    private onError = (): void => {}
+    private onError = (_event: Event): void => {
+        this.emit('client:error', new Error('WebSocket connection error'))
+    }
 
     private onOpen = (): void => {
         if (this.ws !== null) {
