@@ -983,11 +983,11 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [ ] `@rivalis/signal` + `@rivalis/node` `package.json`: dual CJS+ESM tsup (mirror fleet); `peerDependencies` `@rivalis/core >=7 <8`, `@toolcase/base|logging`, `ws`; `@rivalis/node` `dependencies: node-datachannel`. (§9)
 
 **`@rivalis/signal`**
-- [ ] `signal/src/wire/` — ~80 lines of schema defs over shared toolkit (§3.5). (§4.3)
-- [ ] `SignalRoom extends Room<PeerData>`: `presence=true`, `unknownTopicPolicy='drop'`, bind `signal:offer/answer/ice` → `relay`. (§4.3)
-- [ ] `relay` uses `getActor(msg.to)?.send(topic, payload)` (forward verbatim). (§4.3, §3.7)
-- [ ] `onJoin`: first peer → `hostId`; `signal:welcome { youId, hostId, iceServers }`. (§4.3)
-- [ ] `onLeave`: host leaves → clear `hostId`, broadcast `signal:host_gone`. (§4.3)
+- [x] `signal/src/wire/` — ~80 lines of schema defs over shared toolkit (§3.5). (§4.3)
+- [x] `SignalRoom extends Room<PeerData>`: `presence=true`, `unknownTopicPolicy='drop'`, bind `signal:offer/answer/ice` → `relay`. (§4.3)
+- [x] `relay` uses `getActor(msg.to)?.send(topic, payload)` (forward verbatim). (§4.3, §3.7)
+- [x] `onJoin`: first peer → `hostId`; `signal:welcome { youId, hostId, iceServers }`. (§4.3) — iceServers uses `'[]'` stub; IceConfig deferred to Phase 1.
+- [x] `onLeave`: host leaves → clear `hostId`, broadcast `signal:host_gone`. (§4.3)
 - [ ] `SignalAuthMiddleware`. (§4.3, §8)
 - [ ] `IceConfig.issueFor(peerId)`: build `RTCIceServer[]`; TURN ephemeral creds `username=<unixExpiry>:<peerId>`, `credential=base64(HMAC_SHA1(secret, username))` via `node:crypto.createHmac`; never ship secret. (§4.3, §8)
 - [ ] `SignalServer` bootstrap: `new Rivalis({ transports:[new WSTransport(...)], authMiddleware })` + `rooms.define('signal', SignalRoom)`; `ticketSource:'protocol'` + `TokenBucketRateLimiter` (mirror fleet `attachControlPlane`). (§4.3)
