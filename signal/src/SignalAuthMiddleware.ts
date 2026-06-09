@@ -15,7 +15,7 @@
  */
 
 import { createHash, timingSafeEqual } from 'node:crypto'
-import AuthMiddleware from '@rivalis/core'
+import { AuthMiddleware } from '@rivalis/core'
 import type { AuthResult, ConnectionContext } from '@rivalis/core'
 
 export type SignalAuthOptions = {

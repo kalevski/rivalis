@@ -30,16 +30,14 @@ import {
 
 // ── test harness ──────────────────────────────────────────────────────────────
 
-type PeerData = Record<string, unknown>
-
-class TestAuth extends AuthMiddleware<PeerData> {
-    async authenticate(_ticket: string): Promise<AuthResult<PeerData> | null> {
-        return { data: {}, roomId: 'signal-room' }
+class TestAuth extends AuthMiddleware<null> {
+    async authenticate(_ticket: string): Promise<AuthResult<null> | null> {
+        return { data: null, roomId: 'signal-room' }
     }
 }
 
 function setup() {
-    const rivalis = new Rivalis<PeerData>({
+    const rivalis = new Rivalis<null>({
         transports: [],
         authMiddleware: new TestAuth(),
     })

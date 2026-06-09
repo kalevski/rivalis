@@ -1034,7 +1034,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] `onLeave`: host leaves → clear `hostId`, broadcast `signal:host_gone`. (§4.3)
 - [x] `SignalAuthMiddleware`. (§4.3, §8) — `signal/src/SignalAuthMiddleware.ts`; ticket format `<roomId>:<secret>`; constant-time SHA-256 + timingSafeEqual; rotation-safe multi-secret list; tests in `signal/test/signal-auth-middleware.test.mts`.
 - [x] `IceConfig.issueFor(peerId)`: build `RTCIceServer[]`; TURN ephemeral creds `username=<unixExpiry>:<peerId>`, `credential=base64(HMAC_SHA1(secret, username))` via `node:crypto.createHmac`; never ship secret. (§4.3, §8) — `signal/src/IceConfig.ts`; exported from `signal/src/main.ts`.
-- [ ] `SignalServer` bootstrap: `new Rivalis({ transports:[new WSTransport(...)], authMiddleware })` + `rooms.define('signal', SignalRoom)`; `ticketSource:'protocol'` + `TokenBucketRateLimiter` (mirror fleet `attachControlPlane`). (§4.3)
+- [x] `SignalServer` bootstrap: `new Rivalis({ transports:[new WSTransport(...)], authMiddleware })` + `rooms.define('signal', SignalRoom)`; `ticketSource:'protocol'` + `TokenBucketRateLimiter` (mirror fleet `attachControlPlane`). (§4.3) — `signal/src/SignalServer.ts`; `SIGNAL_ROOM_TYPE='signal'`, `SIGNAL_ROOM_ID='signal'`; `rooms` exposed for multi-session use; exported from `signal/src/main.ts`.
 - [ ] coturn provisioning: shared-secret/REST config; deployment docs. (§4.3, §13.6)
 
 **`@rivalis/node`**

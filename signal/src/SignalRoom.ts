@@ -2,8 +2,6 @@ import { Room, Actor } from '@rivalis/core'
 import { encodeWelcome, decodeRelayTo } from './wire/index'
 import IceConfig from './IceConfig'
 
-type PeerData = Record<string, unknown>
-
 /**
  * Signaling room: relays SDP offers/answers and ICE candidates between peers.
  * The first peer to join becomes the host; subsequent peers are told who the
@@ -12,8 +10,11 @@ type PeerData = Record<string, unknown>
  * All relay topics carry a binary frame whose first field is `to` (the target
  * actorId). `relay` decodes that field and uses `Room.getActor` (§3.7) for
  * O(1) targeted delivery — no `each` iteration per signal.
+ *
+ * Actor data is `null` — signaling carries no per-actor payload beyond the
+ * actor id, which is always available as `actor.id`.
  */
-class SignalRoom extends Room<PeerData> {
+class SignalRoom extends Room<null> {
     protected override presence = true
     protected override unknownTopicPolicy = 'drop' as const
 
@@ -29,7 +30,7 @@ class SignalRoom extends Room<PeerData> {
         this.bind('signal:ice',    this.relay)
     }
 
-    protected override onJoin(actor: Actor<PeerData>): void {
+    protected override onJoin(actor: Actor<null>): void {
         if (this.hostId === null) this.hostId = actor.id
         actor.send('signal:welcome', encodeWelcome({
             youId: actor.id,
@@ -38,14 +39,14 @@ class SignalRoom extends Room<PeerData> {
         }))
     }
 
-    protected override onLeave(actor: Actor<PeerData>): void {
+    protected override onLeave(actor: Actor<null>): void {
         if (actor.id === this.hostId) {
             this.hostId = null
             this.broadcast('signal:host_gone', '')
         }
     }
 
-    private relay(actor: Actor<PeerData>, payload: Uint8Array, topic: string): void {
+    private relay(actor: Actor<null>, payload: Uint8Array, topic: string): void {
         const targetId = decodeRelayTo(payload)
         this.getActor(targetId)?.send(topic, payload)
     }
