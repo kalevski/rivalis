@@ -78,12 +78,45 @@ top-level `import`. This mirrors the fleet/handshake lazy-serializer pattern
 - `optionalDependencies: { "werift": "^0.19.0" }` — installed on request;
   `npm install --omit=optional` (the default in many CI pipelines) skips it.
 
-**Phase plan:**
+**Phase plan / implementation status:**
 
 - Phase 1 (p2p.md §12): full `NodeDataChannelPeer` adapter + `RTCTransport` +
-  node `RTCClient` wired against `node-datachannel`.
-- Phase 4 (p2p.md §12): `WeriftPeer` adapter fully implemented; the stub in
-  `src/peer/RTCPeer.ts` is replaced with a working adapter.
+  node `RTCClient` wired against `node-datachannel`. ✅ Done.
+- Phase 4 (p2p.md §12): `WeriftPeer` adapter fully implemented (task 088,
+  2026-06-09). The Phase 1 stub in `src/peer/RTCPeer.ts` is replaced with a
+  working `WeriftPeer` + `WeriftDataChannel` implementation. See implementation
+  notes below.
+
+**WeriftPeer implementation notes (task 088, 2026-06-09):**
+
+werift's `RTCPeerConnection` API is entirely async — `createOffer()`,
+`createAnswer()`, `setLocalDescription()`, `setRemoteDescription()`, and
+`addIceCandidate()` all return Promises. The `RTCPeerLike` interface is
+synchronous (NegotiationCore calls these methods and immediately proceeds).
+The adapter bridges this gap with an **internal promise queue** (`_enqueue`):
+each call schedules its async work onto a sequential chain, so back-to-back
+calls like
+
+```typescript
+pc.setRemoteDescription(offer)   // enqueued — runs first
+pc.setLocalDescription('answer') // enqueued — runs after setRemoteDescription resolves
+```
+
+are always correctly serialised without requiring any change in NegotiationCore.
+
+`onicecandidate` is wired in the `WeriftPeer` constructor (so candidates
+generated during `setLocalDescription` are captured regardless of when
+`onLocalCandidate` is registered). The `onconnectionstatechange` handler reads
+`pc.connectionState` and forwards it to the `onStateChange` callback. Incoming
+data channels are delivered via `ondatachannel`.
+
+`WeriftDataChannel` wraps werift's `RTCDataChannel`, mapping `onmessage` events
+(data: `Buffer | string | ArrayBuffer`) → `Uint8Array` for the `onMessage`
+callback, and forwarding `sendBinary(Uint8Array)` directly (werift accepts
+`Uint8Array` in `dc.send()`).
+
+Both `WeriftPeer` and `WeriftDataChannel` are exported from `@rivalis/node`
+main entry so they can be used in tests and custom adapter wiring.
 
 **Cross-reference:** `p2p.md §4.5`, `§13.4`, `§15 D4`; `core/CHANGELOG.md` D1
 (isomorphic core split); `handshake/CHANGELOG.md` D2 (lazy serializer loader).
