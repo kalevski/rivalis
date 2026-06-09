@@ -19,12 +19,13 @@
         "test": "npm run build && node --test \"test/**/*.test.mts\""
     },
     "peerDependencies": {
-        "@rivalis/core": "*",
+        "@rivalis/core": ">=7 <8",
         "@toolcase/base": "3.x",
         "@toolcase/logging": "3.x",
         "@toolcase/serializer": "3.x"
     },
     "devDependencies": {
+        "@rivalis/core": "*",
         "@rivalis/handshake": "*"
     },
     "keywords": [
