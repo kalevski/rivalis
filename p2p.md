@@ -1045,7 +1045,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [ ] Per-`peerId` pre-admission throttle before `grantAccess` in `RTCTransport` (RTC isn't covered by WS `ConnectionLimiter`). (§8)
 
 **Phase 1 tests / exit**
-- [ ] `SignalRoom` unit: relay A→only B via `getActor`, host assignment, host-gone fanout, presence (in-process, no real WebRTC). (§10)
+- [x] `SignalRoom` unit: relay A→only B via `getActor`, host assignment, host-gone fanout, presence (in-process, no real WebRTC). (§10) — `signal/test/signal-room.test.mts`: host assignment, welcome youId/hostId, offer/answer/ice relay to target-only (verbatim payload), host-gone fanout, non-host leave no-host_gone, presence:join/leave broadcasts, unknownTopicPolicy=drop (actor stays connected).
 - [ ] `IceConfig` unit: HMAC `username/credential` matches coturn; expiry honored. (§10)
 - [ ] **Loopback**: two peers one process over `node-datachannel`, unchanged `TttRoom`, assert broadcasts arrive — including onJoin-send-before-listener (`pendingEmits` flush). (§10, §4.2)
 
