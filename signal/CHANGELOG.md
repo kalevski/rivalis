@@ -34,10 +34,11 @@ the observed address. It must never be exposed on a production port:
 RIVALIS_STUN_DEV=true node signal/dist/main.js
 ```
 
-The flag is off by default; `SignalServer` start-up logs a clear warning when it
-is enabled. The full implementation of this responder is deferred to Phase 4
-(`p2p.md §12`). Until then, the flag is accepted but raises a `not implemented`
-error to prevent accidental reliance on an unfinished path.
+The flag is off by default; `SignalServer` start-up writes a clear warning to
+stderr when it is enabled. Implemented in Phase 4 (task 087, 2026-06-09) as
+`DevStunResponder` in `signal/src/DevStunResponder.ts` — handles STUN Binding
+Requests over UDP/IPv4, returns XOR-MAPPED-ADDRESS, never relays (no TURN).
+Also enabled via the `SignalServerOptions.stunDev` option for programmatic use.
 
 **Deployment summary (production):**
 
