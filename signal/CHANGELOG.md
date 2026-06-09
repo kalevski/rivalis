@@ -75,3 +75,41 @@ error to prevent accidental reliance on an unfinished path.
 `signal/CHANGELOG.md` D6 (this entry); task `055-signal-high-ice-config-turn-creds.md`;
 task `057-signal-medium-coturn-provisioning.md`; task `067-signal-low-ice-config-tests.md`;
 task `077-node-low-nat-turn-relay-test.md`.
+
+---
+
+#### Package names confirmed: @rivalis/signal + @rivalis/node (D10 — decided 2026-06-09)
+
+**Decision:** the two new packages are named **`@rivalis/signal`** (signaling
+server) and **`@rivalis/node`** (Node.js RTC transport + client).
+
+**Rationale:**
+
+| Name | Role | Why |
+|------|------|-----|
+| `@rivalis/signal` | Signaling server (`SignalServer`, `SignalRoom`, `IceConfig`) | Mirrors the package's responsibility: WebRTC SDP/ICE relay and TURN credential issuance. Follows the `@rivalis/<role>` convention used by `@rivalis/fleet`, `@rivalis/handshake`, etc. |
+| `@rivalis/node` | Node.js RTCTransport + RTCClient | Signals the platform target clearly — this package is Node-only (it ships `node-datachannel`, a native addon). Parallel to `@rivalis/browser` which targets the browser. |
+
+**Why not `@rivalis/rtc` or `@rivalis/p2p`?**
+
+- `@rivalis/rtc` would suggest browser + Node combined. Splitting browser and
+  Node is intentional: it keeps each package's dependency set minimal and avoids
+  shipping `node-datachannel` (a native binary) into browser bundles.
+- `@rivalis/p2p` describes a topology, not a deployment target. Future
+  browser-host work (Phase 3) lives in `@rivalis/browser`, not a separate
+  `p2p` package — so the name would become a misnomer once Phase 3 lands.
+
+**Workspace registration:**
+
+Both names are registered in the root `package.json` workspaces:
+
+```json
+"workspaces": ["handshake", "core", "browser", "fleet", "signal", "node", "demo", "landing-page"]
+```
+
+`signal/package.json` uses `"name": "@rivalis/signal"`;
+`node/package.json` uses `"name": "@rivalis/node"` (already in place).
+
+**Cross-reference:** `p2p.md §5`, `§13.10`, `§15 D10`;
+`node/CHANGELOG.md` D10 (cross-reference entry);
+task `010-node-low-decide-package-names.md`.

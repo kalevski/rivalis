@@ -87,3 +87,16 @@ top-level `import`. This mirrors the fleet/handshake lazy-serializer pattern
 
 **Cross-reference:** `p2p.md §4.5`, `§13.4`, `§15 D4`; `core/CHANGELOG.md` D1
 (isomorphic core split); `handshake/CHANGELOG.md` D2 (lazy serializer loader).
+
+---
+
+#### Package names confirmed: @rivalis/signal + @rivalis/node (D10 — decided 2026-06-09)
+
+**Decision:** `@rivalis/node` confirmed as the name of this package.
+`@rivalis/signal` confirmed as the name of the signaling-server package.
+
+Full rationale and workspace registration details in `signal/CHANGELOG.md` D10.
+
+**Cross-reference:** `p2p.md §5`, `§13.10`, `§15 D10`;
+`signal/CHANGELOG.md` D10 (primary decision record);
+task `010-node-low-decide-package-names.md`.

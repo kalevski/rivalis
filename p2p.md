@@ -919,7 +919,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] **D7** Shared codec toolkit home: fold into `@rivalis/handshake` confirmed — typed-codec discipline (2-byte header, append-only tags, lazy-require, `WireVersionError`) lives in `handshake`; no new `@rivalis/wire` package. (§3.5, §13.7) — decided 2026-06-09; rationale in `handshake/CHANGELOG.md`.
 - [x] **D8** `Room.getActor` visibility: `protected` confirmed — subclass-routing primitive; no public use case. (§3.7, §13.8) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
 - [x] **D9** Per-transport auth/rate-limit override: **defer confirmed** — additive, low urgency; separate Rivalis apps cover the star. Phase 4 tracking in task 043 / impl in task 086. (§3.6, §13.9) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
-- [ ] **D10** Package names: confirm `@rivalis/signal` + `@rivalis/node`. (§13.10)
+- [x] **D10** Package names: `@rivalis/signal` + `@rivalis/node` confirmed — workspace registered in root `package.json`; `signal/package.json` created. (§13.10) — decided 2026-06-09; rationale in `signal/CHANGELOG.md` D10.
 
 ### Phase 0 — Core generalization (no P2P yet; pays for itself regardless)
 
