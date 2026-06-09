@@ -3,15 +3,9 @@ import type { LoggerFactory } from '@toolcase/logging'
 import AuthMiddleware from './AuthMiddleware'
 import CustomLoggerFactory from './CustomLoggerFactory'
 import RateLimiter from './RateLimiter'
-import { decode, encode } from '@rivalis/handshake'
+import { decode, encode, MAX_CLOSE_REASON_BYTES } from '@rivalis/handshake'
 import KickReason from './KickReason'
 import type { ConnectionContext, EventFn, EventType, GetRoomFn } from './types'
-
-/**
- * RFC 6455 caps the close-frame reason at 123 bytes. Truncate the payload
- * at a UTF-8 codepoint boundary so the reason remains decodable.
- */
-const MAX_CLOSE_REASON_BYTES = 123
 
 const truncateCloseReason = (payload: Uint8Array): Uint8Array => {
     if (payload.byteLength <= MAX_CLOSE_REASON_BYTES) {
