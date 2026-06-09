@@ -841,8 +841,12 @@ without touching the game-logic API.
    latent break reachable from the kernel's own ESM entry and forces every downstream package
    to independently rediscover the workaround. See `handshake/CHANGELOG.md` for the full
    decision record.
-3. **`Client` base location:** in `@rivalis/core` kernel (recommended — isomorphic, both
-   clients import it) vs. `@rivalis/handshake`.
+3. **`Client` base location:** ✅ **Decided 2026-06-09 — `@rivalis/core` kernel.**
+   `Client` is defined in `core/src/Client.ts` and exported from the isomorphic kernel entry
+   (`import { Client } from '@rivalis/core'`). Both `WSClient` implementations and all future
+   clients (`RTCClient` ×2) import the contract from this single location.
+   `@rivalis/handshake` remains focused on the wire/frame layer.
+   Full rationale in `core/CHANGELOG.md` D3.
 4. **Node WebRTC lib:** `node-datachannel` (recommended) vs `werift` (dev fallback). (§4.5)
 5. **Host location for v1:** Node host (recommended, authoritative) vs browser-host from the
    start. *Recommend Node-host-first* (phase 1), browser-host phase 3.
@@ -880,7 +884,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 - [x] **D1** Core split breaking-ness: `7.0.0` major confirmed — `@rivalis/core/transports/ws` import, no lazy shim. (§3.3, §13.1) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
 - [x] **D2** Kernel ESM safety: convert to lazy loader confirmed — `createRequire(import.meta.url) ?? require` in `handshake/src/serializer.ts`. (§3.3a, §13.2) — decided 2026-06-09; rationale in `handshake/CHANGELOG.md`.
-- [ ] **D3** `Client` base location: confirm `@rivalis/core` kernel (vs `@rivalis/handshake`). (§3.2, §13.3)
+- [x] **D3** `Client` base location: `@rivalis/core` kernel confirmed — `core/src/Client.ts`, exported from `'@rivalis/core'`. (§3.2, §13.3) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
 - [ ] **D4** Node WebRTC lib: confirm `node-datachannel` default, `werift` dev fallback. (§4.5, §13.4)
 - [ ] **D5** v1 host location: confirm Node-host-first (browser-host → phase 3). (§13.5)
 - [ ] **D6** TURN relay: confirm coturn sidecar (pure-JS STUN dev-only). (§4.3, §13.6)

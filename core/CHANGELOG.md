@@ -41,6 +41,44 @@ All kernel types (`Rivalis`, `Room`, `Actor`, `AuthMiddleware`, `RateLimiter`,
 `ConnectionLimiter`, `KickReason`, `TLayer`, `Config`, …) continue to be
 imported from `'@rivalis/core'` unchanged.
 
+#### `Client` abstract base class location (D3 — decided 2026-06-09)
+
+**Decision:** `Client` is defined in **`@rivalis/core`** (`core/src/Client.ts`),
+exported from the isomorphic kernel entry.
+
+**Rationale:**
+
+Both client implementations (`browser/src/WSClient.ts` and
+`core/src/clients/WSClient.ts`) already depend on `@rivalis/core` directly or
+transitively. Placing `Client` in `@rivalis/core` means:
+
+- Every conforming client (`WSClient` ×2, `RTCClient` ×2) has exactly one
+  import home: `import { Client } from '@rivalis/core'`.
+- The `Transport` base (F1, also in `@rivalis/core`) and `Client` sit
+  side-by-side — the symmetric server-side/client-side extension contracts
+  live in the same package.
+- `@rivalis/handshake`'s role stays focused on the wire layer (frame codec,
+  `CloseCode`, control-frame convention, codec toolkit) — not abstractions.
+- App code that programs against `Client` (`demo/src/client/useRoom.ts`,
+  fleet's `FleetTransportClient` collapse) imports from a single, stable,
+  isomorphic module.
+
+**Rejected alternative:** place `Client` in `@rivalis/handshake`. Ruled out
+because `handshake`'s purpose is the wire/frame layer, not the client
+abstraction; consumers that want the contract without the codec would gain an
+unwanted transitive dependency; and D2's lazy-serializer conversion makes
+`handshake` carry more machinery — adding the class hierarchy there would
+conflate two distinct concerns.
+
+**Implementation site:** `core/src/Client.ts` — new file; exported from
+`core/src/main.ts`. See `p2p.md §3.2` for the full conformance tasks.
+
+**Cross-reference:** `core/CHANGELOG.md` D1 (isomorphic kernel entry split,
+decided 2026-06-09); `handshake/CHANGELOG.md` D2 (lazy serializer loader,
+decided 2026-06-09); `p2p.md §3.2`, `§5`, `§13.3`.
+
+---
+
 **New exports in `7.0.0`:**
 
 | Export | Description |
