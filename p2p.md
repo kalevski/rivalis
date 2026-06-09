@@ -952,7 +952,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] Back-compat shim decision per D1: **no shim** — remove `Transports`/`Clients` namespace objects from `main.ts`; document `7.0.0` migration in `core/CHANGELOG.md`. (§3.3, §13.1)
 
 **F5 / §3.3a / §3.5 — Kernel ESM safety (lazy serializer)**
-- [ ] Convert `handshake/src/serializer.ts:1` top-level serializer import → lazy `createRequire(import.meta.url) ?? require` loader. (§3.3a, §3.5, §9) — gated on D2 (locked 2026-06-09; convert confirmed — see `handshake/CHANGELOG.md`)
+- [x] Convert `handshake/src/serializer.ts:1` top-level serializer import → lazy `createRequire(import.meta.url) ?? require` loader. (§3.3a, §3.5, §9) — gated on D2 (locked 2026-06-09; convert confirmed — see `handshake/CHANGELOG.md`)
 - [ ] Add Node strict-ESM smoke test: `node --input-type=module -e "import '@rivalis/handshake'"` (and `'@rivalis/core'`). (§10)
 
 **F4 / §3.5 — Shared typed-codec toolkit**
