@@ -7,6 +7,9 @@ import ConnectionLimiter from './ConnectionLimiter'
 import KickReason from './KickReason'
 import Room from './Room'
 import Actor from './Actor'
+import RoomManager from './RoomManager'
+import TLayer from './TLayer'
+import Config from './Config'
 import Transport from './Transport'
 import Client from './Client'
 import CustomLoggerFactory from './CustomLoggerFactory'
@@ -18,13 +21,6 @@ export type { AuthResult } from './AuthMiddleware'
 export type { UnknownTopicPolicy } from './Room'
 export type { TokenBucketOptions } from './TokenBucketRateLimiter'
 export type { ConfigOptions } from './Config'
-export type {
-    WSTransportOptions,
-    AllowedOrigins,
-    TicketSource,
-    BackpressureDropFn
-} from './transports/WSTransport'
-export type { WSClientOptions, WSClientTicketSource, ClientEventListener } from './clients/WSClient'
 export type { Message } from '@rivalis/handshake'
 export type { ClientEvent, ClientKickedEvent } from './Client'
 
@@ -40,6 +36,9 @@ export {
     ConnectionLimiter,
     Room,
     Actor,
+    RoomManager,
+    TLayer,
+    Config,
     Transport,
     Client
 }

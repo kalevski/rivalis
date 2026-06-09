@@ -944,7 +944,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 **F2 / §3.3 — Isomorphic core; node code behind subpaths**
 - [x] Remove `import './transports/WSTransport'` + `import './clients/WSClient'` from `core/src/main.ts:12-14`. (§3.3)
-- [ ] Trim `main.ts` to kernel-only exports + `CloseCode`/`Message` re-exports. (§3.3)
+- [x] Trim `main.ts` to kernel-only exports + `CloseCode`/`Message` re-exports. (§3.3)
 - [ ] New entry `core/src/transports/ws.ts` exporting `WSTransport` + option types (`WSTransportOptions, AllowedOrigins, TicketSource, BackpressureDropFn`). (§3.3)
 - [ ] New entry `core/src/clients/ws.ts` exporting node `WSClient` + option types. (§3.3)
 - [ ] Rewrite `core/package.json` `exports` map: `.` (kernel) + `./transports/ws` + `./clients/ws`, each dual types/import/require. (§3.3)
