@@ -1011,7 +1011,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 **§3.6 — Multi-transport (cheap docs/test wins)**
 - [x] Document + test "one `Room`, many transports" wiring. (§3.6) — task 042, 2026-06-09; wiring + constraints in §3.6; tests in `core/test/multi-transport-one-room.test.mts`.
-- [ ] Per-transport `authMiddleware?`/`rateLimiter?` override — **defer** per D9 (track only). (§3.6)
+- [x] Per-transport `authMiddleware?`/`rateLimiter?` override — **defer** per D9 (track only). (§3.6) — deferred design documented in `core/CHANGELOG.md` D9; Phase 4 implementation in task `086-core-low-per-transport-admission-impl.md`; task `043-core-low-per-transport-admission-override.md` closed 2026-06-09.
 
 **Phase 0 exit gate**
 - [ ] Contract-conformance test suite across browser WSClient + node WSClient (initially red = F3 spec). (§10)
