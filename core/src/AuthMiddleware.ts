@@ -14,6 +14,37 @@ export type AuthResult<TActorData> = {
 }
 
 /**
+ * Constant-time string equality check for ticket secrets.
+ *
+ * Encodes both strings to UTF-8 bytes and XOR-folds them in a loop that
+ * always runs `b.length` iterations — execution time depends only on the
+ * fixed server-side secret length, never on the attacker-controlled input
+ * `a`. Length mismatches are folded into the accumulator without an early
+ * return, so the comparison does not leak whether the lengths differ.
+ *
+ * Use this in every `authenticate` override that compares a ticket or
+ * embedded secret against a server-side value instead of `===` or
+ * `Buffer.compare`, both of which short-circuit at the first mismatching
+ * byte and leak the common-prefix length over enough timing samples.
+ *
+ * @param a - The caller-supplied value (e.g. the inbound ticket).
+ * @param b - The server-side reference value (e.g. the stored secret).
+ */
+export function timingSafeCompare(a: string, b: string): boolean {
+    const enc = new TextEncoder()
+    const aBuf = enc.encode(a)
+    const bBuf = enc.encode(b)
+    // Encode length mismatch — non-zero when lengths differ.
+    let result = aBuf.length ^ bBuf.length
+    // Iterate bBuf.length times (the fixed server-side length) so the loop
+    // count never varies with `a`. Out-of-bounds `a` bytes default to 0.
+    for (let i = 0; i < bBuf.length; i++) {
+        result |= (aBuf[i] ?? 0) ^ (bBuf[i] ?? 0)
+    }
+    return result === 0
+}
+
+/**
  * Validates a per-connection ticket and projects it into `{ data, roomId }`.
  * Implementations are invoked once per inbound socket from
  * `TLayer.grantAccess`, before the actor is added to any room.
@@ -23,10 +54,10 @@ export type AuthResult<TActorData> = {
  *
  * **Timing-oracle hazard.** If your implementation compares a ticket
  * (or any embedded secret like an HMAC, signature, or session token)
- * against a server-side value, use a constant-time comparator —
- * Node's `crypto.timingSafeEqual` or equivalent. A naïve `===` /
- * `Buffer.compare` short-circuits at the first mismatching byte and
- * leaks the prefix length to a network attacker over enough samples.
+ * against a server-side value, use `timingSafeCompare` (exported from
+ * `@rivalis/core`). A naïve `===` / `Buffer.compare` short-circuits at
+ * the first mismatching byte and leaks the prefix length to a network
+ * attacker over enough samples.
  *
  * **Don't trust the input shape.** `ticket` is whatever string the
  * transport extracts from the connection — query param, subprotocol,

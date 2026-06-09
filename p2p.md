@@ -879,8 +879,13 @@ After the channel opens, the signaling server sees **zero** game traffic.
   signaling and is validated in `RTCTransport` through `grantAccess` — identical trust
   model to `WSTransport`. §3.1's `ConnectionContext` lets auth additionally see the
   transport kind and signaling `peerId`. The signaling WS is itself `AuthMiddleware`-gated.
-  `AuthMiddleware.authenticate` should use constant-time compares (`crypto.timingSafeEqual`)
-  for ticket secrets — already flagged in `AuthMiddleware.ts:23`.
+  `AuthMiddleware.authenticate` should use constant-time compares for ticket secrets.
+  `timingSafeCompare(a, b)` is exported from `@rivalis/core` (implemented in
+  `AuthMiddleware.ts`): UTF-8 encodes both strings, XOR-folds them in a loop that always
+  runs `b.length` iterations, and encodes length mismatches in the accumulator — no
+  early return, no `node:crypto` dependency (isomorphic). Node-only packages that already
+  use SHA-256 + `node:crypto.timingSafeEqual` (`fleet`, `signal`) should keep that pattern;
+  `timingSafeCompare` is the idiomatic choice for code in the isomorphic kernel.
 - **TURN creds:** ephemeral HMAC creds (§4.3), short TTL, minted server-side. The TURN
   shared secret never leaves the server.
 - **DTLS:** WebRTC data channels are DTLS-encrypted by default — game traffic is encrypted
@@ -1229,7 +1234,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 ### Cross-cutting (verify continuously)
 
-- [ ] `AuthMiddleware.authenticate` constant-time ticket compare (`crypto.timingSafeEqual`) — already flagged `AuthMiddleware.ts:23`. (§8)
+- [x] `AuthMiddleware.authenticate` constant-time ticket compare — `timingSafeCompare(a, b)` exported from `@rivalis/core`; pure-JS XOR over UTF-8 bytes, always iterates `b.length` times, length mismatch encoded in accumulator; tests in `core/test/auth-timing-safe.test.mts`; task 089, 2026-06-09. (§8)
 - [ ] Confirm DTLS-by-default encryption documented (no extra work). (§8)
 - [ ] Liveness parity doc: WS heartbeat vs RTC `onconnectionstatechange`→`handleClose`. (§7)
 - [ ] Game-traffic rate-limiting auto-applies to RTC via `TLayer.handleMessage` — verify, no transport work. (§8)

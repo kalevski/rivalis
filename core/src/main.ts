@@ -21,6 +21,7 @@ export { checkBackpressure, DEFAULT_MAX_BUFFERED_BYTES } from './transports/back
 
 export type { TopicListener, ForEachFn, GetRoomFn, EventFn, EventType, ConnectionContext, TransportCapability } from './types'
 export type { AuthResult } from './AuthMiddleware'
+export { timingSafeCompare } from './AuthMiddleware'
 export type { UnknownTopicPolicy } from './Room'
 export type { TokenBucketOptions } from './TokenBucketRateLimiter'
 export type { ConfigOptions } from './Config'
