@@ -13,6 +13,7 @@ import { createServer } from 'node:http'
 import type { Server } from 'node:http'
 
 import type { Logger } from '@toolcase/logging'
+import { WSTransport } from '@rivalis/core/transports/ws'
 
 import { MAX_INFLIGHT_COMMANDS, WS_SUBPROTOCOL } from '../wire'
 import { createFleetRoomClass } from './FleetRoom'
@@ -119,7 +120,7 @@ export function attachControlPlane(
         }
     }
 
-    const transport = new core.Transports.WSTransport(
+    const transport = new WSTransport(
         { server: httpServer },
         null,
         { ticketSource: 'protocol', maxPayload: MAX_SNAPSHOT_BYTES }

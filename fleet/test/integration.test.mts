@@ -17,14 +17,16 @@ import { Topics, decodeFrame } from '../lib/wire.js'
 // end-to-end — discovery, placement, drain round-trip, eviction, restart
 // provenance, and reconnection — that no seam-level test can cover.
 //
-// core + ws are loaded via the CJS entry: core's ESM build transitively imports a
-// broken `@toolcase/serializer` ESM (`protobufjs/light` without `.js`) that Node's
-// strict ESM resolver rejects (see agent.test / security.test).
+// core + ws are loaded via require (CJS entry) for consistency; the ESM hazard
+// (F5 — broken protobufjs/light in @toolcase/serializer ESM) was fixed in core 7.0.0
+// via the lazy-serializer loader in handshake, but the require path remains fast and
+// avoids async top-level await in a test file.
 // ---------------------------------------------------------------------------
 
 const require = createRequire(import.meta.url)
 const core = require('@rivalis/core') as typeof import('@rivalis/core')
-const { Rivalis, Room, AuthMiddleware, Clients } = core
+const { Rivalis, Room, AuthMiddleware } = core
+const { WSClient: CoreWSClient } = require('@rivalis/core/clients/ws') as typeof import('@rivalis/core/clients/ws')
 
 const AGENT_KEY = 'fleet-agent-key-integration'
 const ADMIN_KEY = 'fleet-admin-key-integration'
@@ -374,7 +376,7 @@ test('reconnection: new instanceId, constant processUid, rooms restored, correla
     // scenario), all against ONE live orchestrator.
     let realClient: any = null
     const createClient = (url: string) => {
-        realClient = new (Clients as any).WSClient(url, { ticketSource: 'protocol' })
+        realClient = new CoreWSClient(url, { ticketSource: 'protocol' })
         return {
             get connected() { return realClient.connected },
             connect: (t?: string) => realClient.connect(t),
@@ -441,7 +443,7 @@ test('all five binary topics round-trip over real WS (orchestrator-driven reques
     const sentTopics: string[] = []
     let realClient: any = null
     const createClient = (url: string) => {
-        realClient = new (Clients as any).WSClient(url, { ticketSource: 'protocol' })
+        realClient = new CoreWSClient(url, { ticketSource: 'protocol' })
         return {
             get connected() { return realClient.connected },
             connect: (t?: string) => realClient.connect(t),
@@ -509,7 +511,7 @@ test('every agent frame carries an outstanding correlation id — zero unsolicit
     const frames: Array<{ topic: string; payload: any }> = []
     let realClient: any = null
     const createClient = (url: string) => {
-        realClient = new (Clients as any).WSClient(url, { ticketSource: 'protocol' })
+        realClient = new CoreWSClient(url, { ticketSource: 'protocol' })
         return {
             get connected() { return realClient.connected },
             connect: (t?: string) => realClient.connect(t),
@@ -587,7 +589,7 @@ test('a single delayed poll reply does not kick the agent — it recovers over r
     let stateSends = 0
     let realClient: any = null
     const createClient = (url: string) => {
-        realClient = new (Clients as any).WSClient(url, { ticketSource: 'protocol' })
+        realClient = new CoreWSClient(url, { ticketSource: 'protocol' })
         return {
             get connected() { return realClient.connected },
             connect: (t?: string) => realClient.connect(t),
@@ -665,7 +667,7 @@ test('timeout → late success → retry with the same roomId returns ROOM_EXIST
     let dropNextAck = true
     let realClientA: any = null
     const createClientA = (url: string) => {
-        realClientA = new (Clients as any).WSClient(url, { ticketSource: 'protocol' })
+        realClientA = new CoreWSClient(url, { ticketSource: 'protocol' })
         return {
             get connected() { return realClientA.connected },
             connect: (t?: string) => realClientA.connect(t),

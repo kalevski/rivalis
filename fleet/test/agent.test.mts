@@ -6,11 +6,8 @@ import { createRequire } from 'node:module'
 import { FleetAgent } from '../lib/FleetAgent.js'
 import { encodeFrame, decodeFrame, PROTOCOL_VERSION, Topics } from '../lib/wire.js'
 
-// Load @rivalis/core via its CJS entry: the package's ESM build transitively
-// imports a broken `@toolcase/serializer` ESM (`protobufjs/light` without `.js`),
-// which Node's strict ESM resolver rejects. The CJS path resolves fine.
 const require = createRequire(import.meta.url)
-const { Clients } = require('@rivalis/core') as typeof import('@rivalis/core')
+const { WSClient } = require('@rivalis/core/clients/ws') as typeof import('@rivalis/core/clients/ws')
 const pkg = require('../package.json') as { version: string }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +171,7 @@ test('connect() to an unreachable orchestrator stays pending, retries with backo
     const agent = new FleetAgent(fake.rivalis as any, { ...BASE_OPTS, url } as any, {
         backoff: { baseMs: 15, capMs: 30 },
         createClient: (u) => {
-            const c = new Clients.WSClient(u, { ticketSource: 'protocol' })
+            const c = new WSClient(u, { ticketSource: 'protocol' })
             const original = c.connect.bind(c)
             ;(c as any).connect = (ticket?: string) => { attempts++; original(ticket) }
             return c as any
@@ -203,7 +200,7 @@ test('connectTimeoutMs rejects, transitions to closed, and stops the retry loop'
     const agent = new FleetAgent(fake.rivalis as any, { ...BASE_OPTS, url, connectTimeoutMs: 60 } as any, {
         backoff: { baseMs: 10, capMs: 20 },
         createClient: (u) => {
-            const c = new Clients.WSClient(u, { ticketSource: 'protocol' })
+            const c = new WSClient(u, { ticketSource: 'protocol' })
             const original = c.connect.bind(c)
             ;(c as any).connect = (ticket?: string) => { attempts++; original(ticket) }
             return c as any

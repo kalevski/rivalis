@@ -39,7 +39,7 @@ import {
 import type { InstanceStatus } from '../domain'
 import { NOOP_LOGGER } from '../util/logger'
 import { describe } from '../util/errors'
-import { loadCore } from '../util/loadCore'
+import { WSClient } from '@rivalis/core/clients/ws'
 import { packageVersion } from '../util/packageVersion'
 import { defaultScheduler } from '../util/scheduler'
 
@@ -112,8 +112,7 @@ export interface AgentInternals {
  * `101` response (RFC 6455 only lets the server select an offered subprotocol).
  */
 function defaultCreateClient(url: string): Client {
-    const { Clients } = loadCore()
-    return new Clients.WSClient(url, {
+    return new WSClient(url, {
         ticketSource: 'protocol',
         subprotocols: [WS_SUBPROTOCOL]
     })

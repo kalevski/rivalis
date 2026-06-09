@@ -2,7 +2,8 @@ import path from 'path'
 import http from 'http'
 import express from 'express'
 
-import { Rivalis, Transports } from '@rivalis/core'
+import { Rivalis } from '@rivalis/core'
+import { WSTransport } from '@rivalis/core/transports/ws'
 import { FleetAgent, type FleetAgentOptions } from '@rivalis/fleet'
 import ArenaAuthMiddleware, { type ActorData } from './AuthMiddleware'
 import LobbyRoom from './LobbyRoom'
@@ -28,7 +29,7 @@ server.listen(PORT, '0.0.0.0', () => {
 
 const rivalis = new Rivalis<ActorData>({
     transports: [
-        new Transports.WSTransport({ server })
+        new WSTransport({ server })
     ],
     authMiddleware: new ArenaAuthMiddleware()
 })

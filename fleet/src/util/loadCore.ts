@@ -3,14 +3,16 @@
  * `import.meta.url` / `createRequire` dance the orchestrator, agent and CLI each
  * carried.
  *
- * Load `@rivalis/core` via its CommonJS entry, lazily. Two reasons:
- *  - eagerly importing core would pull its ESM build, which transitively imports
- *    a broken `@toolcase/serializer` ESM (`protobufjs/light` without `.js`) that
- *    Node's strict ESM resolver rejects — the CJS entry resolves cleanly;
- *  - consumers only need a transport / runtime when no client is injected, so
- *    importing `@rivalis/fleet` should not drag core in.
+ * Load `@rivalis/core` via its CommonJS entry, lazily. Reason: consumers only
+ * need a runtime when no client is injected, so importing `@rivalis/fleet`
+ * should not drag core in unconditionally.
  * Works in both fleet builds: the CJS bundle has a native `require`; the ESM
  * bundle derives one from `import.meta.url`.
+ *
+ * Note: the F5 ESM hazard (broken `protobufjs/light` import in
+ * `@toolcase/serializer`) was fixed in `@rivalis/core` 7.0.0 via the lazy
+ * serializer loader in `@rivalis/handshake`. The CJS path is kept here for
+ * the lazy-load benefit, not to work around a broken ESM entry.
  */
 
 import { createRequire } from 'node:module'

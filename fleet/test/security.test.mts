@@ -34,9 +34,9 @@ import {
     MAX_ROOM_CONNECTIONS
 } from '../lib/wire.js'
 
-// ws + core both via the CJS entry (core's ESM build pulls a broken serializer ESM
-// — see agent.test). ws is a peer dep; the raw client lets us control the offered
-// subprotocols, which is exactly what the §13 fallback test needs to assert.
+// ws + core via the CJS entry for consistency. ws is a peer dep; the raw client
+// lets us control the offered subprotocols, which is exactly what the §13
+// fallback test needs to assert.
 const require = createRequire(import.meta.url)
 const { WebSocket } = require('ws') as typeof import('ws')
 const core = require('@rivalis/core') as typeof import('@rivalis/core')

@@ -1015,7 +1015,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 **Phase 0 exit gate**
 - [x] Contract-conformance test suite across browser WSClient + node WSClient (initially red = F3 spec). (§10) — `core/test/client-conformance.test.mts`; S3 (`connected` during CONNECTING) is the red spec: node WSClient passes (readyState-based), browser WSClient fails (`this.ws !== null`). Suite turns fully green once browser WSClient's `connected` getter is made readyState-based (§3.2).
-- [ ] Existing WS path green; Node-ESM smoke green; demo + fleet build against new imports. (§12 phase 0)
+- [x] Existing WS path green; Node-ESM smoke green; demo + fleet build against new imports. (§12 phase 0) — task 045, 2026-06-09. Migration: `demo/src/server/index.ts` now imports `WSTransport` from `@rivalis/core/transports/ws`; `fleet/src/orchestrator/transport.ts` uses direct subpath import (no lazy shim, per D1); `fleet/src/agent/FleetAgent.ts` imports `WSClient` from `@rivalis/core/clients/ws`; fleet tsup externals include the two new subpaths. All references to the removed `Transports`/`Clients` namespace objects updated in fleet tests. ESM smoke test and WS subpath test cover the phase 0 exit criteria.
 
 ### Phase 1 — Node↔Node P2P
 
