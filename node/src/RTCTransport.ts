@@ -21,9 +21,17 @@
  * first binary message on the data channel. RTCTransport reads it, calls
  * grantAccess, then switches the channel.onMessage handler to normal game traffic.
  * This keeps the signal wire and game wire independent.
+ *
+ * Pre-admission throttling (p2p.md §8):
+ *   First hop  — the signaling WS is guarded by WSTransport's ConnectionLimiter
+ *                (per-IP, WSTransport.ts:172-185).
+ *   Second hop — RTCTransport optionally runs a per-peerId ConnectionLimiter
+ *                (`peerLimiter` option) immediately before grantAccess so the
+ *                game-host side is never accidentally unthrottled even if the
+ *                signaling leg is bypassed or saturated.
  */
 
-import { Transport, KickReason } from '@rivalis/core'
+import { Transport, KickReason, ConnectionLimiter } from '@rivalis/core'
 import type { TLayer, ConnectionContext } from '@rivalis/core'
 import {
     encode,
@@ -72,6 +80,20 @@ export type RTCTransportOptions = {
     adapters?: Partial<RTCAdapters>
     /** RTCDataChannel label. Default: 'rivalis' */
     channelLabel?: string
+    /**
+     * Optional per-peerId pre-admission throttle applied before `grantAccess`.
+     * Mirrors the `connectionLimiter` option on `WSTransport` but keyed by
+     * the signaling `peerId` rather than a remote IP address.
+     *
+     * The first hop (signaling WS) is already guarded by `WSTransport`'s
+     * own `ConnectionLimiter`. This option adds a second check specifically
+     * on the game-host side so a peer that somehow opens many data channels
+     * in parallel cannot hammer `grantAccess` without bound.
+     *
+     * Return `false` (or resolve to `false`) to reject the connection with
+     * `CloseCode.RATE_LIMITED` before `AuthMiddleware` is invoked.
+     */
+    peerLimiter?: ConnectionLimiter
 }
 
 // ── RTCTransport ──────────────────────────────────────────────────────────────
@@ -92,10 +114,12 @@ class RTCTransport extends Transport {
     private readonly signalClient: ReturnType<RTCAdapters['createSignalingClient']>
     private readonly negotiator: HostNegotiator
     private readonly hostTicket: string
+    private readonly peerLimiter: ConnectionLimiter | null
 
     constructor(options: RTCTransportOptions) {
         super()
         this.hostTicket = options.ticket
+        this.peerLimiter = options.peerLimiter ?? null
 
         const resolvedAdapters: RTCAdapters = {
             createPeerConnection: options.adapters?.createPeerConnection ?? createPeerConnection,
@@ -181,6 +205,31 @@ class RTCTransport extends Transport {
 
             // grantAccess is async; wrap the continuation to handle the early-close race.
             void (async () => {
+                // Per-peerId pre-admission throttle (p2p.md §8).
+                // Runs before AuthMiddleware so a hammering peer is rejected cheaply.
+                if (this.peerLimiter !== null) {
+                    let allowed: boolean
+                    try {
+                        allowed = await this.peerLimiter.check(peerId)
+                    } catch (error) {
+                        const msg = error instanceof Error ? error.message : String(error)
+                        layer.logger.warning(`rtc: peerLimiter.check threw for peerId=${peerId}: ${msg}`)
+                        allowed = false
+                    }
+                    if (!allowed) {
+                        layer.logger.debug(`rtc: connection rate limited for peerId=${peerId}`)
+                        // Use CloseCode.RATE_LIMITED (4005) — mirrors WSTransport's pre-admission
+                        // rejection code and is distinct from CloseCode.KICKED (4003).
+                        const closePayload = encodeCloseFrame(CloseCode.RATE_LIMITED, KickReason.RATE_LIMITED)
+                        const frame = encode(CLOSE_CONTROL_TOPIC, closePayload)
+                        if (channel.isOpen) {
+                            try { channel.sendBinary(frame) } catch { /* channel gone */ }
+                        }
+                        channel.close()
+                        return
+                    }
+                }
+
                 let aid: string
                 try {
                     aid = await layer.grantAccess(peerTicket, ctx)

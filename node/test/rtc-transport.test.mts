@@ -500,6 +500,114 @@ suite('RTCTransport — kick control frame (p2p.md §3.4)', () => {
 })
 
 // ---------------------------------------------------------------------------
+// peerLimiter — pre-admission throttle (p2p.md §8)
+// ---------------------------------------------------------------------------
+
+suite('RTCTransport — peerLimiter (p2p.md §8)', () => {
+
+    function makeTransportWithLimiter(
+        checkFn: (peerId: string) => boolean | Promise<boolean>,
+    ) {
+        const signalClient = new MockSignalClient()
+        const peers: MockPeer[] = Array.from({ length: 4 }, () => new MockPeer())
+        let peerIdx = 0
+        const adapters: RTCAdapters = {
+            createPeerConnection() { return (peers[peerIdx++] ?? new MockPeer()) as RTCPeerLike },
+            createSignalingClient() { return signalClient as AnyTLayer },
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const peerLimiter: any = { check: checkFn }
+        const transport = new RTCTransport({
+            signalUrl: 'ws://signal:9000',
+            ticket: 'host-ticket',
+            adapters,
+            peerLimiter,
+        })
+        const layer = new MockTLayer()
+        return { transport, layer, signalClient, peers }
+    }
+
+    test('peerLimiter returning false rejects before grantAccess with RATE_LIMITED close frame', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithLimiter(() => false)
+
+        transport.onInitialize(layer as AnyTLayer)
+        signalClient.emit('signal:welcome', encodeWelcome('host-id'))
+        signalClient.emit('signal:offer', encodeOffer('host-id', 'v=0', 'peer-1'))
+
+        const dc = new MockDataChannel()
+        peers[0]!.emitDataChannel(dc)
+        dc.receive(new TextEncoder().encode('peer-ticket'))
+        await nextTick()
+
+        assert.strictEqual(layer.granted.length, 0, 'grantAccess must not be called when throttled')
+        assert.ok(dc.closed, 'channel must be closed after throttle rejection')
+
+        // Verify the close frame carries RATE_LIMITED close code
+        assert.ok(dc.sent.length > 0, 'RATE_LIMITED close frame must be sent before close')
+        const { topic, payload } = handshakeDecode(dc.sent[0]!)
+        assert.strictEqual(topic, CLOSE_CONTROL_TOPIC)
+        const closeFrame = decodeCloseFrame(payload)
+        assert.strictEqual(closeFrame.code, 4005)  // CloseCode.RATE_LIMITED
+        assert.strictEqual(closeFrame.reason, 'rate_limited')  // KickReason.RATE_LIMITED
+    })
+
+    test('peerLimiter returning true allows the connection through to grantAccess', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithLimiter(() => true)
+        const dc = await openChannel(transport, layer, signalClient, peers)
+
+        assert.strictEqual(layer.granted.length, 1, 'grantAccess must be called when limiter allows')
+        assert.ok(!dc.closed, 'channel must remain open after a passing limiter check')
+    })
+
+    test('peerLimiter returning Promise<false> rejects asynchronously', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithLimiter(
+            () => Promise.resolve(false),
+        )
+
+        transport.onInitialize(layer as AnyTLayer)
+        signalClient.emit('signal:welcome', encodeWelcome('host-id'))
+        signalClient.emit('signal:offer', encodeOffer('host-id', 'v=0', 'peer-1'))
+
+        const dc = new MockDataChannel()
+        peers[0]!.emitDataChannel(dc)
+        dc.receive(new TextEncoder().encode('peer-ticket'))
+        await nextTick()
+
+        assert.strictEqual(layer.granted.length, 0)
+        assert.ok(dc.closed)
+    })
+
+    test('peerLimiter throw is treated as rejection — channel closed, grantAccess skipped', async () => {
+        const { transport, layer, signalClient, peers } = makeTransportWithLimiter(
+            () => { throw new Error('limiter internal error') },
+        )
+
+        transport.onInitialize(layer as AnyTLayer)
+        signalClient.emit('signal:welcome', encodeWelcome('host-id'))
+        signalClient.emit('signal:offer', encodeOffer('host-id', 'v=0', 'peer-1'))
+
+        const dc = new MockDataChannel()
+        peers[0]!.emitDataChannel(dc)
+        dc.receive(new TextEncoder().encode('peer-ticket'))
+        await nextTick()
+
+        assert.strictEqual(layer.granted.length, 0, 'grantAccess must not be called after limiter throws')
+        assert.ok(dc.closed, 'channel must be closed after limiter throw')
+    })
+
+    test('peerLimiter is called with the correct peerId', async () => {
+        const seenPeerIds: string[] = []
+        const { transport, layer, signalClient, peers } = makeTransportWithLimiter((peerId) => {
+            seenPeerIds.push(peerId)
+            return true
+        })
+        await openChannel(transport, layer, signalClient, peers, { peerId: 'peer-xyz' })
+        assert.deepStrictEqual(seenPeerIds, ['peer-xyz'])
+    })
+
+})
+
+// ---------------------------------------------------------------------------
 // handleClose — PC state change and DC close
 // ---------------------------------------------------------------------------
 

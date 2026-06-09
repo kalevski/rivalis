@@ -787,12 +787,22 @@ After the channel opens, the signaling server sees **zero** game traffic.
 - **Origin allow-listing / connection rate limiting / heartbeats:** inherited on the
   signaling leg from `WSTransport` (`allowedOrigins` as array or predicate,
   `WSTransport.ts:116-121`; `ConnectionLimiter` per-IP pre-handshake, `:172-185`; heartbeat).
-- **Pre-admission limiting on RTC:** `ConnectionLimiter` runs *inside* `WSTransport` before
-  `grantAccess` (per-IP, `:172-185`) — it is **WS-specific** and does not cover RTC peers.
-  RTC's equivalent pre-admission throttle belongs on the **signaling** leg (where the WS
-  `ConnectionLimiter` already applies) plus optionally a per-`peerId` check before
-  `grantAccess` in `RTCTransport`. Note this explicitly so RTC isn't accidentally
-  unthrottled at connection time.
+- **Pre-admission limiting on RTC — two-hop throttle:** RTC connections pass through two
+  admission gates before `grantAccess` runs:
+
+  | Hop | Where | Key | Mechanism |
+  |-----|-------|-----|-----------|
+  | **1 — signaling leg** | `WSTransport` (signal server) | remote IP | `ConnectionLimiter` per-IP, `WSTransport.ts:172-185` |
+  | **2 — game-host leg** | `RTCTransport` (`node/src/RTCTransport.ts`) | signaling `peerId` | optional `peerLimiter?: ConnectionLimiter` checked before `grantAccess` |
+
+  The signaling WS already applies `WSTransport`'s `ConnectionLimiter` (per-IP), so the
+  first hop is covered automatically. The second hop is opt-in: pass a `ConnectionLimiter`
+  instance as `peerLimiter` in `RTCTransportOptions`. When a check returns `false`, the
+  channel is closed with `CloseCode.RATE_LIMITED` / `KickReason.RATE_LIMITED` before
+  `AuthMiddleware` is ever invoked — identical semantics to `WSTransport`'s per-IP gate.
+  Omitting `peerLimiter` is safe for deployments where the signaling gate is sufficient,
+  but the option exists to prevent the game host from being hammered independently of the
+  signal server.
 - **Rate-limiting game traffic:** `TLayer` runs the limiter inside `handleMessage`
   (`TLayer.ts:211-218`, kicks with `KickReason.RATE_LIMITED` on `check()===false`,
   `TokenBucketRateLimiter` default capacity 30 / refill 30/s) — so it applies to WebRTC peers
