@@ -930,7 +930,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [ ] Add optional 2nd arg `context?: ConnectionContext` to `TLayer.grantAccess`. (§3.1)
 - [ ] Add optional 2nd arg `context?: ConnectionContext` to `AuthMiddleware.authenticate` (backward-compatible). (§3.1)
 - [x] Add optional `actorId?: string` to `AuthResult`; `TLayer` validates uniqueness, falls back to CSPRNG `generateId(16)` (8 retries) when absent/taken. (§3.1)
-- [ ] Update `WSTransport` to pass `{ kind:'ws', remoteId: request.socket.remoteAddress, meta:{ origin } }`. (§3.1)
+- [x] Update `WSTransport` to pass `{ kind:'ws', remoteId: request.socket.remoteAddress, meta:{ origin } }`. (§3.1)
 
 **F3 / §3.2 — `Client` base contract**
 - [ ] Define `Client` abstract class in `core/src/Client.ts` extending `@toolcase/base` `Broadcast`; `connected`/`connect`/`disconnect`/`send` + typed `on/once/off` overloads lifted from browser WSClient `:204-234`. (§3.2)

@@ -7,6 +7,7 @@ import KickReason from '../KickReason'
 import CustomLoggerFactory from '../CustomLoggerFactory'
 import type TLayer from '../TLayer'
 import Transport from '../Transport'
+import type { ConnectionContext } from '../types'
 
 type HeartbeatOptions = { intervalMs?: number; missThreshold?: number }
 
@@ -205,10 +206,16 @@ class WSTransport extends Transport {
             this.transportLayer?.handleClose(actorId)
         })
 
+        const connectionCtx: ConnectionContext = {
+            kind: 'ws',
+            remoteId: request.socket.remoteAddress,
+            meta: { origin: request.headers.origin }
+        }
+
         const ticketFingerprint = this.fingerprint(ticket)
         let resolvedActorId: string
         try {
-            resolvedActorId = await this.transportLayer.grantAccess(ticket)
+            resolvedActorId = await this.transportLayer.grantAccess(ticket, connectionCtx)
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error)
             this.logger.debug(`grant access failure, ticket=${ticketFingerprint}, reason=${reason}`)
