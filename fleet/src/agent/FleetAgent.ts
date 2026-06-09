@@ -20,7 +20,7 @@
  */
 
 import { Broadcast } from '@toolcase/base'
-import type { Rivalis } from '@rivalis/core'
+import type { Rivalis, Client } from '@rivalis/core'
 import type { Logger } from '@toolcase/logging'
 
 import { Snapshot, type SnapshotOptions, type StateFrame } from './Snapshot'
@@ -82,22 +82,6 @@ export type AgentLifecycleStatus = 'connecting' | 'connected' | 'draining' | 'cl
 /** Opaque timer handle — `unknown` so an injected fake scheduler can return anything. */
 type TimerHandle = unknown
 
-/**
- * Minimal transport surface the agent drives. Core's `WSClient` satisfies it;
- * tests inject a fake. Topic frames arrive as broadcasts (`on(topic, payload)`)
- * exactly as `WSClient` re-emits them.
- */
-export interface FleetTransportClient {
-    readonly connected: boolean
-    connect(ticket?: string): void
-    disconnect(): void
-    /** Binary wire (§7, task 005); core's `WSClient.send` accepts `Uint8Array`. */
-    send(topic: string, payload: Uint8Array): void
-    on(event: string, fn: (...args: any[]) => void): unknown
-    off(event: string, fn: (...args: any[]) => void): unknown
-    removeAllListeners(event?: string): unknown
-}
-
 /** Injectable timer surface so tests drive heartbeat/debounce/backoff deterministically. */
 export interface AgentScheduler {
     setTimeout(fn: () => void, ms: number): TimerHandle
@@ -112,7 +96,7 @@ export interface AgentScheduler {
  * convention the Snapshot builder uses for its logger.
  */
 export interface AgentInternals {
-    createClient?: (url: string) => FleetTransportClient
+    createClient?: (url: string) => Client
     scheduler?: AgentScheduler
     backoff?: { baseMs?: number; capMs?: number }
     random?: () => number
@@ -127,12 +111,12 @@ export interface AgentInternals {
  * ticket so the orchestrator can echo the sentinel — never the agent key — in the
  * `101` response (RFC 6455 only lets the server select an offered subprotocol).
  */
-function defaultCreateClient(url: string): FleetTransportClient {
+function defaultCreateClient(url: string): Client {
     const { Clients } = loadCore()
     return new Clients.WSClient(url, {
         ticketSource: 'protocol',
         subprotocols: [WS_SUBPROTOCOL]
-    }) as unknown as FleetTransportClient
+    })
 }
 
 export class FleetAgent extends Broadcast {
@@ -147,7 +131,7 @@ export class FleetAgent extends Broadcast {
     private readonly maxRooms: number | null
     private readonly connectTimeoutMs: number | undefined
 
-    private readonly client: FleetTransportClient
+    private readonly client: Client
     private readonly scheduler: AgentScheduler
     private readonly random: () => number
     private readonly backoffBaseMs: number
