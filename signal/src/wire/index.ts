@@ -49,6 +49,12 @@ const codec = createCodec({
         HostElected: [
             { key: 'newHostId', type: F.STRING, rule: 'optional' },
         ],
+        // APPEND ONLY — tag 2
+        // Carries the outgoing host's serialized room state to the signal server,
+        // which buffers it and forwards it to the newly-elected host after election.
+        HostState: [
+            { key: 'state', type: F.BYTES, rule: 'optional' },
+        ],
     }
 })
 
@@ -67,6 +73,14 @@ export type IceCandidatePayload = { to: string; candidate: string; from?: string
 export type HostElectedPayload = {
     /** The actor id of the newly elected host. */
     newHostId: string
+}
+
+export type HostStatePayload = {
+    /**
+     * Serialized room state produced by `Room.serialize()` on the outgoing host.
+     * Forwarded by the signal server to the newly-elected host after election.
+     */
+    state: Uint8Array
 }
 
 // ── Encode / decode ───────────────────────────────────────────────────────────
@@ -132,6 +146,16 @@ export function encodeHostElected(p: HostElectedPayload): Uint8Array {
 export function decodeHostElected(frame: Uint8Array): HostElectedPayload {
     const m = codec.decode('HostElected', frame)
     return { newHostId: m.newHostId ?? '' }
+}
+
+export function encodeHostState(p: HostStatePayload): Uint8Array {
+    return codec.encode('HostState', { state: p.state })
+}
+
+export function decodeHostState(frame: Uint8Array): HostStatePayload | null {
+    const m = codec.decode('HostState', frame)
+    if (!present(m, 'state') || !(m.state instanceof Uint8Array)) return null
+    return { state: m.state }
 }
 
 /**

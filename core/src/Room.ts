@@ -123,6 +123,70 @@ abstract class Room<TActorData = Record<string, unknown>> {
     protected onDestroy(): void {}
 
     /**
+     * Opt-in state serialization for host handoff (p2p.md §12 Phase 3).
+     *
+     * Override to return a `Uint8Array` snapshot of the room's authoritative
+     * state.  The framework calls this when the host is transferring control to
+     * a newly-elected host; the bytes are forwarded via the signal layer and
+     * delivered to the new host, which receives them through `hydrate`.
+     *
+     * The default returns `null`, which opts the room out of state transfer —
+     * rooms that do not override this are completely unaffected by the handoff
+     * mechanism.
+     *
+     * Keep the snapshot compact: it is sent as a binary payload over the signal
+     * WebSocket.  Prefer encoding with `@rivalis/handshake` or a similar
+     * framing discipline so the new host can version-check before applying.
+     */
+    protected serialize(): Uint8Array | null {
+        return null
+    }
+
+    /**
+     * Opt-in state restoration for host handoff (p2p.md §12 Phase 3).
+     *
+     * Called on the newly-elected host's room with the bytes that the outgoing
+     * host produced via `serialize`.  Override to restore room state so the new
+     * host resumes where the old host left off.
+     *
+     * Only called when the outgoing host had previously pushed a non-null
+     * snapshot via `signal:host_state`.  Rooms that do not override `serialize`
+     * will never have `hydrate` called on them.
+     */
+    protected hydrate(_bytes: Uint8Array): void {}
+
+    /**
+     * @internal
+     * Called by the framework to safely invoke `serialize`. Catches and logs
+     * any exception thrown by user-supplied code so a bad serialize
+     * implementation cannot crash the handoff flow.
+     */
+    trySerialize(): Uint8Array | null {
+        try {
+            return this.serialize()
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error)
+            this.logger?.error(`serialize threw: ${reason}`)
+            return null
+        }
+    }
+
+    /**
+     * @internal
+     * Called by the framework to safely invoke `hydrate`. Catches and logs
+     * any exception thrown by user-supplied code so a bad hydrate
+     * implementation cannot crash the room startup path.
+     */
+    tryHydrate(bytes: Uint8Array): void {
+        try {
+            this.hydrate(bytes)
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error)
+            this.logger?.error(`hydrate threw: ${reason}`)
+        }
+    }
+
+    /**
      * Hook for the presence broadcast payload. Default returns
      * `{ id: actor.id, data: actor.data }`. Override to scrub
      * server-only fields out of `data` before it is broadcast to

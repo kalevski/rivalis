@@ -22,6 +22,8 @@ import {
     encodeIceCandidate,
     decodeIceCandidate,
     decodeRelayTo,
+    encodeHostState,
+    decodeHostState,
 } from '../lib/main.js'
 
 // ── Version header ────────────────────────────────────────────────────────────
@@ -110,6 +112,29 @@ test('decodeRelayTo extracts the to field from an answer frame', () => {
 test('decodeRelayTo extracts the to field from an ice-candidate frame', () => {
     const frame = encodeIceCandidate({ to: 'ice-target', candidate: '{}' })
     assert.equal(decodeRelayTo(frame), 'ice-target')
+})
+
+// ── WireVersionError ──────────────────────────────────────────────────────────
+
+// ── signal:host_state ─────────────────────────────────────────────────────────
+
+test('HostState round-trips arbitrary bytes', () => {
+    const state = new Uint8Array([1, 2, 3, 4, 5])
+    const decoded = decodeHostState(encodeHostState({ state }))
+    assert.ok(decoded !== null, 'decodeHostState must return non-null for a valid frame')
+    assert.deepEqual(decoded.state, state)
+})
+
+test('decodeHostState returns null for a frame with no state field', () => {
+    // Encode an empty HostState (no state field set) — present() will be false.
+    // The simplest way is to encode HostElected (which has no bytes field) and
+    // try to decode it as HostState, but the major/type headers differ.
+    // Instead: encode a HostState with a zero-length bytes — protobuf optional
+    // bytes with length 0 is wire-absent, so present() returns false.
+    // We verify by building a minimal frame with just the 2-byte header.
+    const minimalFrame = new Uint8Array([SIGNAL_WIRE_MAJOR, 0])
+    const decoded = decodeHostState(minimalFrame)
+    assert.strictEqual(decoded, null, 'decodeHostState must return null when state field is absent')
 })
 
 // ── WireVersionError ──────────────────────────────────────────────────────────

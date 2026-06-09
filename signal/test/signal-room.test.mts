@@ -27,6 +27,8 @@ import {
     encodeIceCandidate,
     decodeWelcome,
     decodeHostElected,
+    encodeHostState,
+    decodeHostState,
 } from '../lib/main.js'
 
 // ── test harness ──────────────────────────────────────────────────────────────
@@ -457,5 +459,83 @@ test('non-host leave does not trigger election or signal:host_elected', async ()
         msgsA.filter(m => m.topic === 'signal:host_gone').length,
         0,
         'signal:host_gone must not be sent when a non-host peer leaves'
+    )
+})
+
+// ── host state transfer (serialize/hydrate, p2p.md §12 Phase 3) ───────────────
+
+test('state pushed by host via signal:host_state is forwarded to the elected host', async () => {
+    const { tl } = setup()
+    const { id: idA } = await admitActor(tl)           // host
+    const { id: idB, msgs: msgsB } = await admitActor(tl)
+
+    // Old host pushes serialized state before disconnecting.
+    const state = new Uint8Array([10, 20, 30])
+    await tl.handleMessage(idA, encode('signal:host_state', encodeHostState({ state })))
+
+    // Host disconnects → B is elected.
+    tl.handleClose(idA)
+
+    const stateMsg = msgsB.find(m => m.topic === 'signal:host_state')
+    assert.ok(stateMsg !== undefined, 'new host must receive signal:host_state after election')
+    const decoded = decodeHostState(stateMsg.payload)
+    assert.ok(decoded !== null, 'decoded host state must not be null')
+    assert.deepEqual(decoded.state, state, 'forwarded state bytes must match what the old host sent')
+})
+
+test('signal:host_state is NOT forwarded when host did not push state (crash path)', async () => {
+    const { tl } = setup()
+    const { id: idA } = await admitActor(tl)  // host — does not push state
+    const { msgs: msgsB } = await admitActor(tl)
+
+    tl.handleClose(idA)
+
+    assert.equal(
+        msgsB.filter(m => m.topic === 'signal:host_state').length,
+        0,
+        'new host must not receive signal:host_state when the old host never pushed state'
+    )
+})
+
+test('signal:host_state from a non-host peer is silently ignored', async () => {
+    const { tl } = setup()
+    const { id: idA } = await admitActor(tl)  // host
+    const { id: idB, msgs: msgsB } = await admitActor(tl)
+
+    // Non-host (B) tries to inject state.
+    const fakeState = new Uint8Array([99])
+    await tl.handleMessage(idB, encode('signal:host_state', encodeHostState({ state: fakeState })))
+
+    // Now the real host leaves.
+    tl.handleClose(idA)
+
+    // B is elected but should NOT receive the injected state.
+    assert.equal(
+        msgsB.filter(m => m.topic === 'signal:host_state').length,
+        0,
+        'injected state from a non-host peer must be ignored'
+    )
+})
+
+test('pending host state is cleared after handoff so it cannot be reused in a second election', async () => {
+    const { tl } = setup()
+    const { id: idA } = await admitActor(tl)  // original host
+    const { id: idB, msgs: msgsB } = await admitActor(tl)
+    const { msgs: msgsC } = await admitActor(tl)
+
+    // Old host pushes state.
+    const state = new Uint8Array([1, 2, 3])
+    await tl.handleMessage(idA, encode('signal:host_state', encodeHostState({ state })))
+    tl.handleClose(idA)  // B becomes host; C should NOT get state here
+
+    // B becomes host but does NOT push state before leaving.
+    tl.handleClose(idB)  // C is elected
+
+    // C's second election notification must not carry the stale state from A.
+    const stateMsgs = msgsC.filter(m => m.topic === 'signal:host_state')
+    assert.equal(
+        stateMsgs.length,
+        0,
+        'stale state from a previous epoch must not be forwarded to a second election'
     )
 })
