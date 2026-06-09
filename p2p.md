@@ -854,8 +854,13 @@ without touching the game-logic API.
    media stack (~GB) for a data-channel-only use case (§14 out-of-scope). Both are hidden
    behind the `RTCPeerLike`/`RTCDataChannelLike` adapter interfaces (`node/src/peer/RTCPeer.ts`)
    so `RTCTransport`/`RTCClient` are library-agnostic. Full rationale in `node/CHANGELOG.md` D4.
-5. **Host location for v1:** Node host (recommended, authoritative) vs browser-host from the
-   start. *Recommend Node-host-first* (phase 1), browser-host phase 3.
+5. **Host location for v1:** ✅ **Decided 2026-06-09 — Node-host-first; browser-as-host deferred to Phase 3.**
+   A Node process is the v1 authoritative host. `RTCTransport` lives in `@rivalis/node` (Phase 1).
+   Browser-as-host is a supported future topology (Phase 3) made cheap by the §3.3 isomorphic
+   core split, but is not part of the v1 scope. Rationale: a Node host is a trusted, controlled
+   process — its authority model is equivalent to the existing WS server, so game logic requires
+   zero changes; browser-host trust caveats (§8) are real and belong in a later, deliberately
+   scoped phase. See `node/CHANGELOG.md` D5 for the full decision record.
 6. **TURN relay:** integrate coturn (recommended) vs pure-JS TURN (dev-only fallback).
 7. **Shared codec toolkit home (§3.5):** fold into `@rivalis/handshake` (recommended) vs new
    `@rivalis/wire` package.
@@ -892,7 +897,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] **D2** Kernel ESM safety: convert to lazy loader confirmed — `createRequire(import.meta.url) ?? require` in `handshake/src/serializer.ts`. (§3.3a, §13.2) — decided 2026-06-09; rationale in `handshake/CHANGELOG.md`.
 - [x] **D3** `Client` base location: `@rivalis/core` kernel confirmed — `core/src/Client.ts`, exported from `'@rivalis/core'`. (§3.2, §13.3) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
 - [x] **D4** Node WebRTC lib: `node-datachannel` default, `werift` dev/CI fallback (`RIVALIS_WEBRTC_BACKEND=werift`). (§4.5, §13.4) — decided 2026-06-09; rationale in `node/CHANGELOG.md`.
-- [ ] **D5** v1 host location: confirm Node-host-first (browser-host → phase 3). (§13.5)
+- [x] **D5** v1 host location: Node-host-first confirmed — browser-as-host deferred to Phase 3. (§13.5) — decided 2026-06-09; rationale in `node/CHANGELOG.md`.
 - [ ] **D6** TURN relay: confirm coturn sidecar (pure-JS STUN dev-only). (§4.3, §13.6)
 - [ ] **D7** Shared codec toolkit home: confirm fold into `@rivalis/handshake` (vs new `@rivalis/wire`). (§3.5, §13.7)
 - [ ] **D8** `Room.getActor` visibility: confirm `protected` (vs `public`). (§3.7, §13.8)

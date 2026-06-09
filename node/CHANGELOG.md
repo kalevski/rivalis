@@ -4,6 +4,39 @@
 
 ### Decision record
 
+#### v1 host location: Node-host-first; browser-as-host deferred to Phase 3 (D5 — decided 2026-06-09)
+
+**Decision:** the v1 authoritative host is a **Node.js process**. `RTCTransport`
+(the host-side WebRTC transport) lives in `@rivalis/node` and is the Phase 1
+deliverable. Browser-as-host is deferred to Phase 3.
+
+**Rationale:**
+
+| Factor | Node host (v1) | Browser host (Phase 3) |
+|--------|---------------|----------------------|
+| **Trust model** | Equivalent to the existing WS server: a controlled, trusted process. Auth, rate-limiting, and game logic all behave identically. | Only as trustworthy as the browser tab running it. Suitable for casual/co-op; risky for competitive or authoritative games (§8 trust note). |
+| **Implementation cost** | `RTCTransport extends Transport` with five-step seam (§4.2). `@rivalis/node` dependency on `node-datachannel`. Game `Room` subclasses are **unchanged**. | Requires browser `RTCTransport` (§4.5 native adapters) + host-election logic in `SignalRoom` + optional `Room.serialize()/hydrate()` for host handoff (§12 Phase 3). |
+| **Core dependency** | No new core work beyond Phase 0. D1's isomorphic split and D3's `Client` base are already locked for other reasons. | Phase 3 browser-host **falls out for free** once D1's isomorphic core is in place (§3.3 note), but the feature itself is higher complexity and lower urgency. |
+| **Phase sequencing** | Phase 1 is gated on Phase 0 core generalization only. Shortest path to a working P2P demo. | Gated on Phase 2 (browser peers) completing first. Attempting it earlier would sequence phases in reverse. |
+
+**Sequencing implication:**
+
+This decision locks the phase roadmap order:
+- Phase 1: Node host (`RTCTransport` in `@rivalis/node`) ↔ Node peers.
+- Phase 2: Browser peers (`RTCClient` in `@rivalis/browser`) ↔ Node host.
+- Phase 3: Browser-as-host (browser `RTCTransport`, host election).
+
+None of this forecloses browser-host. The §3.3 isomorphic core split (D1) is
+designed precisely so that a browser host needs no bespoke runtime build —
+it will be cheap to add in Phase 3. The sequencing simply reflects
+implementation dependencies and trust trade-offs, not a limit on the architecture.
+
+**Cross-reference:** `p2p.md §13.5`, `§12` (phased roadmap), `§8` (browser-host
+trust note), `§4.1` (host-authoritative star topology); `core/CHANGELOG.md` D1
+(isomorphic kernel entry split); `node/CHANGELOG.md` D4 (Node WebRTC library).
+
+---
+
 #### Node WebRTC library: node-datachannel default, werift dev/CI fallback (D4 — decided 2026-06-09)
 
 **Decision:** `node-datachannel` is the default Node.js WebRTC implementation
