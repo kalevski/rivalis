@@ -12,6 +12,11 @@
             "types": "./lib/main.d.ts",
             "import": "./lib/module.js",
             "require": "./lib/main.js"
+        },
+        "./transports/ws": {
+            "types": "./lib/ws.d.ts",
+            "import": "./lib/ws.module.js",
+            "require": "./lib/ws.js"
         }
     },
     "scripts": {
