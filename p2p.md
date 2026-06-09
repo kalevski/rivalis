@@ -1235,7 +1235,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 ### Cross-cutting (verify continuously)
 
 - [x] `AuthMiddleware.authenticate` constant-time ticket compare — `timingSafeCompare(a, b)` exported from `@rivalis/core`; pure-JS XOR over UTF-8 bytes, always iterates `b.length` times, length mismatch encoded in accumulator; tests in `core/test/auth-timing-safe.test.mts`; task 089, 2026-06-09. (§8)
-- [ ] Confirm DTLS-by-default encryption documented (no extra work). (§8)
+- [x] Confirm DTLS-by-default encryption documented (no extra work). (§8) — `node/README.md` §Security; §8 already states "DTLS-encrypted by default — no extra work"; task 090, 2026-06-09.
 - [ ] Liveness parity doc: WS heartbeat vs RTC `onconnectionstatechange`→`handleClose`. (§7)
 - [ ] Game-traffic rate-limiting auto-applies to RTC via `TLayer.handleMessage` — verify, no transport work. (§8)
 - [ ] Game logic (`Room`/`Actor`): **zero changes** — assert across all phases. (§5, §11)
