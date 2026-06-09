@@ -67,7 +67,7 @@ export function createPeerConnection(config: RTCConfiguration): RTCPeerLike {
 // node-datachannel adapter (default — D4)
 // ---------------------------------------------------------------------------
 
-class NodeDCDataChannel implements RTCDataChannelLike {
+export class NodeDCDataChannel implements RTCDataChannelLike {
     constructor(private readonly dc: DataChannel) {}
 
     onMessage(cb: (buf: Uint8Array) => void): void {
@@ -95,10 +95,10 @@ class NodeDCDataChannel implements RTCDataChannelLike {
 export class NodeDataChannelPeer implements RTCPeerLike {
     private readonly pc: PeerConnection
 
-    constructor(config: RTCConfiguration) {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const NDC = requireNodeDataChannel()
-        this.pc = new NDC.PeerConnection('', {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    constructor(config: RTCConfiguration, ndc?: any) {
+        const lib = ndc ?? requireNodeDataChannel()
+        this.pc = new lib.PeerConnection('', {
             iceServers: mapIceServers(config),
         })
     }

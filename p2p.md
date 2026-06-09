@@ -1038,7 +1038,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] coturn provisioning: shared-secret/REST config; deployment docs. (§4.3, §13.6) — `signal/coturn/turnserver.conf` template (use-auth-secret + static-auth-secret/REST scheme matching IceConfig HMAC); `signal/README.md` with port table, TLS guidance, zero-downtime secret rotation; task 057, 2026-06-09.
 
 **`@rivalis/node`**
-- [ ] `RTCPeer` adapter — `RTCPeerLike`/`RTCDataChannelLike` over `node-datachannel`. (§4.5)
+- [x] `RTCPeer` adapter — `RTCPeerLike`/`RTCDataChannelLike` over `node-datachannel`. (§4.5) — `node/src/peer/RTCPeer.ts`; `NodeDCDataChannel` and `NodeDataChannelPeer` exported; optional `ndc?` injection param on `NodeDataChannelPeer` for test-time mocking without native binaries; `WeriftPeer` stub satisfies the same shape (Phase 4 placeholder); tests in `node/test/rtc-peer-adapter.test.mts`; task 058, 2026-06-09.
 - [ ] Shared isomorphic negotiation core (offer/answer/ICE state machine) driven by injected `RTCAdapters` (`createPeerConnection`, `createSignalingClient`); keep **internal**, no `@rivalis/p2p` package. (§4.5)
 - [ ] `SignalClient` (a `Client` to `@rivalis/signal`; reuse node WSClient). (§4.2)
 - [ ] `RTCTransport extends Transport`: 5-step seam — `onInitialize` connects signal + listens offers/ice; `onChannelOpen` → `grantAccess(peerTicket, {kind:'webrtc',remoteId:peerId})`, register inbound/outbound **before** onJoin sends, kick via §3.4 control frame, `handleClose` on pc `disconnected/closed/failed`. (§4.2)
