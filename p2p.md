@@ -1027,10 +1027,10 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] `signal/src/wire/` — ~80 lines of schema defs over shared toolkit (§3.5). (§4.3)
 - [x] `SignalRoom extends Room<PeerData>`: `presence=true`, `unknownTopicPolicy='drop'`, bind `signal:offer/answer/ice` → `relay`. (§4.3)
 - [x] `relay` uses `getActor(msg.to)?.send(topic, payload)` (forward verbatim). (§4.3, §3.7)
-- [x] `onJoin`: first peer → `hostId`; `signal:welcome { youId, hostId, iceServers }`. (§4.3) — iceServers uses `'[]'` stub; IceConfig deferred to Phase 1.
+- [x] `onJoin`: first peer → `hostId`; `signal:welcome { youId, hostId, iceServers: iceConfig.issueFor(actor.id) }`. (§4.3) — `IceConfig` reads `ICE_TURN_URLS`/`ICE_TURN_SECRET`/`ICE_STUN_URLS`/`ICE_TTL` from env; empty array when TURN not configured.
 - [x] `onLeave`: host leaves → clear `hostId`, broadcast `signal:host_gone`. (§4.3)
 - [ ] `SignalAuthMiddleware`. (§4.3, §8)
-- [ ] `IceConfig.issueFor(peerId)`: build `RTCIceServer[]`; TURN ephemeral creds `username=<unixExpiry>:<peerId>`, `credential=base64(HMAC_SHA1(secret, username))` via `node:crypto.createHmac`; never ship secret. (§4.3, §8)
+- [x] `IceConfig.issueFor(peerId)`: build `RTCIceServer[]`; TURN ephemeral creds `username=<unixExpiry>:<peerId>`, `credential=base64(HMAC_SHA1(secret, username))` via `node:crypto.createHmac`; never ship secret. (§4.3, §8) — `signal/src/IceConfig.ts`; exported from `signal/src/main.ts`.
 - [ ] `SignalServer` bootstrap: `new Rivalis({ transports:[new WSTransport(...)], authMiddleware })` + `rooms.define('signal', SignalRoom)`; `ticketSource:'protocol'` + `TokenBucketRateLimiter` (mirror fleet `attachControlPlane`). (§4.3)
 - [ ] coturn provisioning: shared-secret/REST config; deployment docs. (§4.3, §13.6)
 
@@ -1045,8 +1045,8 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [ ] Per-`peerId` pre-admission throttle before `grantAccess` in `RTCTransport` (RTC isn't covered by WS `ConnectionLimiter`). (§8)
 
 **Phase 1 tests / exit**
-- [x] `SignalRoom` unit: relay A→only B via `getActor`, host assignment, host-gone fanout, presence (in-process, no real WebRTC). (§10) — `signal/test/signal-room.test.mts`: host assignment, welcome youId/hostId, offer/answer/ice relay to target-only (verbatim payload), host-gone fanout, non-host leave no-host_gone, presence:join/leave broadcasts, unknownTopicPolicy=drop (actor stays connected).
-- [ ] `IceConfig` unit: HMAC `username/credential` matches coturn; expiry honored. (§10)
+- [x] `SignalRoom` unit: relay A→only B via `getActor`, host assignment, host-gone fanout, presence (in-process, no real WebRTC). (§10) — `signal/test/signal-room.test.mts`: host assignment, welcome youId/hostId/iceServers, TURN creds via env vars, offer/answer/ice relay to target-only (verbatim payload), host-gone fanout, non-host leave no-host_gone, presence:join/leave broadcasts, unknownTopicPolicy=drop (actor stays connected).
+- [x] `IceConfig` unit: HMAC `username/credential` matches coturn; expiry honored. (§10) — `signal/test/ice-config.test.mts`: no-TURN empty array, STUN-only no-creds, username format, HMAC matches coturn, multi-url array, combined STUN+TURN, 24 h default TTL, fromEnv wiring.
 - [ ] **Loopback**: two peers one process over `node-datachannel`, unchanged `TttRoom`, assert broadcasts arrive — including onJoin-send-before-listener (`pendingEmits` flush). (§10, §4.2)
 
 ### Phase 2 — Browser peers

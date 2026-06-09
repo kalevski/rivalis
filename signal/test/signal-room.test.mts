@@ -7,7 +7,8 @@
  *
  * Covers:
  *  - host assignment: first peer to join becomes hostId
- *  - welcome message: signal:welcome carries youId + hostId
+ *  - welcome message: signal:welcome carries youId + hostId + iceServers JSON
+ *  - ICE servers: valid JSON array; includes TURN creds when env vars are set
  *  - relay routing: offer/answer/ice reach ONLY the targeted actor (O(1) via getActor)
  *  - host-gone fanout: host leave broadcasts signal:host_gone to remaining peers
  *  - presence: __presence:join / __presence:leave auto-broadcast (presence=true)
@@ -78,6 +79,9 @@ test('first actor to join is both youId and hostId in the welcome', async () => 
     const decoded = decodeWelcome(welcome.payload)
     assert.equal(decoded.youId, idA, 'youId must match the actor id')
     assert.equal(decoded.hostId, idA, 'first actor is its own host')
+    // iceServers must be a valid JSON string (content depends on env config)
+    assert.doesNotThrow(() => JSON.parse(decoded.iceServers), 'iceServers must be valid JSON')
+    assert.ok(Array.isArray(JSON.parse(decoded.iceServers)), 'iceServers must be a JSON array')
 })
 
 test('second actor receives the first actor as host', async () => {
@@ -102,6 +106,42 @@ test('third actor receives the same hostId as the second', async () => {
     assert.ok(welcome !== undefined)
     const decoded = decodeWelcome(welcome.payload)
     assert.equal(decoded.hostId, idA, 'host does not change when non-host peers join')
+})
+
+// ── ICE servers in welcome ────────────────────────────────────────────────────
+
+test('welcome includes TURN creds when ICE_TURN_* env vars are set', async () => {
+    const prev = {
+        ICE_TURN_URLS: process.env['ICE_TURN_URLS'],
+        ICE_TURN_SECRET: process.env['ICE_TURN_SECRET'],
+    }
+    try {
+        process.env['ICE_TURN_URLS'] = 'turn:turn.example.com:3478'
+        process.env['ICE_TURN_SECRET'] = 'room-test-secret'
+
+        const { tl } = setup()
+        const { id: idA, msgs: msgsA } = await admitActor(tl)
+
+        const welcome = msgsA.find(m => m.topic === 'signal:welcome')
+        assert.ok(welcome !== undefined)
+        const decoded = decodeWelcome(welcome.payload)
+        const servers = JSON.parse(decoded.iceServers)
+
+        assert.ok(servers.length > 0, 'iceServers must be non-empty when TURN is configured')
+        const turnEntry = servers.find((s: any) => {
+            const urls = Array.isArray(s.urls) ? s.urls : [s.urls as string]
+            return (urls as string[]).some((u: string) => u.startsWith('turn:'))
+        })
+        assert.ok(turnEntry !== undefined, 'iceServers must contain a TURN entry')
+        assert.ok(typeof turnEntry.username === 'string', 'TURN entry must have a username')
+        assert.ok(turnEntry.username.endsWith(':' + idA), 'TURN username must contain the actor id as peerId')
+        assert.ok(typeof turnEntry.credential === 'string', 'TURN entry must have a credential')
+    } finally {
+        for (const [k, v] of Object.entries(prev)) {
+            if (v === undefined) delete process.env[k]
+            else process.env[k] = v
+        }
+    }
 })
 
 // ── relay routing ─────────────────────────────────────────────────────────────

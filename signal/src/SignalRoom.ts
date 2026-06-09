@@ -1,5 +1,6 @@
 import { Room, Actor } from '@rivalis/core'
 import { encodeWelcome, decodeRelayTo } from './wire/index'
+import IceConfig from './IceConfig'
 
 type PeerData = Record<string, unknown>
 
@@ -18,6 +19,10 @@ class SignalRoom extends Room<PeerData> {
 
     private hostId: string | null = null
 
+    /** ICE/TURN credential issuer. Reads from env vars by default; may be
+     *  overridden in a subclass for testing or custom configuration. */
+    protected iceConfig: IceConfig = IceConfig.fromEnv()
+
     protected override onCreate(): void {
         this.bind('signal:offer',  this.relay)
         this.bind('signal:answer', this.relay)
@@ -29,7 +34,7 @@ class SignalRoom extends Room<PeerData> {
         actor.send('signal:welcome', encodeWelcome({
             youId: actor.id,
             hostId: this.hostId,
-            iceServers: '[]',   // IceConfig (TURN creds) deferred to Phase 1
+            iceServers: this.iceConfig.issueFor(actor.id),
         }))
     }
 
