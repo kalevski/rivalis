@@ -957,7 +957,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 
 **F4 / §3.5 — Shared typed-codec toolkit**
 - [ ] Build codec helper in `@rivalis/handshake` (D7 — decided 2026-06-09) wrapping `@toolcase/serializer`: 2-byte `[major,minor]` header, append-only positional tags, `present()`-based decode, `WireVersionError` on major mismatch, baked-in lazy loader. (§3.5)
-- [ ] Unit-test version-header + append-only + `WireVersionError`. (§10)
+- [x] Unit-test version-header + append-only + `WireVersionError`. (§10) — `handshake/test/codec.test.mts`: version-header, cross-minor round-trip (forward/backward), append-only schema evolution (v1↔v2 frames), `WireVersionError` on major mismatch, `present()` semantics.
 
 **§3.4 — Transport-agnostic close/kick control frames**
 - [ ] Reserve control topic `__rivalis:close` in `handshake` carrying encoded `{ code, reason }`; honor existing `__` reserved-prefix guard. (§3.4)

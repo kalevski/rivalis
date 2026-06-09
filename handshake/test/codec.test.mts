@@ -158,6 +158,91 @@ test('field tags are positional: reordering the decode schema corrupts results',
     assert.equal(decoded.count, 5)
 })
 
+// ── Cross-minor-version round-trip ────────────────────────────────────────────
+// The minor byte is reserved for additive evolution within a major.
+// Decode only checks the major byte (byte 0); byte 1 is ignored. So a frame
+// produced by a minor=1 build must be readable by a minor=0 build and vice versa.
+
+test('frame encoded with minor=1 decodes correctly with a minor=0 codec (backward compat)', () => {
+    const encoderV1 = createCodec({
+        namespace: '@rivalis/handshake-minor-enc',
+        major: MAJOR,
+        minor: 1,
+        schema: { M: [{ key: 'id', type: F.STRING, rule: 'optional' }] },
+    })
+    const decoderV0 = createCodec({
+        namespace: '@rivalis/handshake-minor-dec',
+        major: MAJOR,
+        minor: 0,
+        schema: { M: [{ key: 'id', type: F.STRING, rule: 'optional' }] },
+    })
+    const frame = encoderV1.encode('M', { id: 'hello' })
+    assert.equal(frame[1], 1, 'encoder wrote minor=1')
+    const decoded = decoderV0.decode('M', frame)
+    assert.equal(decoded.id, 'hello')
+})
+
+test('frame encoded with minor=0 decodes correctly with a minor=1 codec (forward compat)', () => {
+    const encoderV0 = createCodec({
+        namespace: '@rivalis/handshake-minor-fwd-enc',
+        major: MAJOR,
+        minor: 0,
+        schema: { M: [{ key: 'id', type: F.STRING, rule: 'optional' }] },
+    })
+    const decoderV1 = createCodec({
+        namespace: '@rivalis/handshake-minor-fwd-dec',
+        major: MAJOR,
+        minor: 1,
+        schema: { M: [{ key: 'id', type: F.STRING, rule: 'optional' }] },
+    })
+    const frame = encoderV0.encode('M', { id: 'world' })
+    assert.equal(frame[1], 0, 'encoder wrote minor=0')
+    const decoded = decoderV1.decode('M', frame)
+    assert.equal(decoded.id, 'world')
+})
+
+// ── Append-only schema evolution ──────────────────────────────────────────────
+// Frames encoded by an old schema (fewer fields) must be decodable by a new
+// schema (more fields appended): original fields survive, new field is absent.
+// Frames encoded by a new schema (extra appended field) must be decodable by
+// an old schema: original fields survive, the unknown extra field is silently
+// dropped (protobuf's built-in unknown-field behaviour).
+
+const schemaV1 = {
+    Ev: [
+        { key: 'id', type: F.STRING, rule: 'optional' as const },
+        { key: 'count', type: F.UINT32, rule: 'optional' as const },
+    ],
+}
+const schemaV2 = {
+    Ev: [
+        { key: 'id', type: F.STRING, rule: 'optional' as const },
+        { key: 'count', type: F.UINT32, rule: 'optional' as const },
+        // appended field — tag 3
+        { key: 'label', type: F.STRING, rule: 'optional' as const },
+    ],
+}
+
+const codecV1 = createCodec({ namespace: '@rivalis/handshake-ev1', major: MAJOR, schema: schemaV1 })
+const codecV2 = createCodec({ namespace: '@rivalis/handshake-ev2', major: MAJOR, schema: schemaV2 })
+
+test('v2 decoder reads v1 frame: original fields intact, new field absent', () => {
+    const frame = codecV1.encode('Ev', { id: 'x', count: 3 })
+    const decoded = codecV2.decode('Ev', frame)
+    assert.equal(decoded.id, 'x')
+    assert.equal(decoded.count, 3)
+    assert.equal(present(decoded, 'label'), false, 'appended field absent from old frame')
+})
+
+test('v1 decoder reads v2 frame: original fields intact, unknown extra field silently dropped', () => {
+    const frame = codecV2.encode('Ev', { id: 'y', count: 7, label: 'new' })
+    const decoded = codecV1.decode('Ev', frame)
+    assert.equal(decoded.id, 'y')
+    assert.equal(decoded.count, 7)
+    // 'label' is unknown to v1; protobuf drops unknown fields silently
+    assert.equal(present(decoded, 'label'), false, 'unknown appended field silently dropped')
+})
+
 // ── present() edge cases ──────────────────────────────────────────────────────
 
 test('present() returns false for null, undefined, and non-own properties', () => {
