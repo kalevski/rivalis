@@ -879,8 +879,12 @@ without touching the game-logic API.
    `Actor` references and bypass the `each`/`broadcast`/`send` surface; no external use case
    exists that `each` or a subclass-maintained index cannot already satisfy. Full rationale in
    `core/CHANGELOG.md` D8.
-9. **Per-transport auth/rate-limit override (§3.6):** ship now vs defer (separate Rivalis
-   apps already cover the star). *Recommend defer* — additive, low urgency.
+9. **Per-transport auth/rate-limit override (§3.6):** ✅ **Decided 2026-06-09 — defer.**
+   Separate Rivalis apps already cover the star topology; the feature is additive and
+   low urgency. `ConfigOptions` (`Config.ts:8-14`) is unchanged in Phase 0. Phase 4
+   tracking in `043-core-low-per-transport-admission-override.md`;
+   implementation in `086-core-low-per-transport-admission-impl.md`.
+   Full rationale in `core/CHANGELOG.md` D9.
 10. **Package names:** `@rivalis/signal` + `@rivalis/node` (proposed). Confirm.
 
 ---
@@ -914,7 +918,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] **D6** TURN relay: coturn sidecar confirmed; pure-JS STUN dev-only behind `RIVALIS_STUN_DEV=true`; no JS production TURN. (§4.3, §13.6) — decided 2026-06-09; rationale in `signal/CHANGELOG.md`.
 - [x] **D7** Shared codec toolkit home: fold into `@rivalis/handshake` confirmed — typed-codec discipline (2-byte header, append-only tags, lazy-require, `WireVersionError`) lives in `handshake`; no new `@rivalis/wire` package. (§3.5, §13.7) — decided 2026-06-09; rationale in `handshake/CHANGELOG.md`.
 - [x] **D8** `Room.getActor` visibility: `protected` confirmed — subclass-routing primitive; no public use case. (§3.7, §13.8) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
-- [ ] **D9** Per-transport auth/rate-limit override: confirm **defer**. (§3.6, §13.9)
+- [x] **D9** Per-transport auth/rate-limit override: **defer confirmed** — additive, low urgency; separate Rivalis apps cover the star. Phase 4 tracking in task 043 / impl in task 086. (§3.6, §13.9) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
 - [ ] **D10** Package names: confirm `@rivalis/signal` + `@rivalis/node`. (§13.10)
 
 ### Phase 0 — Core generalization (no P2P yet; pays for itself regardless)

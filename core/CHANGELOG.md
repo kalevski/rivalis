@@ -106,6 +106,36 @@ general query API.
 
 **Cross-reference:** `p2p.md §3.7`, `§4.3`, `§13.8`; task list D8 (Phase −1).
 
+#### Per-transport auth/rate-limit override (D9 — decided 2026-06-09)
+
+**Decision:** **defer** to Phase 4.
+
+Per-transport `authMiddleware?` / `rateLimiter?` overrides on `Transport` subclasses
+are **not** shipped in Phase 0. `ConfigOptions` (`Config.ts:8-14`) is unchanged.
+
+**Rationale:**
+
+The feature is strictly additive — it does not alter the existing single-auth /
+single-rateLimiter contract. The driving use case ("WS peers authenticate by
+cookie, RTC peers by signaling token") is already fully solvable today by running
+two separate `Rivalis` apps, which is exactly the pattern `fleet/` established.
+Because separate apps already cover the star topology, the urgency is low and the
+scope of Phase 0 should not widen for a convenience feature. Implementing it later
+as an opt-in addition to `ConfigOptions` carries zero risk of breaking the API;
+deferring now keeps Phase 0 focused on the blockers (`Transport` export, isomorphic
+kernel split, `Client` contract) that pay for themselves regardless of P2P.
+
+**Deferred work tracked in:** Phase 4, task `086-core-low-per-transport-admission-impl.md`
+and `043-core-low-per-transport-admission-override.md`.
+
+**Phase 0 impact:** none. `Config.ts:8-14` is untouched; no tracking stub or
+placeholder is added. When Phase 4 lands, `Transport` gains optional
+`authMiddleware?: AuthMiddleware<any>` and `rateLimiter?: RateLimiter | null`;
+`TLayer` prefers the transport's when present, falls back to the global `Config`
+default. The change will be backward-compatible and additive.
+
+**Cross-reference:** `p2p.md §3.6`, `§12 Phase 4`, `§13.9`; task list D9 (Phase −1).
+
 ---
 
 **New exports in `7.0.0`:**
