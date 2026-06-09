@@ -929,7 +929,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] Add `ConnectionContext` type (`kind`, `remoteId?`, `meta?`) and export it. (§3.1)
 - [ ] Add optional 2nd arg `context?: ConnectionContext` to `TLayer.grantAccess`. (§3.1)
 - [ ] Add optional 2nd arg `context?: ConnectionContext` to `AuthMiddleware.authenticate` (backward-compatible). (§3.1)
-- [ ] Add optional `actorId?: string` to `AuthResult`; `TLayer` validates uniqueness, falls back to CSPRNG `generateId(16)` (8 retries) when absent/taken. (§3.1)
+- [x] Add optional `actorId?: string` to `AuthResult`; `TLayer` validates uniqueness, falls back to CSPRNG `generateId(16)` (8 retries) when absent/taken. (§3.1)
 - [ ] Update `WSTransport` to pass `{ kind:'ws', remoteId: request.socket.remoteAddress, meta:{ origin } }`. (§3.1)
 
 **F3 / §3.2 — `Client` base contract**

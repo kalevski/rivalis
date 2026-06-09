@@ -9,6 +9,8 @@ import type { ConnectionContext } from './types'
 export type AuthResult<TActorData> = {
     data: TActorData | null
     roomId: string
+    /** Stable actor id to request. Honored when the id is free; falls back to CSPRNG allocation when absent or taken. */
+    actorId?: string
 }
 
 /**

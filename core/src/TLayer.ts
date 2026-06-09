@@ -140,7 +140,7 @@ class TLayer<TActorData = Record<string, unknown>> {
         if (result === null) {
             throw new Error('invalid ticket')
         }
-        const { data, roomId } = result
+        const { data, roomId, actorId: requestedActorId } = result
         if (data !== null && typeof data !== 'object') {
             throw new Error(`actor data can be an object or null, provided=${data}`)
         }
@@ -158,16 +158,20 @@ class TLayer<TActorData = Record<string, unknown>> {
             throw new Error(KickReason.ROOM_FULL)
         }
 
-        // generateId is CSPRNG-backed (64 bits of entropy in 16 hex chars), so
-        // a collision against an existing actor is astronomically unlikely.
-        // The retry loop is purely defensive — without it the failure mode
-        // would be a silent overwrite of an existing actor's roomIds entry.
+        // Honor a stable actorId requested by the transport (e.g. a reconnecting peer)
+        // when it is free. Fall back to CSPRNG allocation — generateId is CSPRNG-backed
+        // (64 bits of entropy in 16 hex chars), retried up to 8 times defensively so a
+        // collision never silently overwrites an existing actor's roomIds entry.
         let actorId: string | null = null
-        for (let attempt = 0; attempt < 8; attempt++) {
-            const candidate = generateId(16)
-            if (!this.roomIds.has(candidate)) {
-                actorId = candidate
-                break
+        if (typeof requestedActorId === 'string' && requestedActorId.length > 0 && !this.roomIds.has(requestedActorId)) {
+            actorId = requestedActorId
+        } else {
+            for (let attempt = 0; attempt < 8; attempt++) {
+                const candidate = generateId(16)
+                if (!this.roomIds.has(candidate)) {
+                    actorId = candidate
+                    break
+                }
             }
         }
         if (actorId === null) {
