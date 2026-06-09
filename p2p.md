@@ -1029,7 +1029,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] `relay` uses `getActor(msg.to)?.send(topic, payload)` (forward verbatim). (§4.3, §3.7)
 - [x] `onJoin`: first peer → `hostId`; `signal:welcome { youId, hostId, iceServers: iceConfig.issueFor(actor.id) }`. (§4.3) — `IceConfig` reads `ICE_TURN_URLS`/`ICE_TURN_SECRET`/`ICE_STUN_URLS`/`ICE_TTL` from env; empty array when TURN not configured.
 - [x] `onLeave`: host leaves → clear `hostId`, broadcast `signal:host_gone`. (§4.3)
-- [ ] `SignalAuthMiddleware`. (§4.3, §8)
+- [x] `SignalAuthMiddleware`. (§4.3, §8) — `signal/src/SignalAuthMiddleware.ts`; ticket format `<roomId>:<secret>`; constant-time SHA-256 + timingSafeEqual; rotation-safe multi-secret list; tests in `signal/test/signal-auth-middleware.test.mts`.
 - [x] `IceConfig.issueFor(peerId)`: build `RTCIceServer[]`; TURN ephemeral creds `username=<unixExpiry>:<peerId>`, `credential=base64(HMAC_SHA1(secret, username))` via `node:crypto.createHmac`; never ship secret. (§4.3, §8) — `signal/src/IceConfig.ts`; exported from `signal/src/main.ts`.
 - [ ] `SignalServer` bootstrap: `new Rivalis({ transports:[new WSTransport(...)], authMiddleware })` + `rooms.define('signal', SignalRoom)`; `ticketSource:'protocol'` + `TokenBucketRateLimiter` (mirror fleet `attachControlPlane`). (§4.3)
 - [ ] coturn provisioning: shared-secret/REST config; deployment docs. (§4.3, §13.6)
