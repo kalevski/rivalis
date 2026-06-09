@@ -24,6 +24,15 @@ const Clients = {
     WSClient
 }
 
+export type ConnectionContext = {
+    /** Which transport admitted this connection ('ws' | 'webrtc' | custom). */
+    kind: string
+    /** Transport-native peer/remote id (WS: remoteAddress; RTC: signaling peerId). */
+    remoteId?: string
+    /** Opaque, transport-specific extras (origin header, ICE candidate type, …). */
+    meta?: Record<string, unknown>
+}
+
 export type { TopicListener, ForEachFn, GetRoomFn, EventFn, EventType } from './types'
 export type { AuthResult } from './AuthMiddleware'
 export type { UnknownTopicPolicy } from './Room'

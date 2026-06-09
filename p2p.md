@@ -926,7 +926,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 **F1 / §3.1 — Export and widen `Transport`; carry connection context**
 - [x] Move/define `Transport` abstract class in `core/src/Transport.ts` (unchanged contract: `onInitialize`, `get sockets`, `dispose`). (§3.1)
 - [x] Export `Transport` from `core/src/main.ts`. (F1)
-- [ ] Add `ConnectionContext` type (`kind`, `remoteId?`, `meta?`) and export it. (§3.1)
+- [x] Add `ConnectionContext` type (`kind`, `remoteId?`, `meta?`) and export it. (§3.1)
 - [ ] Add optional 2nd arg `context?: ConnectionContext` to `TLayer.grantAccess`. (§3.1)
 - [ ] Add optional 2nd arg `context?: ConnectionContext` to `AuthMiddleware.authenticate` (backward-compatible). (§3.1)
 - [ ] Add optional `actorId?: string` to `AuthResult`; `TLayer` validates uniqueness, falls back to CSPRNG `generateId(16)` (8 retries) when absent/taken. (§3.1)
