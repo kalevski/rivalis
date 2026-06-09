@@ -77,6 +77,35 @@ conflate two distinct concerns.
 decided 2026-06-09); `handshake/CHANGELOG.md` D2 (lazy serializer loader,
 decided 2026-06-09); `p2p.md §3.2`, `§5`, `§13.3`.
 
+#### `Room.getActor` visibility (D8 — decided 2026-06-09)
+
+**Decision:** `protected`.
+
+**Rationale:**
+
+`getActor(id)` is a subclass primitive, not a public API. The canonical caller is
+a `Room` subclass like `SignalRoom` that must route a message to one specific peer
+by id (§4.3). Making it `protected` signals precisely this intent and prevents
+external code from bypassing the `each`/`broadcast`/`send` surface, which is the
+deliberate public contract.
+
+`public` was considered and rejected: the only concrete use case is intra-room
+routing inside a subclass (signaling relay). Exposing it publicly would invite
+callers to obtain `Actor` references and call `actor.kick` or other actor methods
+directly, circumventing room-level accounting and making the room's actor map an
+implementation detail in name only. There is no known use case today that requires
+external lookup of a joined actor that is not already satisfied by `each`.
+
+App code that needs to find one actor among many should either maintain a
+subclass-level index (a `Map<string, Actor>` in `onCreate`/`onJoin`/`onLeave`)
+or iterate via `each`. `getActor` is a targeted primitive for routing, not a
+general query API.
+
+**Implementation site:** `core/src/Room.ts` (after the `actorCount` getter, before
+`onCreate`). No behavioral change to existing rooms — purely additive.
+
+**Cross-reference:** `p2p.md §3.7`, `§4.3`, `§13.8`; task list D8 (Phase −1).
+
 ---
 
 **New exports in `7.0.0`:**

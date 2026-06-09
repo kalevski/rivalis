@@ -873,8 +873,12 @@ without touching the game-logic API.
    tags, `present()`-based decode, `WireVersionError` on major mismatch, baked-in lazy loader)
    lives in `@rivalis/handshake`. No new `@rivalis/wire` package is created. Full rationale in
    `handshake/CHANGELOG.md` D7.
-8. **`Room.getActor` visibility (§3.7):** `protected` (recommended — signaling subclass uses
-   it, app code rarely needs it) vs `public`.
+8. **`Room.getActor` visibility (§3.7):** ✅ **Decided 2026-06-09 — `protected` confirmed.**
+   `getActor` is a subclass primitive for intra-room routing (signaling relay routes to one
+   specific peer by id). `public` was rejected: it would invite external callers to obtain
+   `Actor` references and bypass the `each`/`broadcast`/`send` surface; no external use case
+   exists that `each` or a subclass-maintained index cannot already satisfy. Full rationale in
+   `core/CHANGELOG.md` D8.
 9. **Per-transport auth/rate-limit override (§3.6):** ship now vs defer (separate Rivalis
    apps already cover the star). *Recommend defer* — additive, low urgency.
 10. **Package names:** `@rivalis/signal` + `@rivalis/node` (proposed). Confirm.
@@ -909,7 +913,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [x] **D5** v1 host location: Node-host-first confirmed — browser-as-host deferred to Phase 3. (§13.5) — decided 2026-06-09; rationale in `node/CHANGELOG.md`.
 - [x] **D6** TURN relay: coturn sidecar confirmed; pure-JS STUN dev-only behind `RIVALIS_STUN_DEV=true`; no JS production TURN. (§4.3, §13.6) — decided 2026-06-09; rationale in `signal/CHANGELOG.md`.
 - [x] **D7** Shared codec toolkit home: fold into `@rivalis/handshake` confirmed — typed-codec discipline (2-byte header, append-only tags, lazy-require, `WireVersionError`) lives in `handshake`; no new `@rivalis/wire` package. (§3.5, §13.7) — decided 2026-06-09; rationale in `handshake/CHANGELOG.md`.
-- [ ] **D8** `Room.getActor` visibility: confirm `protected` (vs `public`). (§3.7, §13.8)
+- [x] **D8** `Room.getActor` visibility: `protected` confirmed — subclass-routing primitive; no public use case. (§3.7, §13.8) — decided 2026-06-09; rationale in `core/CHANGELOG.md`.
 - [ ] **D9** Per-transport auth/rate-limit override: confirm **defer**. (§3.6, §13.9)
 - [ ] **D10** Package names: confirm `@rivalis/signal` + `@rivalis/node`. (§13.10)
 
@@ -958,7 +962,7 @@ These gate Phase 0; resolve all ten, record the chosen values in the changelog/A
 - [ ] Client-side decode of `__rivalis:close` → `client:kicked { code, reason }`; reuse `NO_RECONNECT_CODES = {4001,4003,4004}` gate. (§3.4)
 
 **F8 / §3.7 — `Room.getActor(id)`**
-- [ ] Add `protected getActor(actorId): Actor | null` (visibility per D8) to `core/src/Room.ts`. (§3.7)
+- [x] Add `protected getActor(actorId): Actor | null` to `core/src/Room.ts`. (§3.7) — visibility locked `protected` per D8 (decided 2026-06-09).
 
 **§3.6 — Multi-transport (cheap docs/test wins)**
 - [ ] Document + test "one `Room`, many transports" wiring (mechanically works once F1 lands). (§3.6)

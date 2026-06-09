@@ -102,6 +102,18 @@ abstract class Room<TActorData = Record<string, unknown>> {
         return this.actors.size
     }
 
+    /**
+     * Look up a joined actor by id. Returns `null` when no actor with that
+     * id is currently in the room. Visibility is `protected` — the intended
+     * caller is a `Room` subclass (e.g. a signaling relay that must route a
+     * message to one specific peer). App code that needs cross-actor lookups
+     * should go through `each` or a subclass-maintained index; `getActor`
+     * is a targeted primitive, not a general query API.
+     */
+    protected getActor(actorId: string): Actor<TActorData> | null {
+        return this.actors.get(actorId) ?? null
+    }
+
     protected onCreate(): void {}
 
     protected onJoin(_actor: Actor<TActorData>): void {}
