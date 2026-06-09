@@ -17,6 +17,11 @@
             "types": "./lib/ws.d.ts",
             "import": "./lib/ws.module.js",
             "require": "./lib/ws.js"
+        },
+        "./clients/ws": {
+            "types": "./lib/wsclient.d.ts",
+            "import": "./lib/wsclient.module.js",
+            "require": "./lib/wsclient.js"
         }
     },
     "scripts": {

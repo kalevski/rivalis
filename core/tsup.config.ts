@@ -50,5 +50,29 @@ export default defineConfig([
         dts: false,
         outExtension: () => ({ js: '.module.js' }),
         external
+    },
+    {
+        entry: { wsclient: 'src/clients/ws.ts' },
+        format: 'cjs',
+        outDir: 'lib',
+        target: 'node18',
+        platform: 'node',
+        clean: false,
+        sourcemap: false,
+        dts: true,
+        outExtension: () => ({ js: '.js' }),
+        external
+    },
+    {
+        entry: { wsclient: 'src/clients/ws.ts' },
+        format: 'esm',
+        outDir: 'lib',
+        target: 'node18',
+        platform: 'node',
+        clean: false,
+        sourcemap: false,
+        dts: false,
+        outExtension: () => ({ js: '.module.js' }),
+        external
     }
 ])
