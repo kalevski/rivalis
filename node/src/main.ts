@@ -3,3 +3,6 @@ export { createPeerConnection, NodeDataChannelPeer, NodeDCDataChannel } from './
 
 export type { RTCAdapters, PeerNegotiatorCallbacks, HostNegotiatorCallbacks } from './peer/NegotiationCore'
 export { PeerNegotiator, HostNegotiator } from './peer/NegotiationCore'
+
+export type { SignalTopic, SignalClientOptions } from './SignalClient'
+export { default as SignalClient } from './SignalClient'

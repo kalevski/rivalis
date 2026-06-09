@@ -7,6 +7,8 @@ const external = [
     'node-datachannel',
     'werift',
     '@rivalis/core',
+    '@rivalis/core/transports/ws',
+    '@rivalis/core/clients/ws',
     '@rivalis/handshake',
     '@toolcase/base',
     '@toolcase/logging',
