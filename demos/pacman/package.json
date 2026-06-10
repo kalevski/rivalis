@@ -1,0 +1,28 @@
+{
+    "name": "@rivalis/demo-pacman",
+    "private": true,
+    "description": "Real-time multiplayer Pac-Man — authoritative server simulation, canvas clients",
+    "scripts": {
+        "dev": "concurrently -n server,client -c green,cyan npm:dev:server npm:dev:client",
+        "dev:server": "nodemon -w src/server -w src/protocol.ts -e ts --exec \"ts-node src/server/index.ts\"",
+        "dev:client": "vite",
+        "build": "vite build",
+        "start": "ts-node src/server/index.ts"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme",
+    "dependencies": {
+        "@rivalis/browser": "*",
+        "@rivalis/core": "*"
+    }
+}

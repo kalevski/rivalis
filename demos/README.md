@@ -16,12 +16,12 @@ links them locally — no publish step or version pinning is required.
 | --- | --- |
 | [Simple client/server chat](./client-server-chat) | A minimal chat room: a single `@rivalis/core` server and CLI clients exchanging messages. ✅ available |
 | [Orchestrator chat](./orchestrator-chat) | Multiple chat rooms created, routed to, and disposed on demand by a Rivalis orchestrator. ✅ available |
-| Pac-Man | A real-time multiplayer Pac-Man game demonstrating authoritative server state and client rendering. |
+| [Pac-Man](./pacman) | A real-time multiplayer Pac-Man game demonstrating authoritative server state and client rendering. ✅ available |
 | Peer-to-peer chat | Browser-to-browser chat that uses Rivalis only for peer handshake/signalling. |
 
 > Each demo lives under `demos/<demo-name>/` as its own workspace package.
-> The client/server and orchestrator chats are available now; the rest are
-> still to come.
+> The client/server and orchestrator chats and Pac-Man are available now; the
+> rest are still to come.
 
 ## Install
 
