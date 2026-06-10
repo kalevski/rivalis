@@ -14,14 +14,13 @@ links them locally — no publish step or version pinning is required.
 
 | Demo | Description |
 | --- | --- |
-| Simple client/server chat | A minimal chat room: a single `@rivalis/core` server and a `@rivalis/browser` client exchanging messages. |
+| [Simple client/server chat](./client-server-chat) | A minimal chat room: a single `@rivalis/core` server and CLI clients exchanging messages. ✅ available |
 | Orchestrator chat | Chat distributed across multiple server nodes coordinated by a Rivalis orchestrator. |
 | Pac-Man | A real-time multiplayer Pac-Man game demonstrating authoritative server state and client rendering. |
 | Peer-to-peer chat | Browser-to-browser chat that uses Rivalis only for peer handshake/signalling. |
 
-> These sub-projects are not scaffolded yet — this directory currently holds
-> only the shared workspace wiring. Each demo will be added under
-> `demos/<demo-name>/` as its own workspace package.
+> Each demo lives under `demos/<demo-name>/` as its own workspace package.
+> The client/server chat is available now; the rest are still to come.
 
 ## Install
 
