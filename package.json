@@ -10,7 +10,8 @@
         "core",
         "browser",
         "demo",
-        "landing-page"
+        "landing-page",
+        "demos/*"
     ],
     "devDependencies": {
         "@types/express": "^5.0.1",
