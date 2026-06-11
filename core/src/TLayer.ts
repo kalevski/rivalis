@@ -8,6 +8,8 @@ import { decode, encode, MAX_CLOSE_REASON_BYTES } from '@rivalis/handshake'
 import KickReason from './KickReason'
 import type { ConnectionContext, EventFn, EventType, GetRoomFn, TransportCapability } from './types'
 
+const textEncoder = new TextEncoder()
+
 const truncateCloseReason = (payload: Uint8Array): Uint8Array => {
     if (payload.byteLength <= MAX_CLOSE_REASON_BYTES) {
         return payload
@@ -249,12 +251,12 @@ class TLayer<TActorData = Record<string, unknown>> {
             const reason = error instanceof Error ? error.message : String(error)
             this.logger.error(`actor id=${actorId} sent malformed frame, kicking. reason=${reason}`)
             this.roomIds.delete(actorId)
-            return this.kick(actorId, Buffer.from(KickReason.INVALID_MESSAGE, 'utf-8'))
+            return this.kick(actorId, textEncoder.encode(KickReason.INVALID_MESSAGE))
         }
         if (data.topic.length > this.maxTopicLength) {
             this.logger.warning(`actor id=${actorId} sent topic exceeding maxTopicLength=${this.maxTopicLength}, kicking`)
             this.roomIds.delete(actorId)
-            return this.kick(actorId, Buffer.from(KickReason.INVALID_MESSAGE, 'utf-8'))
+            return this.kick(actorId, textEncoder.encode(KickReason.INVALID_MESSAGE))
         }
         const actorTransport = this.actorTransports.get(actorId)
         const effectiveRateLimiter = actorTransport !== undefined && actorTransport.rateLimiter !== undefined
@@ -264,7 +266,7 @@ class TLayer<TActorData = Record<string, unknown>> {
             const allowed = await effectiveRateLimiter.check(actorId)
             if (allowed === false) {
                 this.logger.debug(`actor id=${actorId} rate limited, dropping frame`)
-                this.kick(actorId, Buffer.from(KickReason.RATE_LIMITED, 'utf-8'))
+                this.kick(actorId, textEncoder.encode(KickReason.RATE_LIMITED))
                 return
             }
         }
