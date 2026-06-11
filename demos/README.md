@@ -18,6 +18,7 @@ links them locally — no publish step or version pinning is required.
 | [Orchestrator chat](./orchestrator-chat) | Multiple chat rooms created, routed to, and disposed on demand by a Rivalis orchestrator. ✅ available |
 | [Pac-Man](./pacman) | A real-time multiplayer Pac-Man game demonstrating authoritative server state and client rendering. ✅ available |
 | [Peer-to-peer chat](./p2p-chat) | A peer-to-peer chat mesh (max 10) that uses Rivalis only for peer handshake/signalling — chat flows directly between peers. ✅ available |
+| [Guided tutorial series](./guided) | A six-level, read-in-order tutorial that introduces the Rivalis API one capability at a time, from a minimal hello-room up to a full real-time application. 🚧 in progress |
 
 > Each demo lives under `demos/<demo-name>/` as its own workspace package.
 > All four demos — the client/server and orchestrator chats, Pac-Man, and the
