@@ -3,7 +3,7 @@ import http from 'http'
 import express from 'express'
 
 import { Rivalis } from '@rivalis/core'
-import { WSTransport } from '@rivalis/core/transports/ws'
+import { WSTransport } from '@rivalis/node'
 import { FleetAgent, type FleetAgentOptions } from '@rivalis/fleet'
 import ArenaAuthMiddleware, { type ActorData } from './AuthMiddleware'
 import LobbyRoom from './LobbyRoom'

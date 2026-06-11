@@ -15,7 +15,7 @@
 
 import { Client } from '@rivalis/core'
 import type { ClientKickedEvent } from '@rivalis/core'
-import { WSClient } from '@rivalis/core/clients/ws'
+import WSClient from './WSClient'
 
 export type SignalTopic =
     | 'signal:welcome'

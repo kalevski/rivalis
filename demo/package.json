@@ -24,6 +24,7 @@
     },
     "homepage": "https://github.com/kalevski/rivalis#readme",
     "dependencies": {
+        "@rivalis/node": "*",
         "@toolcase/react-components": "^3.0.5",
         "@toolcase/serializer": "^3.0.2",
         "phaser": "^4.1.0",

@@ -34,12 +34,14 @@
     },
     "peerDependencies": {
         "@rivalis/core": ">=7 <8",
+        "@rivalis/node": ">=0.2.0 <1",
         "@toolcase/base": "3.x",
         "@toolcase/logging": "3.x",
         "ws": "8.x"
     },
     "devDependencies": {
-        "@rivalis/core": "*"
+        "@rivalis/core": "*",
+        "@rivalis/node": "*"
     },
     "keywords": [
         "realtime",

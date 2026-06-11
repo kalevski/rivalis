@@ -23,8 +23,7 @@
 
 import { Rivalis, AuthMiddleware, TokenBucketRateLimiter } from '@rivalis/core'
 import type { AuthResult } from '@rivalis/core'
-import { WSTransport } from '@rivalis/core/transports/ws'
-import { RTCTransport } from '@rivalis/node'
+import { WSTransport, RTCTransport } from '@rivalis/node'
 import { SignalRoom } from '@rivalis/signal'
 import ArenaAuthMiddleware, { type ActorData } from '../server/AuthMiddleware'
 import TttRoom from '../server/TttRoom'

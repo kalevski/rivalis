@@ -13,7 +13,7 @@ import { createServer } from 'node:http'
 import type { Server } from 'node:http'
 
 import type { Logger } from '@toolcase/logging'
-import { WSTransport } from '@rivalis/core/transports/ws'
+import { WSTransport } from '@rivalis/node'
 
 import { MAX_INFLIGHT_COMMANDS, WS_SUBPROTOCOL } from '../wire'
 import { createFleetRoomClass } from './FleetRoom'

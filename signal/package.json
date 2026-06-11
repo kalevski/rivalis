@@ -23,6 +23,7 @@
     },
     "peerDependencies": {
         "@rivalis/core": ">=7 <8",
+        "@rivalis/node": ">=0.2.0 <1",
         "@rivalis/handshake": ">=6 <7",
         "@toolcase/base": "3.x",
         "@toolcase/logging": "3.x",
@@ -30,6 +31,7 @@
     },
     "devDependencies": {
         "@rivalis/core": "*",
+        "@rivalis/node": "*",
         "@rivalis/handshake": "*"
     },
     "keywords": [

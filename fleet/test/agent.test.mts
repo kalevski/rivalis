@@ -7,7 +7,7 @@ import { FleetAgent } from '../lib/FleetAgent.js'
 import { encodeFrame, decodeFrame, PROTOCOL_VERSION, Topics } from '../lib/wire.js'
 
 const require = createRequire(import.meta.url)
-const { WSClient } = require('@rivalis/core/clients/ws') as typeof import('@rivalis/core/clients/ws')
+const { WSClient } = require('@rivalis/node') as typeof import('@rivalis/node')
 const pkg = require('../package.json') as { version: string }
 
 // ---------------------------------------------------------------------------

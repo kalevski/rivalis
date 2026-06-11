@@ -39,7 +39,7 @@ import {
 import type { InstanceStatus } from '../domain'
 import { NOOP_LOGGER } from '../util/logger'
 import { describe } from '../util/errors'
-import { WSClient } from '@rivalis/core/clients/ws'
+import { WSClient } from '@rivalis/node'
 import { packageVersion } from '../util/packageVersion'
 import { defaultScheduler } from '../util/scheduler'
 

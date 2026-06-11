@@ -19,10 +19,9 @@ import net from 'node:net'
 import { createRequire } from 'node:module'
 import { Rivalis, Room, Actor, AuthMiddleware } from '@rivalis/core'
 import type { AuthResult } from '@rivalis/core'
-import { WSTransport } from '@rivalis/core/transports/ws'
 import { createCodec, FieldType, encode as hsEncode, decode as hsDecode } from '@rivalis/handshake'
 import { WebSocket } from 'ws'
-import { RTCTransport, RTCClient, NodeDataChannelPeer } from '../lib/main.js'
+import { RTCTransport, RTCClient, NodeDataChannelPeer, WSTransport } from '../lib/main.js'
 import type { RTCAdapters } from '../lib/main.js'
 
 // ── Availability guard ────────────────────────────────────────────────────────

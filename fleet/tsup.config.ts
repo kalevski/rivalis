@@ -6,7 +6,7 @@ import { defineConfig } from 'tsup'
 // (src/domain/errors.ts). Externalizing `@toolcase/node` keeps its one `EndpointError`
 // class identity shared across every entry, so `errorMeta`'s `instanceof` check maps a
 // `FleetError` thrown in any bundle.
-const external = ['ws', 'fastify', '@fastify/cors', '@rivalis/core', '@rivalis/core/transports/ws', '@rivalis/core/clients/ws', '@toolcase/base', '@toolcase/logging', '@toolcase/node', '@toolcase/serializer', 'commander']
+const external = ['ws', 'fastify', '@fastify/cors', '@rivalis/core', '@rivalis/node', '@toolcase/base', '@toolcase/logging', '@toolcase/node', '@toolcase/serializer', 'commander']
 
 export default defineConfig([
     {

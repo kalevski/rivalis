@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup'
 
 const external = [
     '@rivalis/core',
-    '@rivalis/core/transports/ws',
+    '@rivalis/node',
     '@rivalis/handshake',
     '@toolcase/base',
     '@toolcase/logging',

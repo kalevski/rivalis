@@ -26,7 +26,7 @@ import { Topics, decodeFrame } from '../lib/wire.js'
 const require = createRequire(import.meta.url)
 const core = require('@rivalis/core') as typeof import('@rivalis/core')
 const { Rivalis, Room, AuthMiddleware } = core
-const { WSClient: CoreWSClient } = require('@rivalis/core/clients/ws') as typeof import('@rivalis/core/clients/ws')
+const { WSClient: CoreWSClient } = require('@rivalis/node') as typeof import('@rivalis/node')
 
 const AGENT_KEY = 'fleet-agent-key-integration'
 const ADMIN_KEY = 'fleet-admin-key-integration'
