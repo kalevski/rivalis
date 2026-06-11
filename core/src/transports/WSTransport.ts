@@ -7,14 +7,16 @@ import KickReason from '../KickReason'
 import CustomLoggerFactory from '../CustomLoggerFactory'
 import type TLayer from '../TLayer'
 import Transport from '../Transport'
+import type { ConnectionContext } from '../types'
+import { checkBackpressure, DEFAULT_MAX_BUFFERED_BYTES } from './backpressure'
+
+export type { BackpressureDropFn } from './backpressure'
 
 type HeartbeatOptions = { intervalMs?: number; missThreshold?: number }
 
 export type AllowedOrigins = ReadonlyArray<string> | ((origin: string | undefined) => boolean)
 
 export type TicketSource = 'query' | 'protocol'
-
-export type BackpressureDropFn = (actorId: string, bufferedAmount: number) => void
 
 export type WSTransportOptions = {
     heartbeat?: false | HeartbeatOptions
@@ -67,7 +69,9 @@ class WSTransport extends Transport {
 
     private heartbeatTimer: NodeJS.Timeout | null = null
 
-    private maxBufferedBytes: number = 1024 * 1024
+    private maxBufferedBytes: number = DEFAULT_MAX_BUFFERED_BYTES
+
+    private resolvedMaxPayload: number = DEFAULT_MAX_PAYLOAD
 
     private allowedOrigins: ((origin: string | undefined) => boolean) | null = null
 
@@ -88,6 +92,7 @@ class WSTransport extends Transport {
         const resolvedMaxPayload = transportOptions.maxPayload
             ?? options.maxPayload
             ?? DEFAULT_MAX_PAYLOAD
+        this.resolvedMaxPayload = resolvedMaxPayload
 
         const serverOptions: ServerOptions = {
             ...options,
@@ -148,11 +153,16 @@ class WSTransport extends Transport {
         this.logger = transportLayer.logging.getLogger('transport:websocket')
         this.ws?.off('connection', this.handleReject)
         this.ws?.on('connection', this.handleConnect)
+        transportLayer.registerCapabilities(this.capabilities)
         this.logger.info('initialized')
     }
 
     override get sockets(): number {
         return this.ws !== null ? this.ws.clients.size : 0
+    }
+
+    override get maxFrameBytes(): number {
+        return this.resolvedMaxPayload
     }
 
     private handleReject = (socket: WebSocket, _request: IncomingMessage): void => {
@@ -205,10 +215,16 @@ class WSTransport extends Transport {
             this.transportLayer?.handleClose(actorId)
         })
 
+        const connectionCtx: ConnectionContext = {
+            kind: 'ws',
+            remoteId: request.socket.remoteAddress,
+            meta: { origin: request.headers.origin }
+        }
+
         const ticketFingerprint = this.fingerprint(ticket)
         let resolvedActorId: string
         try {
-            resolvedActorId = await this.transportLayer.grantAccess(ticket)
+            resolvedActorId = await this.transportLayer.grantAccess(ticket, connectionCtx, this)
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error)
             this.logger.debug(`grant access failure, ticket=${ticketFingerprint}, reason=${reason}`)
@@ -259,9 +275,7 @@ class WSTransport extends Transport {
             if (socket.readyState !== WebSocket.OPEN) {
                 return
             }
-            if (socket.bufferedAmount > this.maxBufferedBytes) {
-                this.logger.warning(`backpressure: dropping message for actor=${aid}, buffered=${socket.bufferedAmount} bytes (limit=${this.maxBufferedBytes})`)
-                this.onBackpressureDrop?.(aid, socket.bufferedAmount)
+            if (checkBackpressure(aid, socket.bufferedAmount, this.maxBufferedBytes, this.onBackpressureDrop, (msg) => this.logger.warning(msg))) {
                 return
             }
             socket.send(message)

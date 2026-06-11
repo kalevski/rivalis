@@ -7,7 +7,8 @@ import type TLayer from './TLayer'
 type RoomConstructor<TActorData> = new (
     roomId: string,
     manager: RoomManager<TActorData>,
-    transportLayer: TLayer<TActorData>
+    transportLayer: TLayer<TActorData>,
+    type: string
 ) => Room<TActorData>
 
 class RoomManager<TActorData = Record<string, unknown>> extends Broadcast {
@@ -32,6 +33,17 @@ class RoomManager<TActorData = Record<string, unknown>> extends Broadcast {
 
     keys(): IterableIterator<string> {
         return this.rooms.keys()
+    }
+
+    /**
+     * Enumerate every defined room-type key. Returns the keys registered
+     * via `define`, including those defined before this call — required by
+     * `@rivalis/fleet`'s `FleetAgent` to report `roomTypes` in its first
+     * snapshot (room types are normally defined before the agent attaches,
+     * so the `define` broadcast alone is not enough).
+     */
+    definitions(): string[] {
+        return Array.from(this.defs.keys())
     }
 
     get(roomId: string): Room<TActorData> | null {
@@ -77,9 +89,9 @@ class RoomManager<TActorData = Record<string, unknown>> extends Broadcast {
             throw new Error(`room create error: room id=(${resolvedRoomId}) is taken`)
         }
 
-        const room = new RoomClass(resolvedRoomId, this, this.transportLayer)
+        const room = new RoomClass(resolvedRoomId, this, this.transportLayer, roomType)
         this.rooms.set(resolvedRoomId, room)
-        this.emit('create', resolvedRoomId)
+        this.emit('create', resolvedRoomId, roomType)
         return room
     }
 

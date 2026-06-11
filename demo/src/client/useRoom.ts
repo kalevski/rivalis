@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { WSClient } from '@rivalis/browser'
+import type { Client } from '@rivalis/core'
 import type { ActorIdentity, RoomId } from '../protocol'
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'rejected'
@@ -7,7 +8,7 @@ export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'rej
 const decoder = new TextDecoder()
 
 export type RoomConnection = {
-    client: WSClient | null
+    client: Client | null
     state: ConnectionState
     reason: string
 }
@@ -16,12 +17,12 @@ const PERSISTENT_REJECTIONS = new Set(['room_full', 'room_not_joinable'])
 
 /**
  * Connects to a room over WS. Disconnects + reconnects on `roomId` /
- * identity change. Returns the live `WSClient` (null until connected) and
+ * identity change. Returns the live client (null until connected) and
  * connection state. Components attach their own topic listeners via the
  * client handle inside their own `useEffect`s.
  */
 export function useRoom(roomId: RoomId, identity: ActorIdentity): RoomConnection {
-    const [client, setClient] = useState<WSClient | null>(null)
+    const [client, setClient] = useState<Client | null>(null)
     const [state, setState] = useState<ConnectionState>('connecting')
     const [reason, setReason] = useState<string>('')
 

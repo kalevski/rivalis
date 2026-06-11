@@ -1,6 +1,6 @@
-import { Broadcast } from '@toolcase/base'
+import { Client } from '@rivalis/core'
 import logging from '@toolcase/logging'
-import { CloseCode, encode, decode } from '@rivalis/handshake'
+import { CloseCode, encode, decode, CLOSE_CONTROL_TOPIC, decodeCloseFrame } from '@rivalis/handshake'
 
 const encoder = new window.TextEncoder()
 const decoder = new window.TextDecoder()
@@ -94,8 +94,9 @@ type BuiltInEvent =
     | 'client:kicked'
     | 'client:reconnecting'
     | 'client:reconnect_failed'
+    | 'client:error'
 
-class WSClient<TTopics extends string = string> extends Broadcast {
+class WSClient<TTopics extends string = string> extends Client<TTopics> {
 
     private logger = logging.getLogger('ws client')
 
@@ -116,6 +117,8 @@ class WSClient<TTopics extends string = string> extends Broadcast {
     private ticketSource: TicketSource = 'query'
 
     private getTicket: GetTicketFn | null = null
+
+    private pendingCloseCode: number | null = null
 
     constructor(baseURL: string, options: WSClientOptions = {}) {
         super()
@@ -158,6 +161,7 @@ class WSClient<TTopics extends string = string> extends Broadcast {
         // can't accidentally fall back to a stale value via any future
         // code path that reads lastTicket.
         this.lastTicket = null
+        this.pendingCloseCode = null
         if (!this.connected || this.ws === null) {
             return
         }
@@ -201,7 +205,7 @@ class WSClient<TTopics extends string = string> extends Broadcast {
         throw new Error(`send error: invalid payload=${payload}, must be a string or Buffer`)
     }
 
-    // 6.5: typed overloads for `on` / `once` / `off`. The first five
+    // 6.5: typed overloads for `on` / `once` / `off`. The first six
     // overloads cover the framework-emitted events with their actual
     // payload shapes; the next is the user-topic overload constrained
     // by the optional `TTopics` generic; the final overload preserves
@@ -212,6 +216,7 @@ class WSClient<TTopics extends string = string> extends Broadcast {
     override on(event: 'client:kicked', listener: (info: ClientKickedEvent) => void, context?: unknown): this
     override on(event: 'client:reconnecting', listener: (payload: Uint8Array) => void, context?: unknown): this
     override on(event: 'client:reconnect_failed', listener: () => void, context?: unknown): this
+    override on(event: 'client:error', listener: (error: Error) => void, context?: unknown): this
     override on<K extends TTopics>(event: K, listener: (payload: Uint8Array, topic: K) => void, context?: unknown): this
     override on(event: string | symbol, listener: (...args: any[]) => void, context?: unknown): this
     override on(event: string | symbol, listener: (...args: any[]) => void, context?: unknown): this {
@@ -223,6 +228,7 @@ class WSClient<TTopics extends string = string> extends Broadcast {
     override once(event: 'client:kicked', listener: (info: ClientKickedEvent) => void, context?: unknown): this
     override once(event: 'client:reconnecting', listener: (payload: Uint8Array) => void, context?: unknown): this
     override once(event: 'client:reconnect_failed', listener: () => void, context?: unknown): this
+    override once(event: 'client:error', listener: (error: Error) => void, context?: unknown): this
     override once<K extends TTopics>(event: K, listener: (payload: Uint8Array, topic: K) => void, context?: unknown): this
     override once(event: string | symbol, listener: (...args: any[]) => void, context?: unknown): this
     override once(event: string | symbol, listener: (...args: any[]) => void, context?: unknown): this {
@@ -243,17 +249,18 @@ class WSClient<TTopics extends string = string> extends Broadcast {
         }
         this.ws.onopen = this.onOpen
         this.ws.onclose = this.onClose
-        // Native browser WebSocket and the `ws` Node polyfill both surface
-        // connection-refused / TLS / protocol errors via 'error' before
-        // 'close'. Browsers carry no actionable detail in the event (by
-        // spec), and ws's underlying EventEmitter throws on unhandled
-        // 'error'. A no-op handler suppresses both — `onclose` is the
-        // single source of truth for failure paths.
+        // Native browser WebSocket surfaces connection-refused / TLS /
+        // protocol errors via 'error' before 'close'. Browsers carry no
+        // actionable detail in the event (by spec), so we emit a generic
+        // `client:error`. The `onclose` handler remains the single source
+        // of truth for the reconnect path.
         this.ws.onerror = this.onError
         this.ws.binaryType = 'arraybuffer'
     }
 
-    private onError = (): void => {}
+    private onError = (_event: Event): void => {
+        this.emit('client:error', new Error('WebSocket connection error'))
+    }
 
     private onOpen = (): void => {
         if (this.ws !== null) {
@@ -265,23 +272,48 @@ class WSClient<TTopics extends string = string> extends Broadcast {
 
     private onMessage = (message: MessageEvent): void => {
         const { topic, payload } = decode(new Uint8Array(message.data as ArrayBuffer))
+        // §3.4: intercept the transport-agnostic close/kick control frame
+        // (p2p.md §3.4). Non-close-code transports (e.g. WebRTC DataChannel)
+        // send this frame immediately before closing; decoding it here means
+        // RTCClient and any future client share the same path — no transport-
+        // specific code needed in each. WSTransport never sends this frame
+        // (it uses native close codes), so WS clients see this only as
+        // defense-in-depth.
+        if (topic === CLOSE_CONTROL_TOPIC) {
+            const { code, reason } = decodeCloseFrame(payload)
+            this.pendingCloseCode = code
+            this.emit('client:kicked', { code, reason } satisfies ClientKickedEvent)
+            return
+        }
         this.emit(topic, payload)
     }
 
     private onClose = (event: CloseEvent): void => {
         this.ws = null
 
+        // Consume the pending close code set by a __rivalis:close control frame
+        // (§3.4). If the frame was received, client:kicked was already emitted in
+        // onMessage; skip the native-code path to avoid a double emission.
+        const pendingCode = this.pendingCloseCode
+        this.pendingCloseCode = null
+
         // 6.3: server-initiated app-level closes carry a 4xxx code and
         // (usually) a reason string. Surface them as a typed event so
         // consumers don't have to peek inside the disconnect payload
-        // to find out why.
-        if (event.code >= 4000 && event.code < 5000) {
+        // to find out why. Only emit when no control frame was received,
+        // because onMessage already emitted client:kicked in that case.
+        if (pendingCode === null && event.code >= 4000 && event.code < 5000) {
             this.emit('client:kicked', { code: event.code, reason: event.reason ?? '' } satisfies ClientKickedEvent)
         }
 
         this.emit('client:disconnect', encoder.encode(event.reason))
 
-        if (this.shouldReconnect(event.code)) {
+        // Use the control-frame code when present (p2p.md §3.4): transports
+        // that lack native close codes (RTC DataChannel closes with 1000)
+        // carry the kick semantics in the __rivalis:close frame instead. The
+        // NO_RECONNECT_CODES gate therefore works identically across transports.
+        const effectiveCode = pendingCode ?? event.code
+        if (this.shouldReconnect(effectiveCode)) {
             this.scheduleReconnect()
             return
         }

@@ -8,12 +8,14 @@
         "noUncheckedIndexedAccess": false,
         "jsx": "react-jsx"
     },
-    "include": ["src/**/*", "vite.config.ts"],
+    "include": ["src/**/*", "test/**/*", "vite.config.ts", "vite.p2p-test.config.ts", "playwright.config.ts"],
     "ts-node": {
         "transpileOnly": true,
         "compilerOptions": {
             "module": "CommonJS",
-            "moduleResolution": "Node"
+            "moduleResolution": "Node",
+            "declaration": false,
+            "rootDir": "src"
         }
     }
 }

@@ -1,3 +1,5 @@
+import type { ConnectionContext } from './types'
+
 /**
  * Result of a successful `authenticate` call: the actor-data payload to
  * stamp on the connection, plus the room id the actor should be routed
@@ -7,6 +9,39 @@
 export type AuthResult<TActorData> = {
     data: TActorData | null
     roomId: string
+    /** Stable actor id to request. Honored when the id is free; falls back to CSPRNG allocation when absent or taken. */
+    actorId?: string
+}
+
+/**
+ * Constant-time string equality check for ticket secrets.
+ *
+ * Encodes both strings to UTF-8 bytes and XOR-folds them in a loop that
+ * always runs `b.length` iterations — execution time depends only on the
+ * fixed server-side secret length, never on the attacker-controlled input
+ * `a`. Length mismatches are folded into the accumulator without an early
+ * return, so the comparison does not leak whether the lengths differ.
+ *
+ * Use this in every `authenticate` override that compares a ticket or
+ * embedded secret against a server-side value instead of `===` or
+ * `Buffer.compare`, both of which short-circuit at the first mismatching
+ * byte and leak the common-prefix length over enough timing samples.
+ *
+ * @param a - The caller-supplied value (e.g. the inbound ticket).
+ * @param b - The server-side reference value (e.g. the stored secret).
+ */
+export function timingSafeCompare(a: string, b: string): boolean {
+    const enc = new TextEncoder()
+    const aBuf = enc.encode(a)
+    const bBuf = enc.encode(b)
+    // Encode length mismatch — non-zero when lengths differ.
+    let result = aBuf.length ^ bBuf.length
+    // Iterate bBuf.length times (the fixed server-side length) so the loop
+    // count never varies with `a`. Out-of-bounds `a` bytes default to 0.
+    for (let i = 0; i < bBuf.length; i++) {
+        result |= (aBuf[i] ?? 0) ^ (bBuf[i] ?? 0)
+    }
+    return result === 0
 }
 
 /**
@@ -19,10 +54,10 @@ export type AuthResult<TActorData> = {
  *
  * **Timing-oracle hazard.** If your implementation compares a ticket
  * (or any embedded secret like an HMAC, signature, or session token)
- * against a server-side value, use a constant-time comparator —
- * Node's `crypto.timingSafeEqual` or equivalent. A naïve `===` /
- * `Buffer.compare` short-circuits at the first mismatching byte and
- * leaks the prefix length to a network attacker over enough samples.
+ * against a server-side value, use `timingSafeCompare` (exported from
+ * `@rivalis/core`). A naïve `===` / `Buffer.compare` short-circuits at
+ * the first mismatching byte and leaks the prefix length to a network
+ * attacker over enough samples.
  *
  * **Don't trust the input shape.** `ticket` is whatever string the
  * transport extracts from the connection — query param, subprotocol,
@@ -31,7 +66,7 @@ export type AuthResult<TActorData> = {
  */
 abstract class AuthMiddleware<TActorData = Record<string, unknown>> {
 
-    abstract authenticate(ticket: string): Promise<AuthResult<TActorData> | null>
+    abstract authenticate(ticket: string, context?: ConnectionContext): Promise<AuthResult<TActorData> | null>
 
     /**
      * @deprecated Implement `authenticate` directly. This method is
@@ -78,7 +113,7 @@ abstract class LegacyAuthMiddleware<TActorData = Record<string, unknown>> extend
 
     abstract override getRoomId(ticket: string): Promise<string>
 
-    override async authenticate(ticket: string): Promise<AuthResult<TActorData> | null> {
+    override async authenticate(ticket: string, _context?: ConnectionContext): Promise<AuthResult<TActorData> | null> {
         const isValid = await this.validateTicket(ticket)
         if (isValid !== true) {
             return null

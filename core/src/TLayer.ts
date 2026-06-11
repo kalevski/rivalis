@@ -3,15 +3,10 @@ import type { LoggerFactory } from '@toolcase/logging'
 import AuthMiddleware from './AuthMiddleware'
 import CustomLoggerFactory from './CustomLoggerFactory'
 import RateLimiter from './RateLimiter'
-import { decode, encode } from '@rivalis/handshake'
+import Transport from './Transport'
+import { decode, encode, MAX_CLOSE_REASON_BYTES } from '@rivalis/handshake'
 import KickReason from './KickReason'
-import type { EventFn, EventType, GetRoomFn } from './types'
-
-/**
- * RFC 6455 caps the close-frame reason at 123 bytes. Truncate the payload
- * at a UTF-8 codepoint boundary so the reason remains decodable.
- */
-const MAX_CLOSE_REASON_BYTES = 123
+import type { ConnectionContext, EventFn, EventType, GetRoomFn, TransportCapability } from './types'
 
 const truncateCloseReason = (payload: Uint8Array): Uint8Array => {
     if (payload.byteLength <= MAX_CLOSE_REASON_BYTES) {
@@ -45,6 +40,8 @@ class TLayer<TActorData = Record<string, unknown>> {
 
     private roomIds: Map<string, string> = new Map()
 
+    private actorTransports: Map<string, Transport> = new Map()
+
     private emitter: EventEmitter
 
     private rateLimiter: RateLimiter | null = null
@@ -65,6 +62,15 @@ class TLayer<TActorData = Record<string, unknown>> {
 
     private static readonly MAX_PENDING_EMITS_PER_KEY = 256
 
+    /**
+     * Merged transport capabilities registered by all transports during
+     * `onInitialize`. Multiple transports are merged conservatively:
+     * `ordered`/`reliable` are AND-ed; `maxFrameBytes` takes the minimum
+     * non-null value so rooms see the most restrictive limit across all
+     * admitted connection paths.
+     */
+    private _capabilities: TransportCapability | null = null
+
     constructor(
         authMiddleware: AuthMiddleware<TActorData>,
         getRoomFn: GetRoomFn<TActorData>,
@@ -83,6 +89,39 @@ class TLayer<TActorData = Record<string, unknown>> {
 
     get connections(): number {
         return this.roomIds.size
+    }
+
+    /**
+     * Register (or merge) a transport's capability descriptor.
+     * Called by each transport from its `onInitialize` so that the
+     * resulting `capabilities` snapshot reflects every admitted path.
+     *
+     * Merge rules for multiple transports:
+     * - `ordered`/`reliable` — AND (both must be true for the merged result to be true)
+     * - `maxFrameBytes` — minimum of non-null values; `null` (no limit) defers to
+     *   the other transport's limit; both null → null.
+     */
+    registerCapabilities(caps: TransportCapability): void {
+        if (this._capabilities === null) {
+            this._capabilities = { ...caps }
+            return
+        }
+        const prev = this._capabilities
+        const mergedMax =
+            prev.maxFrameBytes === null && caps.maxFrameBytes === null ? null
+            : prev.maxFrameBytes === null ? caps.maxFrameBytes
+            : caps.maxFrameBytes === null ? prev.maxFrameBytes
+            : Math.min(prev.maxFrameBytes, caps.maxFrameBytes)
+        this._capabilities = {
+            ordered: prev.ordered && caps.ordered,
+            reliable: prev.reliable && caps.reliable,
+            maxFrameBytes: mergedMax,
+        }
+    }
+
+    /** Merged capability descriptor for all registered transports, or `null` if none registered yet. */
+    get capabilities(): TransportCapability | null {
+        return this._capabilities
     }
 
     on = (event: EventType, actorId: string, eventListener: EventFn, context?: unknown): void => {
@@ -135,12 +174,13 @@ class TLayer<TActorData = Record<string, unknown>> {
         }
     }
 
-    async grantAccess(ticket: string): Promise<string> {
-        const result = await this.authMiddleware.authenticate(ticket)
+    async grantAccess(ticket: string, context?: ConnectionContext, transport?: Transport): Promise<string> {
+        const effectiveAuth = transport?.authMiddleware ?? this.authMiddleware
+        const result = await effectiveAuth.authenticate(ticket, context)
         if (result === null) {
             throw new Error('invalid ticket')
         }
-        const { data, roomId } = result
+        const { data, roomId, actorId: requestedActorId } = result
         if (data !== null && typeof data !== 'object') {
             throw new Error(`actor data can be an object or null, provided=${data}`)
         }
@@ -158,16 +198,20 @@ class TLayer<TActorData = Record<string, unknown>> {
             throw new Error(KickReason.ROOM_FULL)
         }
 
-        // generateId is CSPRNG-backed (64 bits of entropy in 16 hex chars), so
-        // a collision against an existing actor is astronomically unlikely.
-        // The retry loop is purely defensive — without it the failure mode
-        // would be a silent overwrite of an existing actor's roomIds entry.
+        // Honor a stable actorId requested by the transport (e.g. a reconnecting peer)
+        // when it is free. Fall back to CSPRNG allocation — generateId is CSPRNG-backed
+        // (64 bits of entropy in 16 hex chars), retried up to 8 times defensively so a
+        // collision never silently overwrites an existing actor's roomIds entry.
         let actorId: string | null = null
-        for (let attempt = 0; attempt < 8; attempt++) {
-            const candidate = generateId(16)
-            if (!this.roomIds.has(candidate)) {
-                actorId = candidate
-                break
+        if (typeof requestedActorId === 'string' && requestedActorId.length > 0 && !this.roomIds.has(requestedActorId)) {
+            actorId = requestedActorId
+        } else {
+            for (let attempt = 0; attempt < 8; attempt++) {
+                const candidate = generateId(16)
+                if (!this.roomIds.has(candidate)) {
+                    actorId = candidate
+                    break
+                }
             }
         }
         if (actorId === null) {
@@ -175,6 +219,9 @@ class TLayer<TActorData = Record<string, unknown>> {
         }
 
         this.roomIds.set(actorId, roomId)
+        if (transport !== undefined) {
+            this.actorTransports.set(actorId, transport)
+        }
         try {
             room.handleJoin(actorId, data)
         } catch (error) {
@@ -182,6 +229,7 @@ class TLayer<TActorData = Record<string, unknown>> {
             // every entry that handleJoin / TLayer registered so the actor
             // does not linger as a half-joined ghost.
             this.roomIds.delete(actorId)
+            this.actorTransports.delete(actorId)
             this.pendingEmits.delete(`message:${actorId}`)
             this.pendingEmits.delete(`kick:${actorId}`)
             this.emitter.removeAllListeners(`message:${actorId}`)
@@ -208,8 +256,12 @@ class TLayer<TActorData = Record<string, unknown>> {
             this.roomIds.delete(actorId)
             return this.kick(actorId, Buffer.from(KickReason.INVALID_MESSAGE, 'utf-8'))
         }
-        if (this.rateLimiter !== null) {
-            const allowed = await this.rateLimiter.check(actorId)
+        const actorTransport = this.actorTransports.get(actorId)
+        const effectiveRateLimiter = actorTransport !== undefined && actorTransport.rateLimiter !== undefined
+            ? actorTransport.rateLimiter
+            : this.rateLimiter
+        if (effectiveRateLimiter !== null) {
+            const allowed = await effectiveRateLimiter.check(actorId)
             if (allowed === false) {
                 this.logger.debug(`actor id=${actorId} rate limited, dropping frame`)
                 this.kick(actorId, Buffer.from(KickReason.RATE_LIMITED, 'utf-8'))
@@ -236,6 +288,8 @@ class TLayer<TActorData = Record<string, unknown>> {
         const roomId = this.roomIds.get(actorId)
         const room = roomId !== undefined ? this.getRoom(roomId) : null
         this.roomIds.delete(actorId)
+        const closingTransport = this.actorTransports.get(actorId)
+        this.actorTransports.delete(actorId)
         try {
             if (room !== null) {
                 room.handleLeave(actorId)
@@ -250,9 +304,12 @@ class TLayer<TActorData = Record<string, unknown>> {
             this.emitter.removeAllListeners(`kick:${actorId}`)
             this.pendingEmits.delete(`message:${actorId}`)
             this.pendingEmits.delete(`kick:${actorId}`)
-            if (this.rateLimiter !== null) {
+            const effectiveRateLimiter = closingTransport !== undefined && closingTransport.rateLimiter !== undefined
+                ? closingTransport.rateLimiter
+                : this.rateLimiter
+            if (effectiveRateLimiter !== null) {
                 try {
-                    this.rateLimiter.release(actorId)
+                    effectiveRateLimiter.release(actorId)
                 } catch (error) {
                     const reason = error instanceof Error ? error.message : String(error)
                     this.logger.warning(`rateLimiter.release threw for actor id=${actorId}: ${reason}`)
