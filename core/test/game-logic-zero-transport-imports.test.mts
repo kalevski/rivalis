@@ -61,8 +61,6 @@ const FORBIDDEN_PACKAGES: readonly string[] = [
     '@rivalis/node',
     '@rivalis/browser',
     '@rivalis/signal',
-    '@rivalis/core/transports/ws',
-    '@rivalis/core/clients/ws',
 ]
 
 /**

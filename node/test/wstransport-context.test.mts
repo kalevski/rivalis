@@ -2,11 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
 
-import { Rivalis, Room, AuthMiddleware, Transports, Clients } from '../lib/main.js'
-import type { ConnectionContext, AuthResult } from '../lib/main.js'
-
-const { WSTransport } = Transports
-const { WSClient } = Clients
+import { Rivalis, Room, AuthMiddleware } from '@rivalis/core'
+import type { ConnectionContext, AuthResult } from '@rivalis/core'
+import { WSTransport, WSClient } from '../lib/main.js'
 
 function getFreePort(): Promise<number> {
     return new Promise((resolve, reject) => {

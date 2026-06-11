@@ -2,10 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
 
-import { Rivalis, Room, AuthMiddleware, Transports, Clients, CloseCode } from '../lib/main.js'
-
-const { WSTransport } = Transports
-const { WSClient } = Clients
+import { Rivalis, Room, AuthMiddleware, CloseCode } from '@rivalis/core'
+import { WSTransport, WSClient } from '../lib/main.js'
 
 // ---- helpers ---------------------------------------------------------------
 

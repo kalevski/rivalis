@@ -13,8 +13,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { Rivalis, Room, Transport, AuthMiddleware, RateLimiter } from '../lib/main.js'
-import type { AuthResult } from '../lib/main.js'
+import { Rivalis, Room, Transport, AuthMiddleware, RateLimiter } from '@rivalis/core'
+import type { AuthResult } from '@rivalis/core'
 import { encode } from '@rivalis/handshake'
 
 // ── helpers ──────────────────────────────────────────────────────────────────

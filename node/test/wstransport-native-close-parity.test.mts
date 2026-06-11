@@ -19,9 +19,9 @@ import assert from 'node:assert/strict'
 import net from 'node:net'
 import { WebSocket } from 'ws'
 
-import { Rivalis, Room, Actor, AuthMiddleware, KickReason } from '../lib/main.js'
-import type { AuthResult } from '../lib/main.js'
-import { WSTransport } from '../lib/ws.js'
+import { Rivalis, Room, Actor, AuthMiddleware, KickReason } from '@rivalis/core'
+import type { AuthResult } from '@rivalis/core'
+import { WSTransport } from '../lib/main.js'
 import { CloseCode, CLOSE_CONTROL_TOPIC } from '@rivalis/handshake'
 
 // ── helpers ──────────────────────────────────────────────────────────────────

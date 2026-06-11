@@ -27,9 +27,9 @@ import assert from 'node:assert/strict'
 import net from 'node:net'
 import { WebSocket } from 'ws'
 
-import { Rivalis, Room, Actor, AuthMiddleware, Transport } from '../lib/main.js'
-import type { AuthResult } from '../lib/main.js'
-import { WSTransport } from '../lib/ws.js'
+import { Rivalis, Room, Actor, AuthMiddleware, Transport } from '@rivalis/core'
+import type { AuthResult } from '@rivalis/core'
+import { WSTransport } from '../lib/main.js'
 import { encode, decode } from '@rivalis/handshake'
 
 // ── helpers ──────────────────────────────────────────────────────────────────

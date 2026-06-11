@@ -13,9 +13,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
 
-import { Rivalis, Room, Transport, AuthMiddleware } from '../lib/main.js'
-import type { AuthResult, TransportCapability } from '../lib/main.js'
-import { WSTransport } from '../lib/ws.js'
+import { Rivalis, Room, Transport, AuthMiddleware } from '@rivalis/core'
+import type { AuthResult, TransportCapability } from '@rivalis/core'
+import { WSTransport } from '../lib/main.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

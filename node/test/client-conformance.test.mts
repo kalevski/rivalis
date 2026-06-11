@@ -6,7 +6,7 @@
  * `ClientEvent` taxonomy work identically across all clients.
  *
  * Phase 0 harnesses (both run from this file):
- *   - Node WSClient  — core/src/clients/WSClient.ts  (imported via lib/wsclient.js)
+ *   - Node WSClient  — node/src/WSClient.ts  (imported via lib/main.js)
  *   - Browser WSClient — browser/src/WSClient.ts     (imported via ../../browser/lib/main.js)
  *
  * ── Initially-red test ────────────────────────────────────────────────────────
@@ -44,10 +44,9 @@ import { WebSocket } from 'ws'
 }
 
 // ── static imports (core + node WSClient) ────────────────────────────────────
-import { Rivalis, Room, Actor, AuthMiddleware, Client, CloseCode } from '../lib/main.js'
-import type { AuthResult } from '../lib/main.js'
-import { WSTransport } from '../lib/ws.js'
-import { WSClient as NodeWSClient } from '../lib/wsclient.js'
+import { Rivalis, Room, Actor, AuthMiddleware, Client, CloseCode } from '@rivalis/core'
+import type { AuthResult } from '@rivalis/core'
+import { WSTransport, WSClient as NodeWSClient } from '../lib/main.js'
 
 // ── dynamic import of browser WSClient ───────────────────────────────────────
 // Dynamic so the module body runs after global.window is set above.
