@@ -1,6 +1,6 @@
 {
     "name": "@rivalis/node",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Node.js RTCTransport + RTCClient for Rivalis (WebRTC host and peer over node-datachannel)",
     "source": "src/main.ts",
     "main": "lib/main.js",
@@ -28,7 +28,7 @@
         "werift": "^0.19.0"
     },
     "peerDependencies": {
-        "@rivalis/core": ">=7 <8",
+        "@rivalis/core": ">=8 <9",
         "@rivalis/handshake": ">=6 <7",
         "@toolcase/base": "3.x",
         "@toolcase/logging": "3.x",

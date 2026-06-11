@@ -1,6 +1,6 @@
 {
     "name": "@rivalis/core",
-    "version": "7.0.0",
+    "version": "8.0.0",
     "description": "Isomorphic real-time framework for building multiplayer applications",
     "source": "src/main.ts",
     "main": "lib/main.js",
@@ -11,16 +11,6 @@
             "types": "./lib/main.d.ts",
             "import": "./lib/module.js",
             "require": "./lib/main.js"
-        },
-        "./transports/ws": {
-            "types": "./lib/ws.d.ts",
-            "import": "./lib/ws.module.js",
-            "require": "./lib/ws.js"
-        },
-        "./clients/ws": {
-            "types": "./lib/wsclient.d.ts",
-            "import": "./lib/wsclient.module.js",
-            "require": "./lib/wsclient.js"
         }
     },
     "scripts": {
@@ -31,8 +21,7 @@
     "peerDependencies": {
         "@toolcase/base": "3.x",
         "@toolcase/logging": "3.x",
-        "@toolcase/serializer": "3.x",
-        "ws": "8.x"
+        "@toolcase/serializer": "3.x"
     },
     "devDependencies": {
         "@rivalis/handshake": "*"

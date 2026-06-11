@@ -1,6 +1,6 @@
 import { defineConfig } from 'tsup'
 
-const external = ['ws', '@rivalis/handshake', '@toolcase/base', '@toolcase/logging', '@toolcase/serializer']
+const external = ['@rivalis/handshake', '@toolcase/base', '@toolcase/logging', '@toolcase/serializer']
 
 export default defineConfig([
     {
@@ -25,54 +25,6 @@ export default defineConfig([
         sourcemap: false,
         dts: false,
         outExtension: () => ({ js: '.js' }),
-        external
-    },
-    {
-        entry: { ws: 'src/transports/ws.ts' },
-        format: 'cjs',
-        outDir: 'lib',
-        target: 'node18',
-        platform: 'node',
-        clean: false,
-        sourcemap: false,
-        dts: true,
-        outExtension: () => ({ js: '.js' }),
-        external
-    },
-    {
-        entry: { ws: 'src/transports/ws.ts' },
-        format: 'esm',
-        outDir: 'lib',
-        target: 'node18',
-        platform: 'node',
-        clean: false,
-        sourcemap: false,
-        dts: false,
-        outExtension: () => ({ js: '.module.js' }),
-        external
-    },
-    {
-        entry: { wsclient: 'src/clients/ws.ts' },
-        format: 'cjs',
-        outDir: 'lib',
-        target: 'node18',
-        platform: 'node',
-        clean: false,
-        sourcemap: false,
-        dts: true,
-        outExtension: () => ({ js: '.js' }),
-        external
-    },
-    {
-        entry: { wsclient: 'src/clients/ws.ts' },
-        format: 'esm',
-        outDir: 'lib',
-        target: 'node18',
-        platform: 'node',
-        clean: false,
-        sourcemap: false,
-        dts: false,
-        outExtension: () => ({ js: '.module.js' }),
         external
     }
 ])

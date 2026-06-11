@@ -1,6 +1,6 @@
 {
     "name": "@rivalis/signal",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Signaling server for Rivalis P2P: WebRTC SDP/ICE relay and TURN credential issuance",
     "source": "src/main.ts",
     "main": "lib/main.js",
@@ -22,7 +22,7 @@
         "test": "npm run build && node --test \"test/**/*.test.mts\""
     },
     "peerDependencies": {
-        "@rivalis/core": ">=7 <8",
+        "@rivalis/core": ">=8 <9",
         "@rivalis/node": ">=0.2.0 <1",
         "@rivalis/handshake": ">=6 <7",
         "@toolcase/base": "3.x",
