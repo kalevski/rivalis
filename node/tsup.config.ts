@@ -2,13 +2,11 @@ import { defineConfig } from 'tsup'
 
 // node-datachannel and werift are production/optional deps — externalize so
 // consumers' installs supply the correct native binary for their platform.
-// @rivalis/core (>=7) and ws are peer deps; externalize to share one instance.
+// @rivalis/core (>=8) and ws are peer deps; externalize to share one instance.
 const external = [
     'node-datachannel',
     'werift',
     '@rivalis/core',
-    '@rivalis/core/transports/ws',
-    '@rivalis/core/clients/ws',
     '@rivalis/handshake',
     '@toolcase/base',
     '@toolcase/logging',
