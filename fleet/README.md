@@ -53,7 +53,7 @@ externalized runtime dependencies (the original zero-dependency goal was relaxed
   "redis": "^5.12.1"                 // NOT used by the fleet — see note below
 },
 "peerDependencies": {
-  "@rivalis/core": ">=6.1.0 <7",     // the agent half needs the 6.1.0 core additions (Room.type, RoomManager.definitions())
+  "@rivalis/core": ">=8 <9",
   "@toolcase/base": "3.x",
   "@toolcase/logging": "3.x",
   "ws": "8.x"
@@ -67,10 +67,7 @@ means `require('@rivalis/fleet')` would throw `MODULE_NOT_FOUND: redis` without 
 to satisfy `@toolcase/node@4`'s eager require** — do not remove it while that eager-load persists (a
 smoke test guards this). The fix is upstream: once `@toolcase/node` lazy-loads `redis`, this line drops.
 
-The core lower bound is **`>=6.1.0`, not `6.x`**: the agent depends on small core additions that
-land in 6.1.0. Installed against 6.0.0, `npm install` fails loudly; if it somehow runs, the
-agent's constructor feature-detects the missing APIs and throws an actionable error at startup
-rather than emitting `undefined` room types at runtime.
+The core lower bound is **`>=8 <9`**.
 
 ## 🧩 Three consumption modes
 

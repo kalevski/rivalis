@@ -27,8 +27,8 @@ npm install @rivalis/signal
 Peer dependencies (must be installed by the host application):
 
 ```json
-"@rivalis/core": ">=7 <8",
-"@rivalis/handshake": ">=6 <7",
+"@rivalis/core": ">=8 <9",
+"@rivalis/handshake": ">=8 <9",
 "@toolcase/base": "3.x",
 "@toolcase/logging": "3.x",
 "ws": "8.x"

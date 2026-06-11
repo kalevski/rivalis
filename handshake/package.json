@@ -1,6 +1,6 @@
 {
     "name": "@rivalis/handshake",
-    "version": "6.0.0",
+    "version": "8.0.0",
     "private": true,
     "description": "Wire-format and protocol primitives shared between @rivalis/core and @rivalis/browser",
     "source": "src/main.ts",

@@ -14,8 +14,8 @@ P2P then falls out as "implement two interfaces," not "fork the framework."
 > **Guiding principle:** Game logic stays a `Room` subclass. The transport underneath it
 > changes, not the API. Everything below is engineered around that one constraint.
 
-This revision is grounded in a line-by-line re-read of the runtime (`core@6.1.0`,
-`handshake@6.0.0`, `browser@6.0.0`, `fleet`). Where the previous draft hand-waved, the
+This revision is grounded in a line-by-line re-read of the runtime (`core@8.0.0`,
+`handshake@8.0.0`, `browser@8.0.0`, `fleet@8.0.0`). Where the previous draft hand-waved, the
 specifics are now nailed down — including three issues the first pass missed (a missing
 `Room` actor-lookup API, the pre-listener emit buffer's effect on transport ordering, and
 the fact that the serializer-ESM hazard already reaches the kernel, not just future

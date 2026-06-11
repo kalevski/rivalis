@@ -1,6 +1,6 @@
 {
     "name": "@rivalis/fleet",
-    "version": "1.1.0",
+    "version": "8.0.0",
     "description": "Fleet orchestration for Rivalis: instance discovery, room placement, cluster control",
     "source": "src/main.ts",
     "main": "lib/main.js",
@@ -34,7 +34,7 @@
     },
     "peerDependencies": {
         "@rivalis/core": ">=8 <9",
-        "@rivalis/node": ">=0.2.0 <1",
+        "@rivalis/node": ">=8 <9",
         "@toolcase/base": "3.x",
         "@toolcase/logging": "3.x",
         "ws": "8.x"
