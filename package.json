@@ -9,9 +9,9 @@
         "handshake",
         "core",
         "browser",
+        "node",
         "fleet",
         "signal",
-        "node",
         "demo",
         "landing-page",
         "demos/*"
