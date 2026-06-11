@@ -22,3 +22,6 @@ export {
     decodeChunkPayload,
     ChunkReassembler,
 } from './peer/RtcFrameChunker'
+
+export type { WSClientOptions, WSClientTicketSource, ClientEventListener } from './WSClient'
+export { default as WSClient } from './WSClient'
