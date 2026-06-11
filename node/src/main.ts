@@ -25,3 +25,6 @@ export {
 
 export type { WSClientOptions, WSClientTicketSource, ClientEventListener } from './WSClient'
 export { default as WSClient } from './WSClient'
+
+export type { WSTransportOptions, AllowedOrigins, TicketSource } from './WSTransport'
+export { default as WSTransport } from './WSTransport'
