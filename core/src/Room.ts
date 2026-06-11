@@ -15,6 +15,8 @@ const PRESENCE_LEAVE_TOPIC = '__presence:leave'
  */
 const RESERVED_TOPIC_PREFIX = '__'
 
+const textEncoder = new TextEncoder()
+
 /**
  * The single magic topic name used internally for the wildcard fallback.
  * Userland goes through `bindAny` / `unbindAny` rather than addressing
@@ -295,9 +297,9 @@ abstract class Room<TActorData = Record<string, unknown>> {
             return this.transportLayer.send(actor.id, topic, payload)
         }
         if (typeof payload === 'string') {
-            return this.transportLayer.send(actor.id, topic, Buffer.from(payload, 'utf-8'))
+            return this.transportLayer.send(actor.id, topic, textEncoder.encode(payload))
         }
-        throw new Error(`send error: invalid payload=${payload}, must be a string or Buffer`)
+        throw new Error(`send error: invalid payload=${payload}, must be a string or Uint8Array`)
     }
 
     broadcast(topic: string, payload: Uint8Array | string): void {
@@ -316,9 +318,9 @@ abstract class Room<TActorData = Record<string, unknown>> {
             return this.transportLayer.kick(actor.id, payload)
         }
         if (typeof payload === 'string') {
-            return this.transportLayer.kick(actor.id, Buffer.from(payload, 'utf-8'))
+            return this.transportLayer.kick(actor.id, textEncoder.encode(payload))
         }
-        throw new Error(`kick error: invalid payload=${payload}, must be a string or Buffer`)
+        throw new Error(`kick error: invalid payload=${payload}, must be a string or Uint8Array`)
     }
 
     destroy(): void {
