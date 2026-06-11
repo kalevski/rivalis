@@ -1,0 +1,28 @@
+{
+    "name": "@rivalis/guided-06-capstone-realtime",
+    "private": true,
+    "description": "Guided level 06 — capstone combining every Rivalis capability in one real-time application",
+    "scripts": {
+        "start": "ts-node src/server.ts",
+        "dev": "nodemon -w src -e ts --exec \"ts-node src/server.ts\"",
+        "build": "tsc --noEmit",
+        "client": "ts-node src/client.ts"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme",
+    "dependencies": {
+        "@rivalis/core": "*",
+        "@rivalis/node": "*",
+        "ws": "8.x"
+    }
+}
