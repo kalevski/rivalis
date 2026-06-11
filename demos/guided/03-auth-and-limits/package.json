@@ -1,0 +1,31 @@
+{
+    "name": "@rivalis/guided-03-auth-and-limits",
+    "private": true,
+    "description": "Guided level 03 — auth middleware, rate limiting, connection limiting, and kicks",
+    "scripts": {
+        "start": "ts-node src/server.ts",
+        "dev": "nodemon -w src -e ts --exec \"ts-node src/server.ts\"",
+        "build": "tsc --noEmit",
+        "client:good": "ts-node src/good-client.ts",
+        "client:bad-auth": "ts-node src/bad-client.ts bad-auth",
+        "client:flood": "ts-node src/bad-client.ts flood",
+        "client:overcap": "ts-node src/bad-client.ts overcap"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme",
+    "dependencies": {
+        "@rivalis/core": "*",
+        "@rivalis/node": "*",
+        "ws": "8.x"
+    }
+}
