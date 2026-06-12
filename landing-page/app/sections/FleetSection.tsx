@@ -107,11 +107,44 @@ async function findMatch(orchestrator: Orchestrator, player: string) {
     // client: new WSClient(url, { reconnect: true }).connect(ticket)
 }`
 
+const apiCode = `// api.ts — talk to the orchestrator over plain HTTP (ops + dashboards)
+// Every /v1 route wants the admin key: \`Authorization: Bearer <FLEET_ADMIN_KEY>\`.
+const base = 'http://orchestrator.internal:7350/v1'
+const auth = { Authorization: \`Bearer \${process.env.FLEET_ADMIN_KEY!}\` }
+let lastEtag = ''
+
+// 1) Read the live cluster view. The state-hash ETag lets a quiet fleet
+//    answer "304 Not Modified", so polling stays cheap.
+const res = await fetch(\`\${base}/stats\`, { headers: { ...auth, 'If-None-Match': lastEtag } })
+if (res.status !== 304) {
+    lastEtag = res.headers.get('etag')!         // W/"<state-hash>"
+    const stats = await res.json()              // { instances, rooms, players, ... }
+    console.log(stats)
+}
+
+// 2) Create a room — the orchestrator places it on the least-loaded server.
+const room = await fetch(\`\${base}/rooms\`, {
+    method: 'POST',
+    headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({
+        type: 'match',
+        roomId: 'match-42',                     // explicit id → safe to retry
+        placement: { strategy: 'least-loaded', labels: { region: 'eu' } }
+    })
+}).then((r) => r.json())                         // 201 → { roomId, endpointUrl, ... }
+
+// 3) Watch the fleet change in real time over Server-Sent Events.
+//    Browsers can't set headers on EventSource, so pass ?key= (needs --sse-query-auth).
+const events = new EventSource(\`\${base}/events?key=\${process.env.FLEET_ADMIN_KEY}\`)
+events.addEventListener('instance:join', (e) => console.log('server up', JSON.parse(e.data)))
+events.addEventListener('room:create',  (e) => console.log('room placed', JSON.parse(e.data)))`
+
 type Tab = { key: string; label: string; code: string; language: CodeSnippetLanguage }
 const tabs: Tab[] = [
     { key: 'agent', label: 'fleet-agent.ts', code: agentCode, language: 'typescript' },
     { key: 'orchestrator', label: 'orchestrator.ts', code: orchestratorCode, language: 'typescript' },
-    { key: 'matchmaker', label: 'matchmaker.ts', code: matchmakerCode, language: 'typescript' }
+    { key: 'matchmaker', label: 'matchmaker.ts', code: matchmakerCode, language: 'typescript' },
+    { key: 'api', label: 'api.ts', code: apiCode, language: 'typescript' }
 ]
 
 export function FleetSection() {
@@ -129,6 +162,20 @@ export function FleetSection() {
                     <Text as="p" variant="muted">
                         One Rivalis server is plenty to start. When you outgrow it — more players, more regions, more rooms than a single process should hold — <code>@rivalis/fleet</code> ties many servers together so clients always find the right one.
                     </Text>
+                </div>
+
+                <div className="row justify-content-center mb-5">
+                    <div className="col-12 col-lg-8">
+                        <Card>
+                            <div className="px-3 py-3">
+                                <div className="mb-2"><Icon name={'question-circle' as never} /></div>
+                                <Heading as="h3">When do you actually need one?</Heading>
+                                <Text as="p" variant="muted" size="small">
+                                    Honestly — probably not on day one. A single Rivalis server happily holds thousands of players, so start there and don't think about fleets until the numbers push back. You've outgrown one box when a single process can't keep up: more concurrent players, rooms, or regions than one machine should carry — or when you want players in Europe and the US to land on servers close to them. A fleet is the step <em>after</em> one server, not a prerequisite for your first.
+                                </Text>
+                            </div>
+                        </Card>
+                    </div>
                 </div>
 
                 <Pipeline steps={steps} />
