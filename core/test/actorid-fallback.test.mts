@@ -64,3 +64,33 @@ test('empty-string actorId falls back to CSPRNG allocation', async () => {
     assert.ok(id.length > 0)
     assert.deepEqual(room.joinedIds, [id])
 })
+
+test('an over-long requested actorId falls back to CSPRNG allocation', async () => {
+    const overLong = 'a'.repeat(65)
+    const { room, tl } = setup({ data: null, roomId: 'room-1', actorId: overLong })
+    const id: string = await tl.grantAccess('ticket')
+    assert.notEqual(id, overLong)
+    assert.equal(typeof id, 'string')
+    assert.ok(id.length > 0 && id.length <= 64)
+    assert.deepEqual(room.joinedIds, [id])
+})
+
+test('a requested actorId containing ":" falls back to CSPRNG allocation', async () => {
+    const withColon = 'message:victim'
+    const { room, tl } = setup({ data: null, roomId: 'room-1', actorId: withColon })
+    const id: string = await tl.grantAccess('ticket')
+    assert.notEqual(id, withColon)
+    assert.ok(!id.includes(':'))
+    assert.equal(typeof id, 'string')
+    assert.ok(id.length > 0)
+    assert.deepEqual(room.joinedIds, [id])
+})
+
+test('a 64-char id from the safe charset is honored', async () => {
+    const maxLen = 'A1_-'.repeat(16) // 64 chars, all within [A-Za-z0-9_-]
+    assert.equal(maxLen.length, 64)
+    const { room, tl } = setup({ data: null, roomId: 'room-1', actorId: maxLen })
+    const id: string = await tl.grantAccess('ticket')
+    assert.equal(id, maxLen)
+    assert.deepEqual(room.joinedIds, [maxLen])
+})

@@ -67,6 +67,17 @@ class TLayer<TActorData = Record<string, unknown>> {
     private static readonly MAX_PENDING_EMITS_PER_KEY = 256
 
     /**
+     * Bounds for a client-requested actorId honored from an auth result. Server
+     * allocated ids are 16 hex chars; a requested id must stay comparably shaped
+     * so it cannot amplify memory across the per-actor maps or smuggle a `:` into
+     * the `${event}:${actorId}` emitter keyspace. Anything outside these bounds
+     * falls back to CSPRNG allocation.
+     */
+    private static readonly MAX_REQUESTED_ACTOR_ID_LENGTH = 64
+
+    private static readonly REQUESTED_ACTOR_ID_PATTERN = /^[A-Za-z0-9_-]+$/
+
+    /**
      * Merged transport capabilities registered by all transports during
      * `onInitialize`. Multiple transports are merged conservatively:
      * `ordered`/`reliable` are AND-ed; `maxFrameBytes` takes the minimum
@@ -205,11 +216,23 @@ class TLayer<TActorData = Record<string, unknown>> {
         }
 
         // Honor a stable actorId requested by the transport (e.g. a reconnecting peer)
-        // when it is free. Fall back to CSPRNG allocation — generateId is CSPRNG-backed
-        // (64 bits of entropy in 16 hex chars), retried up to 8 times defensively so a
-        // collision never silently overwrites an existing actor's roomIds entry.
+        // when it is free and well-formed. A client-echoing auth implementation could
+        // otherwise supply arbitrarily long ids (memory amplification across roomIds,
+        // actorTransports, pendingEmits and the `${event}:${actorId}` emitter keys) or
+        // ids containing `:`, which would collide with / confuse the `event:actorId`
+        // keyspace. Hold requested ids to the same shape as server-allocated ones:
+        // capped length and a `:`-free charset. Fall back to CSPRNG allocation —
+        // generateId is CSPRNG-backed (64 bits of entropy in 16 hex chars), retried up
+        // to 8 times defensively so a collision never silently overwrites an existing
+        // actor's roomIds entry.
         let actorId: string | null = null
-        if (typeof requestedActorId === 'string' && requestedActorId.length > 0 && !this.roomIds.has(requestedActorId)) {
+        if (
+            typeof requestedActorId === 'string' &&
+            requestedActorId.length > 0 &&
+            requestedActorId.length <= TLayer.MAX_REQUESTED_ACTOR_ID_LENGTH &&
+            TLayer.REQUESTED_ACTOR_ID_PATTERN.test(requestedActorId) &&
+            !this.roomIds.has(requestedActorId)
+        ) {
             actorId = requestedActorId
         } else {
             for (let attempt = 0; attempt < 8; attempt++) {
