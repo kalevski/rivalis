@@ -275,6 +275,15 @@ class TLayer<TActorData = Record<string, unknown>> {
             // kick-driven `handleClose` performs handleLeave + cleanup.
             return this.kick(actorId, textEncoder.encode(KickReason.INVALID_MESSAGE))
         }
+        // Membership guard runs BEFORE the rate limiter so a frame for an
+        // actor that is no longer joined never allocates/touches a token
+        // bucket. Buckets are per-actor state reclaimed only by `release()`
+        // from `handleClose`; checking a departed actor here would resurrect
+        // an entry in the limiter's map that nothing will ever release.
+        if (!this.roomIds.has(actorId)) {
+            this.logger.warning(`message for actor id=${actorId} dropped: not joined to a room`)
+            return
+        }
         const actorTransport = this.actorTransports.get(actorId)
         const effectiveRateLimiter = actorTransport !== undefined && actorTransport.rateLimiter !== undefined
             ? actorTransport.rateLimiter
@@ -288,6 +297,9 @@ class TLayer<TActorData = Record<string, unknown>> {
             }
         }
         this.logger.verbose('decoded data:', data)
+        // Re-resolve membership after the (possibly async) limiter check: the
+        // actor may have disconnected during the await, in which case
+        // `handleClose` already ran and we must not dispatch to the room.
         const roomId = this.roomIds.get(actorId)
         if (roomId === undefined) {
             this.logger.warning(`message for actor id=${actorId} dropped: not joined to a room`)

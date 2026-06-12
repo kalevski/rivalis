@@ -260,6 +260,13 @@ new Rivalis({
 })
 ```
 
+The bucket map is self-bounding so it can't grow without limit under connection
+churn (or any path that skips per-actor `release()`): idle buckets are swept once
+they age past `idleEvictMs` (default 60 s), and a hard `maxBuckets` LRU cap
+(default 100 000) evicts least-recently-used buckets. Both are tunable via
+`TokenBucketOptions`; eviction is transparent — an evicted actor's next frame
+simply re-creates a full bucket.
+
 Write your own by subclassing `RateLimiter`:
 
 ```ts
