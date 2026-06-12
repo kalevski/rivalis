@@ -16,6 +16,9 @@
  *    the timer on completion/clear()/superseding seq, arms none for single-chunk frames
  *  - RTCTransport: a single chunk of a multi-chunk frame is evicted (and logged) after
  *    partialFrameTimeoutMs; a frame completing before the window is delivered, never evicted
+ *  - RTCTransport: inbound frame-size cap (task 039) — an over-cap reassembled frame and an
+ *    over-cap unreliable frame are dropped/logged before handleMessage; within-cap frames pass;
+ *    default cap matches WSTransport's 64 KiB maxPayload
  *  - isChunkFrame: correct prefix detection without decoding
  *  - chunkFrame: correct split and seq/total/index encoding
  *  - Broadcast (> RTC ceiling) to multiple actors — each receives all chunk messages
@@ -885,6 +888,107 @@ suite('RTCTransport — inbound chunk reassembly (p2p.md §7)', () => {
         assert.strictEqual(layer.handled.length, 2)
         assert.deepStrictEqual(layer.handled[0]!.buf, frameA)
         assert.deepStrictEqual(layer.handled[1]!.buf, frameB)
+    })
+
+})
+
+// ---------------------------------------------------------------------------
+// RTCTransport — inbound frame-size cap (task 039)
+//
+// The reliable channel reassembles multi-chunk frames up to ~4 MiB and the
+// unreliable channel forwards raw buffers; without a ceiling both bypass the
+// maxPayload cap WSTransport enforces (default 64 KiB) — a DoS amplifier and a
+// cross-transport inconsistency. maxInboundFrameBytes drops oversized frames on
+// both inbound paths before they reach handleMessage.
+// ---------------------------------------------------------------------------
+
+suite('RTCTransport — inbound frame-size cap (task 039)', () => {
+
+    test('an over-cap reassembled frame is dropped, not forwarded to handleMessage', async () => {
+        // Small cap so a modest multi-chunk frame exceeds it after reassembly.
+        const { transport, layer, signalClient, peers } = makeTransport({ maxInboundFrameBytes: 20 * 1024 })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+
+        // Reassembled frame ≈ 3 × CHUNK_DATA_BYTES ≈ 48 KiB > the 20 KiB cap.
+        const oversizedFrame = handshakeEncode('peer:flood', new Uint8Array(CHUNK_DATA_BYTES * 3).fill(0xAB))
+        assert.ok(oversizedFrame.byteLength > 20 * 1024, 'pre-condition: reassembled frame must exceed the cap')
+        const chunks = chunkFrame(oversizedFrame, 0)
+        assert.ok(chunks.length > 1, 'pre-condition: frame must be multi-chunk')
+
+        for (const chunk of chunks) dc.receive(chunk)
+        await new Promise(resolve => setTimeout(resolve, 0))
+
+        assert.strictEqual(layer.handled.length, 0, 'an over-cap reassembled frame must not reach handleMessage')
+        const dropLogs = layer.warningLogs.filter(m => m.includes('inbound frame dropped'))
+        assert.ok(dropLogs.length > 0, 'the drop must be logged as a warning')
+        assert.ok(dropLogs[0]!.includes(layer.grantResult), 'the drop log must name the actor')
+    })
+
+    test('a reassembled frame within the cap is still delivered', async () => {
+        const { transport, layer, signalClient, peers } = makeTransport({ maxInboundFrameBytes: 64 * 1024 })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+
+        // ≈ 2 × CHUNK_DATA_BYTES + 100 ≈ 32 KiB < 64 KiB cap, but still multi-chunk.
+        const frame = handshakeEncode('peer:big', new Uint8Array(CHUNK_DATA_BYTES * 2 + 100).fill(0xCD))
+        assert.ok(frame.byteLength <= 64 * 1024, 'pre-condition: frame must be within the cap')
+
+        for (const chunk of chunkFrame(frame, 0)) dc.receive(chunk)
+        await new Promise(resolve => setTimeout(resolve, 0))
+
+        assert.strictEqual(layer.handled.length, 1, 'a within-cap reassembled frame must be delivered')
+        assert.deepStrictEqual(layer.handled[0]!.buf, frame)
+        assert.strictEqual(layer.warningLogs.filter(m => m.includes('inbound frame dropped')).length, 0)
+    })
+
+    test('default inbound cap matches the WS maxPayload default (64 KiB)', async () => {
+        const { transport, layer, signalClient, peers } = makeTransport()  // no maxInboundFrameBytes set
+        const dc = await openChannel(transport, layer, signalClient, peers)
+
+        // ~80 KiB reassembled frame > the 64 KiB default cap.
+        const oversizedFrame = handshakeEncode('peer:flood', new Uint8Array(RTC_MAX_FRAME_BYTES * 5).fill(0x11))
+        assert.ok(oversizedFrame.byteLength > 64 * 1024, 'pre-condition: frame must exceed the default cap')
+
+        for (const chunk of chunkFrame(oversizedFrame, 0)) dc.receive(chunk)
+        await new Promise(resolve => setTimeout(resolve, 0))
+
+        assert.strictEqual(layer.handled.length, 0, 'the default 64 KiB cap must drop an ~80 KiB reassembled frame')
+        assert.ok(layer.warningLogs.some(m => m.includes('inbound frame dropped')))
+    })
+
+    test('an over-cap unreliable frame is dropped, not forwarded to handleMessage', async () => {
+        const { transport, layer, signalClient, peers } = makeTransport({ maxInboundFrameBytes: 16 * 1024 })
+        await openChannel(transport, layer, signalClient, peers)
+
+        // Wire an unreliable channel for the same peer (reliable channel already granted).
+        const uDc = new MockDataChannel('rivalis:unreliable')
+        peers[0]!.emitDataChannel(uDc)
+
+        const oversized = handshakeEncode('peer:state', new Uint8Array(20 * 1024).fill(0x7F))
+        assert.ok(oversized.byteLength > 16 * 1024, 'pre-condition: unreliable frame must exceed the cap')
+
+        uDc.receive(oversized)
+        await new Promise(resolve => setTimeout(resolve, 0))
+
+        assert.strictEqual(layer.handled.length, 0, 'an over-cap unreliable frame must not reach handleMessage')
+        const dropLogs = layer.warningLogs.filter(m => m.includes('unreliable inbound frame dropped'))
+        assert.ok(dropLogs.length > 0, 'the unreliable drop must be logged as a warning')
+        assert.ok(dropLogs[0]!.includes(layer.grantResult), 'the drop log must name the actor')
+    })
+
+    test('an unreliable frame within the cap is delivered as the original reference', async () => {
+        const { transport, layer, signalClient, peers } = makeTransport({ maxInboundFrameBytes: 16 * 1024 })
+        await openChannel(transport, layer, signalClient, peers)
+
+        const uDc = new MockDataChannel('rivalis:unreliable')
+        peers[0]!.emitDataChannel(uDc)
+
+        const frame = handshakeEncode('peer:state', new Uint8Array([1, 2, 3, 4]))
+        uDc.receive(frame)
+        await new Promise(resolve => setTimeout(resolve, 0))
+
+        assert.strictEqual(layer.handled.length, 1, 'a within-cap unreliable frame must be delivered')
+        assert.strictEqual(layer.handled[0]!.buf, frame, 'unreliable frame passes through as the original reference')
+        assert.strictEqual(layer.warningLogs.filter(m => m.includes('unreliable inbound frame dropped')).length, 0)
     })
 
 })

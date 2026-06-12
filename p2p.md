@@ -857,6 +857,17 @@ After the channel opens, the signaling server sees **zero** game traffic.
   **Oversized frames** (would require >255 chunks, i.e. >~4 MiB): logged as `warning` and
   **dropped** — never truncated silently. Frames ≤ `RTC_MAX_FRAME_BYTES` bypass all chunking
   and are sent/received as-is (no allocation, reference equality preserved).
+
+  **Inbound frame-size cap** (task 039). The chunk ceiling above bounds *outbound* frames, but
+  *inbound* frames had no ceiling: the reliable channel reassembles up to ~4 MiB and the
+  unreliable channel forwarded any buffer, both straight to `TLayer.handleMessage` — bypassing
+  the `maxPayload` ceiling `WSTransport` enforces (default 64 KiB) and giving an attacker a DoS
+  amplifier. `RTCTransportOptions.maxInboundFrameBytes` (default
+  `DEFAULT_MAX_INBOUND_FRAME_BYTES = 64 * 1024`, matching WS) caps every inbound frame: the
+  reliable channel checks the **reassembled** output and the unreliable channel checks **each
+  raw buffer** before forwarding. Frames over the cap are logged as `warning` and dropped
+  (consistent with the oversized-outbound drop on the unreliable channel). Tests:
+  `node/test/rtc-frame-size.test.mts`.
 - **Backpressure** is a shared concern, not WS's alone. `WSTransport` drops when
   `socket.bufferedAmount > maxBufferedBytes` (default **1 MiB**) and invokes an
   `onBackpressureDrop(actorId, bufferedAmount)` hook. `RTCDataChannel.bufferedAmount` is the

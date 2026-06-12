@@ -107,6 +107,13 @@ const signalCodec = createCodec({
 
 // ── Options ───────────────────────────────────────────────────────────────────
 
+/**
+ * Default inbound frame-size ceiling (bytes). Matches `WSTransport`'s
+ * `DEFAULT_MAX_PAYLOAD` (64 KiB) so the two transports reject oversized inbound
+ * frames identically out of the box.
+ */
+const DEFAULT_MAX_INBOUND_FRAME_BYTES = 64 * 1024
+
 export type RTCTransportOptions = {
     /** @rivalis/signal server WebSocket URL. */
     signalUrl: string
@@ -181,6 +188,20 @@ export type RTCTransportOptions = {
      * Default: {@link DEFAULT_PARTIAL_FRAME_TIMEOUT_MS} (5000 ms).
      */
     partialFrameTimeoutMs?: number
+    /**
+     * Hard cap on a single inbound frame, in bytes. Mirrors `WSTransport`'s
+     * `maxPayload` ceiling (default 64 KiB) so a room expecting small frames
+     * cannot be handed multi-MiB frames over RTC.
+     *
+     * The reliable channel reassembles multi-chunk frames up to ~4 MiB
+     * (255 × `CHUNK_DATA_BYTES`) and the unreliable channel forwards whatever
+     * SCTP delivers; both paths drop any frame larger than this cap before it
+     * reaches `layer.handleMessage`, logging the drop as a warning (consistent
+     * with how oversized unreliable *outbound* frames are already dropped).
+     *
+     * Default: {@link DEFAULT_MAX_INBOUND_FRAME_BYTES} (64 KiB).
+     */
+    maxInboundFrameBytes?: number
 }
 
 export type { ChannelReliability }
@@ -220,6 +241,8 @@ class RTCTransport extends Transport {
     private readonly onBackpressureDrop: BackpressureDropFn | null
     /** Window after which an incomplete inbound multi-chunk frame is evicted (task 038). */
     private readonly partialFrameTimeoutMs: number
+    /** Hard cap on a single inbound frame, in bytes (task 039). Oversized frames are dropped. */
+    private readonly maxInboundFrameBytes: number
     /**
      * Predicate for routing outbound messages to the unreliable channel.
      * Derived from `RTCTransportOptions.unreliableTopics` at construction time.
@@ -243,6 +266,7 @@ class RTCTransport extends Transport {
         this.maxBufferedBytes = options.maxBufferedBytes ?? DEFAULT_MAX_BUFFERED_BYTES
         this.onBackpressureDrop = options.onBackpressureDrop ?? null
         this.partialFrameTimeoutMs = options.partialFrameTimeoutMs ?? DEFAULT_PARTIAL_FRAME_TIMEOUT_MS
+        this.maxInboundFrameBytes = options.maxInboundFrameBytes ?? DEFAULT_MAX_INBOUND_FRAME_BYTES
         this.unreliableTopicPredicate = resolveTopicPredicate(options.unreliableTopics)
 
         const resolvedAdapters: RTCAdapters = {
@@ -347,6 +371,16 @@ class RTCTransport extends Transport {
                 } else {
                     // Regular (non-chunked) frame — pass original reference through.
                     frameToHandle = buf
+                }
+                // Enforce the inbound frame-size cap (task 039). A reassembled multi-chunk
+                // frame can reach ~4 MiB, far above the ceiling WSTransport enforces; drop
+                // anything over the cap before it reaches the room.
+                if (frameToHandle.byteLength > this.maxInboundFrameBytes) {
+                    layer.logger.warning(
+                        `rtc: inbound frame dropped (${frameToHandle.byteLength} bytes exceeds ` +
+                        `${this.maxInboundFrameBytes}-byte cap) for actor=${actorId}`
+                    )
+                    return
                 }
                 layer.handleMessage(actorId, frameToHandle).catch((error: unknown) => {
                     const reason = error instanceof Error ? error.message : String(error)
@@ -519,6 +553,15 @@ class RTCTransport extends Transport {
         this.unreliableChannels.set(actorId, channel)
         channel.onMessage((buf) => {
             if (!this.channels.has(actorId)) return  // actor already closed
+            // Enforce the inbound frame-size cap (task 039). The unreliable channel does no
+            // reassembly, so cap each raw inbound buffer before forwarding to the room.
+            if (buf.byteLength > this.maxInboundFrameBytes) {
+                layer.logger.warning(
+                    `rtc: unreliable inbound frame dropped (${buf.byteLength} bytes exceeds ` +
+                    `${this.maxInboundFrameBytes}-byte cap) for actor=${actorId}`
+                )
+                return
+            }
             layer.handleMessage(actorId, buf).catch((error: unknown) => {
                 const reason = error instanceof Error ? error.message : String(error)
                 layer.logger.warning(`rtc: unreliable handleMessage rejected for actor=${actorId}: ${reason}`)
