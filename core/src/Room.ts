@@ -78,6 +78,28 @@ abstract class Room<TActorData = Record<string, unknown>> {
      */
     joinable: boolean = true
 
+    /**
+     * Opt-in lifecycle: when `true`, the room schedules its own destruction
+     * (via `RoomManager.destroy`) as soon as the last actor leaves and
+     * `actorCount` returns to zero. Useful for ephemeral per-match /
+     * per-lobby rooms created with server-generated ids, which would
+     * otherwise linger in `RoomManager.rooms` forever unless app code
+     * remembers to `destroy()` them — an unbounded-growth footgun.
+     *
+     * Default `false`, preserving the historical **manual-lifecycle**
+     * contract: a room lives until an explicit `destroy()` call (or
+     * `Rivalis.shutdown`), no matter how many actors it holds. Long-lived
+     * lobbies, persistent hubs, and rooms you pre-create and reuse should
+     * keep this off.
+     *
+     * Enable per-room with `protected override destroyOnEmpty = true`.
+     * Teardown is deferred to a microtask that re-checks `actorCount`
+     * first, so a new actor that joins in the window between the last leave
+     * and the scheduled teardown cancels the destruction — the room is torn
+     * down only if it is still empty (and not already manually destroyed).
+     */
+    protected destroyOnEmpty: boolean = false
+
     protected logger: Logger | null = null
 
     private manager: RoomManager<TActorData> | null = null
@@ -89,6 +111,8 @@ abstract class Room<TActorData = Record<string, unknown>> {
     private wildcardListener: TopicListener<TActorData> | null = null
 
     private actors: Map<string, Actor<TActorData>> = new Map()
+
+    private emptyDestroyScheduled: boolean = false
 
     constructor(roomId: string, manager: RoomManager<TActorData>, transportLayer: TLayer<TActorData>, type: string = '') {
         this.id = roomId
@@ -436,6 +460,39 @@ abstract class Room<TActorData = Record<string, unknown>> {
                 this.logger?.error(`presence:leave broadcast failed for actor id=${actorId}: ${reason}`)
             }
         }
+        if (this.destroyOnEmpty && this.actors.size === 0) {
+            this.scheduleDestroyOnEmpty()
+        }
+    }
+
+    /**
+     * Defer destruction of a now-empty `destroyOnEmpty` room to a microtask,
+     * guarding the join-before-teardown race. Between the last leave and the
+     * scheduled callback, a new actor may join (restoring `actorCount`) or a
+     * manual `destroy()` may have already torn the room down. The callback
+     * re-checks both and only destroys a room that is still registered with
+     * the manager and still empty. The `emptyDestroyScheduled` latch coalesces
+     * repeated empties within the same turn into a single scheduled teardown.
+     */
+    private scheduleDestroyOnEmpty(): void {
+        if (this.emptyDestroyScheduled) {
+            return
+        }
+        this.emptyDestroyScheduled = true
+        queueMicrotask(() => {
+            this.emptyDestroyScheduled = false
+            // manager === null  → a manual destroy() / shutdown already ran.
+            // actors.size !== 0  → a new actor won the race; room is live again.
+            if (this.manager === null || this.actors.size !== 0) {
+                return
+            }
+            try {
+                this.manager.destroy(this.id)
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error)
+                this.logger?.error(`destroyOnEmpty teardown failed: ${reason}`)
+            }
+        })
     }
 }
 
