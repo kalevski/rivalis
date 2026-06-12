@@ -14,6 +14,8 @@
  * Decision D4 — decided 2026-06-09. See node/CHANGELOG.md for full rationale.
  */
 
+import logging from '@toolcase/logging'
+
 import type { PeerConnection, DataChannel, DescriptionType } from 'node-datachannel'
 
 // ---------------------------------------------------------------------------
@@ -233,6 +235,7 @@ export class WeriftPeer implements RTCPeerLike {
     private readonly pc: any
     /** Serialise the async werift calls so synchronous back-to-back calls chain correctly. */
     private opQueue: Promise<void> = Promise.resolve()
+    private readonly logger = logging.getLogger('peer:werift')
     private _localDescHandler: ((sdp: string, type: string) => void) | null = null
     private _localCandHandler: ((candidate: string, mid: string) => void) | null = null
 
@@ -287,7 +290,7 @@ export class WeriftPeer implements RTCPeerLike {
     }
 
     setLocalDescription(type?: string): void {
-        this._enqueue(async () => {
+        this._enqueue('setLocalDescription', async () => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
             const desc: { sdp?: string; type: string } = (!type || type === 'offer')
                 ? await this.pc.createOffer()
@@ -301,14 +304,14 @@ export class WeriftPeer implements RTCPeerLike {
     }
 
     setRemoteDescription(sdp: string, type: string): void {
-        this._enqueue(async () => {
+        this._enqueue('setRemoteDescription', async () => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
             await this.pc.setRemoteDescription({ sdp, type })
         })
     }
 
     addRemoteCandidate(candidate: string, mid: string): void {
-        this._enqueue(async () => {
+        this._enqueue('addRemoteCandidate', async () => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
             await this.pc.addIceCandidate({ candidate, sdpMid: mid })
         })
@@ -319,11 +322,15 @@ export class WeriftPeer implements RTCPeerLike {
         this.pc.close()
     }
 
-    private _enqueue(fn: () => Promise<void>): void {
-        this.opQueue = this.opQueue.then(fn).catch(() => {
+    private _enqueue(op: string, fn: () => Promise<void>): void {
+        this.opQueue = this.opQueue.then(fn).catch((error: unknown) => {
             // Errors in the queue are suppressed — the connection will time out
             // naturally. This matches node-datachannel's behaviour where a failed
-            // negotiation step does not crash the process.
+            // negotiation step does not crash the process. We still log the failure
+            // so a malformed (possibly attacker-supplied) SDP/ICE or a real bug is
+            // diagnosable instead of silently producing a dead connection.
+            const reason = error instanceof Error ? error.message : String(error)
+            this.logger.warning(`negotiation step "${op}" failed: ${reason}`)
         })
     }
 }
