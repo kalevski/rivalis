@@ -7,6 +7,8 @@ const items: CoolNavItem[] = [
     { label: 'Features', href: '#why-rivalis' },
     { label: 'Use cases', href: '#use-cases' },
     { label: 'Fleet', href: '#fleet' },
+    { label: 'P2P', href: '#p2p' },
+    { label: 'Signaling', href: '#signaling' },
     { label: 'Demos', href: '#demos' },
     { label: 'AI skill', href: '#ai-skill' },
     { label: 'Docs', href: 'https://github.com/kalevski/rivalis#readme', target: '_blank' }
