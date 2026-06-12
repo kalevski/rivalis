@@ -46,7 +46,7 @@ import {
 import { createPeerConnection } from './peer/RTCPeer'
 import type { RTCDataChannelLike } from './peer/RTCPeer'
 import { HostNegotiator } from './peer/NegotiationCore'
-import type { RTCAdapters } from './peer/NegotiationCore'
+import type { RTCAdapters, HostNegotiationGuardOptions } from './peer/NegotiationCore'
 import SignalClient from './SignalClient'
 import {
     RTC_MAX_FRAME_BYTES,
@@ -202,6 +202,31 @@ export type RTCTransportOptions = {
      * Default: {@link DEFAULT_MAX_INBOUND_FRAME_BYTES} (64 KiB).
      */
     maxInboundFrameBytes?: number
+    /**
+     * Maximum number of simultaneous host-side peer connections, enforced at
+     * offer time before a native `RTCPeerConnection` is allocated (p2p.md §8,
+     * task 040).
+     *
+     * The host answers attacker-supplied `signal:offer` frames, each keyed by the
+     * sender-supplied `from` id. Without this cap a flood of offers with distinct
+     * `from` ids allocates an unbounded number of native PCs — long before any
+     * data channel opens and the `peerLimiter` runs. Offers beyond the cap are
+     * dropped without allocating a PC.
+     *
+     * Default: 1024.
+     */
+    maxConcurrentNegotiations?: number
+    /**
+     * Window (ms) within which a freshly created host-side PC must reach the
+     * `connected` state (p2p.md §8, task 040). A PC that never connects — e.g. an
+     * offer that opens negotiation but never completes ICE — is closed and removed
+     * when this window elapses, releasing the native resource it would otherwise
+     * pin indefinitely.
+     *
+     * A value `<= 0` disables the timeout (not recommended for untrusted peers).
+     * Default: 15000 ms.
+     */
+    negotiationTimeoutMs?: number
 }
 
 export type { ChannelReliability }
@@ -276,10 +301,18 @@ class RTCTransport extends Transport {
         }
 
         this.signalClient = resolvedAdapters.createSignalingClient(options.signalUrl)
+        const guard: HostNegotiationGuardOptions = {}
+        if (options.maxConcurrentNegotiations !== undefined) {
+            guard.maxConcurrentNegotiations = options.maxConcurrentNegotiations
+        }
+        if (options.negotiationTimeoutMs !== undefined) {
+            guard.negotiationTimeoutMs = options.negotiationTimeoutMs
+        }
         this.negotiator = new HostNegotiator(
             resolvedAdapters,
             this.signalClient,
             options.channelLabel,
+            guard,
         )
     }
 

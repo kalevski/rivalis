@@ -1,8 +1,13 @@
 export type { RTCDataChannelLike, RTCPeerLike, ChannelReliability } from './peer/RTCPeer'
 export { createPeerConnection, NodeDataChannelPeer, NodeDCDataChannel, WeriftPeer, WeriftDataChannel } from './peer/RTCPeer'
 
-export type { RTCAdapters, PeerNegotiatorCallbacks, HostNegotiatorCallbacks } from './peer/NegotiationCore'
-export { PeerNegotiator, HostNegotiator } from './peer/NegotiationCore'
+export type { RTCAdapters, PeerNegotiatorCallbacks, HostNegotiatorCallbacks, HostNegotiationGuardOptions } from './peer/NegotiationCore'
+export {
+    PeerNegotiator,
+    HostNegotiator,
+    DEFAULT_MAX_CONCURRENT_NEGOTIATIONS,
+    DEFAULT_NEGOTIATION_TIMEOUT_MS,
+} from './peer/NegotiationCore'
 
 export type { SignalTopic, SignalClientOptions } from './SignalClient'
 export { default as SignalClient } from './SignalClient'

@@ -927,13 +927,25 @@ After the channel opens, the signaling server sees **zero** game traffic.
 - **Origin allow-listing / connection rate limiting / heartbeats:** inherited on the
   signaling leg from `WSTransport` (`allowedOrigins` as array or predicate,
   `WSTransport.ts:116-121`; `ConnectionLimiter` per-IP pre-handshake, `:172-185`; heartbeat).
-- **Pre-admission limiting on RTC — two-hop throttle:** RTC connections pass through two
-  admission gates before `grantAccess` runs:
+- **Pre-admission limiting on RTC — three-gate throttle:** RTC connections pass through
+  three admission gates before `grantAccess` runs:
 
-  | Hop | Where | Key | Mechanism |
-  |-----|-------|-----|-----------|
+  | Gate | Where | Key | Mechanism |
+  |------|-------|-----|-----------|
+  | **0 — offer time** | `HostNegotiator` (`node/src/peer/NegotiationCore.ts`) | signaling `from` id | concurrency cap (`maxConcurrentNegotiations`) + duplicate-`from` rejection + per-PC `negotiationTimeoutMs` — all applied *before* a native `RTCPeerConnection` is allocated |
   | **1 — signaling leg** | `WSTransport` (signal server) | remote IP | `ConnectionLimiter` per-IP, `WSTransport.ts:172-185` |
   | **2 — game-host leg** | `RTCTransport` (`node/src/RTCTransport.ts`) | signaling `peerId` | optional `peerLimiter?: ConnectionLimiter` checked before `grantAccess` |
+
+  Gate 0 closes a host-side DoS surface (task 040): the host answers attacker-supplied
+  `signal:offer` frames, each allocating a native PC keyed by the sender-supplied `from`
+  id. `peerLimiter` (gate 2) only runs *after* a data channel opens, so it never gates PC
+  creation — an offer flood with distinct `from` ids could allocate unbounded native PCs
+  that never reach `onChannelOpen`. `HostNegotiator` therefore rejects an offer before
+  allocating a PC when (a) `pcs.size` is at `maxConcurrentNegotiations` (default 1024) or
+  (b) the `from` id already has a live PC (a duplicate must not clobber the in-progress
+  peer), and arms each created PC with a `negotiationTimeoutMs` (default 15 s) that closes
+  and removes any PC that has not reached `connected` in time. Both limits are exposed on
+  `RTCTransportOptions`.
 
   The signaling WS already applies `WSTransport`'s `ConnectionLimiter` (per-IP), so the
   first hop is covered automatically. The second hop is opt-in: pass a `ConnectionLimiter`

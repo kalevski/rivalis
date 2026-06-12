@@ -2,6 +2,44 @@
 
 ## [0.1.0] — upcoming
 
+### Security hardening
+
+#### Offer-time admission control for host RTC peer connections (task 040 — 2026-06-12)
+
+**Problem:** `HostNegotiator` (`node/src/peer/NegotiationCore.ts`) allocated a native
+`RTCPeerConnection` on every inbound `signal:offer`, keyed by the attacker-supplied
+`from` id, with no bound on `pcs.size` and no negotiation timeout. The `peerLimiter`
+(gate 2, `RTCTransport`) only runs after a data channel opens, so it never gated PC
+creation. A flood of offers with distinct `from` ids could allocate unbounded native
+PCs that never reach `onChannelOpen`, and a later offer could silently clobber an
+in-progress peer's PC entry via `pcs.set`.
+
+**Fix:** admission control applied at offer time, *before* any native PC is allocated
+(see `p2p.md §8`, gate 0):
+
+- **Concurrency cap** — `maxConcurrentNegotiations` (default 1024) bounds `pcs.size`;
+  offers beyond the cap are dropped without allocating a PC.
+- **Duplicate-`from` rejection** — an offer whose `from` already has a live PC is
+  dropped; the in-progress PC is never overwritten.
+- **Negotiation timeout** — `negotiationTimeoutMs` (default 15 s, `<= 0` disables)
+  arms a per-PC timer that closes and removes any PC that has not reached `connected`
+  in time, then notifies the host via `onPeerStateChange(peerId, 'failed')`. The timer
+  is cleared on connect, `closePeer`, and `dispose`.
+
+Both limits are exposed on `RTCTransportOptions` (`maxConcurrentNegotiations`,
+`negotiationTimeoutMs`) and on the `HostNegotiator` constructor via the new
+`HostNegotiationGuardOptions`. Defaults exported as
+`DEFAULT_MAX_CONCURRENT_NEGOTIATIONS` / `DEFAULT_NEGOTIATION_TIMEOUT_MS`.
+
+Tests: `node/test/negotiation-core.test.mts` (concurrency cap, freed-slot re-admission,
+duplicate-`from` rejection + ICE routing, timeout cleanup, connect/closePeer/dispose
+timer clearing).
+
+**Cross-reference:** `p2p.md §8` (three-gate throttle table); task
+`040-node-rtc-gate-peer-connection-creation.md`.
+
+---
+
 ### Decision record
 
 #### v1 host location: Node-host-first; browser-as-host deferred to Phase 3 (D5 — decided 2026-06-09)

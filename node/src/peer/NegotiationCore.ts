@@ -238,6 +238,42 @@ export interface HostNegotiatorCallbacks {
 }
 
 /**
+ * Admission-control limits applied at offer time, before a native PC is allocated
+ * (task 040, p2p.md §8). The host side answers attacker-supplied offers, so PC
+ * creation itself is a DoS surface: each unguarded `signal:offer` allocates a
+ * native RTCPeerConnection keyed by the sender-supplied `from` id.
+ */
+export interface HostNegotiationGuardOptions {
+    /**
+     * Maximum number of simultaneous peer connections (in-negotiation or
+     * connected). Offers that would push `pcs.size` past this cap are rejected
+     * before any native PC is allocated. Default: {@link DEFAULT_MAX_CONCURRENT_NEGOTIATIONS}.
+     */
+    maxConcurrentNegotiations?: number
+    /**
+     * Window (ms) within which a freshly created PC must reach the `connected`
+     * state. A PC that has not connected in time is closed and removed, freeing
+     * the native resource an attacker would otherwise pin by flooding offers that
+     * never complete ICE. A value `<= 0` disables the timeout (not recommended for
+     * untrusted peers). Default: {@link DEFAULT_NEGOTIATION_TIMEOUT_MS}.
+     */
+    negotiationTimeoutMs?: number
+}
+
+/**
+ * Default cap on concurrent host-side peer connections. Generous enough for real
+ * deployments while bounding the native-PC count an offer flood can allocate.
+ */
+export const DEFAULT_MAX_CONCURRENT_NEGOTIATIONS = 1024
+
+/**
+ * Default negotiation timeout (ms). A PC that has not reached `connected` within
+ * this window is closed and evicted. 15 s comfortably covers ICE gathering +
+ * connectivity checks even on slow networks with TURN relaying.
+ */
+export const DEFAULT_NEGOTIATION_TIMEOUT_MS = 15_000
+
+/**
  * Offer/answer/ICE state machine for the answering (host) side.
  * Used internally by RTCTransport.
  *
@@ -251,17 +287,34 @@ export interface HostNegotiatorCallbacks {
  *   → onLocalCandidate → signal:ice {to:peerId, from:myId}
  *   ← signal:ice {from:peerId} → addRemoteCandidate on peerId's PC
  *   → DC.onDataChannel → callbacks.onChannel(dc, peerId)
+ *
+ * Offer-time admission control (task 040, p2p.md §8): before a native PC is
+ * allocated, an offer is rejected if (a) the concurrency cap is reached or (b) the
+ * `from` id already has a live PC (a duplicate must not clobber an in-progress
+ * peer). Every created PC is armed with a negotiation timeout that closes and
+ * removes it if `connected` is not reached in time.
  */
 export class HostNegotiator {
     private readonly pcs = new Map<string, RTCPeerLike>()
+    /** peerId → negotiation-timeout handle, cleared on connect/close/timeout. */
+    private readonly negotiationTimers = new Map<string, ReturnType<typeof setTimeout>>()
     private myId: string = ''
     private iceServers: RTCIceServer[] = []
+    private callbacks: HostNegotiatorCallbacks | null = null
+    private readonly maxConcurrentNegotiations: number
+    private readonly negotiationTimeoutMs: number
 
     constructor(
         private readonly adapters: RTCAdapters,
         private readonly signalClient: Client,
         private readonly channelLabel: string = 'rivalis',
-    ) {}
+        guard: HostNegotiationGuardOptions = {},
+    ) {
+        this.maxConcurrentNegotiations =
+            guard.maxConcurrentNegotiations ?? DEFAULT_MAX_CONCURRENT_NEGOTIATIONS
+        this.negotiationTimeoutMs =
+            guard.negotiationTimeoutMs ?? DEFAULT_NEGOTIATION_TIMEOUT_MS
+    }
 
     /**
      * Wire up offer/ICE handlers after signal:welcome is received.
@@ -270,6 +323,7 @@ export class HostNegotiator {
     initialize(myId: string, iceServers: RTCIceServer[], callbacks: HostNegotiatorCallbacks): void {
         this.myId = myId
         this.iceServers = iceServers
+        this.callbacks = callbacks
 
         const { onChannel, onPeerStateChange } = callbacks
 
@@ -278,11 +332,28 @@ export class HostNegotiator {
             const peerId = present(msg, 'from') ? String(msg['from']) : ''
             if (!peerId || !msg['sdp']) return
 
+            // ── Offer-time admission control (task 040) ──────────────────────
+            // Reject BEFORE allocating a native PC so a flood of offers cannot
+            // exhaust native resources. Both checks short-circuit cheaply.
+
+            // Duplicate from-id: never overwrite an in-progress peer's PC. A later
+            // offer reusing a live `from` is dropped; the existing PC is untouched.
+            if (this.pcs.has(peerId)) return
+
+            // Concurrency cap: bound the number of simultaneous native PCs.
+            if (this.pcs.size >= this.maxConcurrentNegotiations) return
+
             const pc = this.adapters.createPeerConnection({ iceServers: this.iceServers })
             this.pcs.set(peerId, pc)
+            this.armNegotiationTimeout(peerId)
 
             pc.onDataChannel(dc => onChannel(dc, peerId))
-            pc.onStateChange(state => onPeerStateChange(peerId, state))
+            pc.onStateChange(state => {
+                // A connected PC has finished negotiating — cancel its timeout so
+                // it is not torn down mid-session.
+                if (state === 'connected') this.clearNegotiationTimer(peerId)
+                onPeerStateChange(peerId, state)
+            })
 
             pc.onLocalDescription((sdp, type) => {
                 if (type !== 'answer') return
@@ -315,14 +386,46 @@ export class HostNegotiator {
         })
     }
 
+    /**
+     * Arm the negotiation timeout for a freshly created PC. If the PC has not
+     * reached `connected` when the timer fires, it is closed and removed and the
+     * host is notified via onPeerStateChange so any partial transport state for
+     * the peer is unwound. No-op when the timeout is disabled (`<= 0`).
+     */
+    private armNegotiationTimeout(peerId: string): void {
+        if (this.negotiationTimeoutMs <= 0) return
+        const timer = setTimeout(() => {
+            this.negotiationTimers.delete(peerId)
+            const stale = this.pcs.get(peerId)
+            if (stale === undefined) return
+            this.pcs.delete(peerId)
+            stale.close()
+            this.callbacks?.onPeerStateChange(peerId, 'failed')
+        }, this.negotiationTimeoutMs)
+        // Do not keep the event loop alive solely for a pending negotiation timer.
+        timer.unref?.()
+        this.negotiationTimers.set(peerId, timer)
+    }
+
+    /** Cancel and forget any pending negotiation timer for a peer. */
+    private clearNegotiationTimer(peerId: string): void {
+        const timer = this.negotiationTimers.get(peerId)
+        if (timer === undefined) return
+        clearTimeout(timer)
+        this.negotiationTimers.delete(peerId)
+    }
+
     /** Close and remove one peer's connection. Called by RTCTransport on DC close. */
     closePeer(peerId: string): void {
+        this.clearNegotiationTimer(peerId)
         this.pcs.get(peerId)?.close()
         this.pcs.delete(peerId)
     }
 
     /** Close all peer connections. Called by RTCTransport.dispose(). */
     dispose(): void {
+        for (const timer of this.negotiationTimers.values()) clearTimeout(timer)
+        this.negotiationTimers.clear()
         for (const pc of this.pcs.values()) pc.close()
         this.pcs.clear()
     }

@@ -214,17 +214,27 @@ function makePeerNeg() {
     return { neg, signalClient, peer }
 }
 
-function makeHostNeg(peerCount = 2) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makeHostNeg(peerCount = 2, guard?: any) {
     const signalClient = new MockSignalClient()
     const peers = Array.from({ length: peerCount }, () => new MockPeer())
     let peerIdx = 0
+    const created: MockPeer[] = []
     const adapters: RTCAdapters = {
-        createPeerConnection() { return (peers[peerIdx++] ?? new MockPeer()) },
+        createPeerConnection() {
+            const p = peers[peerIdx++] ?? new MockPeer()
+            created.push(p)
+            return p
+        },
         createSignalingClient() { return signalClient as AnyClient },
     }
-    const neg = new HostNegotiator(adapters, signalClient as AnyClient)
-    return { neg, signalClient, peers }
+    const neg = guard === undefined
+        ? new HostNegotiator(adapters, signalClient as AnyClient)
+        : new HostNegotiator(adapters, signalClient as AnyClient, 'rivalis', guard)
+    return { neg, signalClient, peers, created }
 }
+
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
 // ---------------------------------------------------------------------------
 // PeerNegotiator tests
@@ -603,6 +613,124 @@ suite('HostNegotiator', () => {
         signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp-b', 'peer-b'))
         assert.strictEqual(peers[0]!.remoteDescriptions[0]!.sdp, 'sdp-a')
         assert.strictEqual(peers[1]!.remoteDescriptions[0]!.sdp, 'sdp-b')
+    })
+
+})
+
+// ---------------------------------------------------------------------------
+// HostNegotiator — offer-time admission control (task 040)
+// ---------------------------------------------------------------------------
+
+suite('HostNegotiator — offer-time admission control', () => {
+
+    const cb: HostNegotiatorCallbacks = { onChannel: () => {}, onPeerStateChange: () => {} }
+
+    test('concurrency cap: offers beyond maxConcurrentNegotiations allocate no PC', () => {
+        // Disable the timeout so it cannot interfere with the cap assertions.
+        const { neg, signalClient, created } = makeHostNeg(4, { maxConcurrentNegotiations: 2, negotiationTimeoutMs: 0 })
+        neg.initialize('host-1', [], cb)
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-1'))
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-2'))
+        // Third distinct peer is over the cap — no native PC must be allocated.
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-3'))
+        assert.strictEqual(created.length, 2, 'only two PCs allocated under a cap of 2')
+    })
+
+    test('concurrency cap: a freed slot (closePeer) admits a new peer again', () => {
+        const { neg, signalClient, created } = makeHostNeg(4, { maxConcurrentNegotiations: 2, negotiationTimeoutMs: 0 })
+        neg.initialize('host-1', [], cb)
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-1'))
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-2'))
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-3'))  // rejected (cap)
+        assert.strictEqual(created.length, 2)
+        // Free a slot, then a new distinct peer is admitted.
+        neg.closePeer('peer-1')
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-4'))
+        assert.strictEqual(created.length, 3, 'freeing a slot re-opens admission')
+    })
+
+    test('duplicate from: a second offer for a live peer is rejected (PC not overwritten)', () => {
+        const { neg, signalClient, created } = makeHostNeg(2, { negotiationTimeoutMs: 0 })
+        neg.initialize('host-1', [], cb)
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp-first', 'peer-1'))
+        assert.strictEqual(created.length, 1)
+        const firstPc = created[0]!
+        // Second offer reusing the same from id must not allocate or clobber.
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp-second', 'peer-1'))
+        assert.strictEqual(created.length, 1, 'no second PC allocated for a duplicate from')
+        assert.strictEqual(firstPc.remoteDescriptions.length, 1, 'original PC not re-driven')
+        assert.strictEqual(firstPc.remoteDescriptions[0]!.sdp, 'sdp-first')
+        assert.strictEqual(firstPc.closed, false, 'original in-progress PC left untouched')
+    })
+
+    test('duplicate from: ICE for the live peer still routes to the original PC', () => {
+        const { neg, signalClient, created } = makeHostNeg(2, { negotiationTimeoutMs: 0 })
+        neg.initialize('host-1', [], cb)
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp-first', 'peer-1'))
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp-second', 'peer-1'))  // rejected
+        signalClient.emit('signal:ice', encodeIce('host-1', 'candidate:p1', '0', 'peer-1'))
+        assert.strictEqual(created[0]!.remoteCandidates.length, 1)
+        assert.strictEqual(created[0]!.remoteCandidates[0]!.candidate, 'candidate:p1')
+    })
+
+    test('negotiation timeout: a PC that never connects is closed and removed', async () => {
+        const states: Array<{ peerId: string; state: string }> = []
+        const { neg, signalClient, created } = makeHostNeg(2, { negotiationTimeoutMs: 20 })
+        neg.initialize('host-1', [], {
+            onChannel: () => {},
+            onPeerStateChange: (peerId, state) => states.push({ peerId, state }),
+        })
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-1'))
+        const pc = created[0]!
+        assert.strictEqual(pc.closed, false)
+        await sleep(40)
+        assert.ok(pc.closed, 'stale PC closed after the negotiation timeout')
+        assert.deepStrictEqual(states, [{ peerId: 'peer-1', state: 'failed' }],
+            'host notified of the timed-out negotiation')
+        // The peer entry was removed → the same from id can negotiate afresh.
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-1'))
+        assert.strictEqual(created.length, 2, 'a fresh PC is allocated after timeout cleanup')
+    })
+
+    test('negotiation timeout: reaching "connected" cancels the timeout', async () => {
+        const { neg, signalClient, created } = makeHostNeg(2, { negotiationTimeoutMs: 20 })
+        neg.initialize('host-1', [], cb)
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-1'))
+        const pc = created[0]!
+        pc.emitState('connected')
+        await sleep(40)
+        assert.strictEqual(pc.closed, false, 'connected PC is not torn down by the timeout')
+    })
+
+    test('negotiation timeout: closePeer before the deadline clears the timer (no late teardown)', async () => {
+        const states: string[] = []
+        const { neg, signalClient, created } = makeHostNeg(2, { negotiationTimeoutMs: 20 })
+        neg.initialize('host-1', [], {
+            onChannel: () => {},
+            onPeerStateChange: (_peerId, state) => states.push(state),
+        })
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-1'))
+        const pc = created[0]!
+        neg.closePeer('peer-1')
+        assert.ok(pc.closed, 'closePeer closes the PC immediately')
+        await sleep(40)
+        // The timer must have been cleared — no spurious 'failed' after closePeer.
+        assert.strictEqual(states.includes('failed'), false, 'timer cleared, no late onPeerStateChange')
+    })
+
+    test('negotiation timeout: dispose clears pending timers (no firing after dispose)', async () => {
+        const states: string[] = []
+        const { neg, signalClient, created } = makeHostNeg(2, { negotiationTimeoutMs: 20 })
+        neg.initialize('host-1', [], {
+            onChannel: () => {},
+            onPeerStateChange: (_peerId, state) => states.push(state),
+        })
+        signalClient.emit('signal:offer', encodeOffer('host-1', 'sdp', 'peer-1'))
+        const pc = created[0]!
+        neg.dispose()
+        assert.ok(pc.closed)
+        await sleep(40)
+        assert.strictEqual(states.includes('failed'), false, 'dispose cleared the pending timer')
     })
 
 })
