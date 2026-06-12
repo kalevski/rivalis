@@ -17,11 +17,13 @@ export {
     RTC_MAX_FRAME_BYTES,
     CHUNK_DATA_BYTES,
     CHUNK_CONTROL_TOPIC,
+    DEFAULT_PARTIAL_FRAME_TIMEOUT_MS,
     isChunkFrame,
     chunkFrame,
     decodeChunkPayload,
     ChunkReassembler,
 } from './peer/RtcFrameChunker'
+export type { ChunkReassemblerOptions, ChunkReassemblerTimers } from './peer/RtcFrameChunker'
 
 export type { WSClientOptions, WSClientTicketSource, ClientEventListener } from './WSClient'
 export { default as WSClient } from './WSClient'

@@ -54,6 +54,7 @@ import {
     chunkFrame,
     decodeChunkPayload,
     ChunkReassembler,
+    DEFAULT_PARTIAL_FRAME_TIMEOUT_MS,
 } from './peer/RtcFrameChunker'
 
 export type { BackpressureDropFn }
@@ -167,6 +168,19 @@ export type RTCTransportOptions = {
      * Default: none (all topics use the reliable channel).
      */
     unreliableTopics?: ReadonlySet<string> | ((topic: string) => boolean)
+    /**
+     * Per-peer partial-frame reassembly timeout in milliseconds (p2p.md §7, task 038).
+     *
+     * A multi-chunk inbound frame holds up to ~4 MiB of partial state until it
+     * completes. If a peer sends the first chunk of a multi-chunk frame and then
+     * goes silent, that memory is pinned indefinitely; across many admitted peers
+     * this is a memory-exhaustion DoS. When an in-flight frame is not completed
+     * within this window the reassembler drops it and releases the partial state.
+     *
+     * A value `<= 0` disables the timeout (not recommended for untrusted peers).
+     * Default: {@link DEFAULT_PARTIAL_FRAME_TIMEOUT_MS} (5000 ms).
+     */
+    partialFrameTimeoutMs?: number
 }
 
 export type { ChannelReliability }
@@ -204,6 +218,8 @@ class RTCTransport extends Transport {
     private readonly peerLimiter: ConnectionLimiter | null
     private readonly maxBufferedBytes: number
     private readonly onBackpressureDrop: BackpressureDropFn | null
+    /** Window after which an incomplete inbound multi-chunk frame is evicted (task 038). */
+    private readonly partialFrameTimeoutMs: number
     /**
      * Predicate for routing outbound messages to the unreliable channel.
      * Derived from `RTCTransportOptions.unreliableTopics` at construction time.
@@ -226,6 +242,7 @@ class RTCTransport extends Transport {
         this.peerLimiter = options.peerLimiter ?? null
         this.maxBufferedBytes = options.maxBufferedBytes ?? DEFAULT_MAX_BUFFERED_BYTES
         this.onBackpressureDrop = options.onBackpressureDrop ?? null
+        this.partialFrameTimeoutMs = options.partialFrameTimeoutMs ?? DEFAULT_PARTIAL_FRAME_TIMEOUT_MS
         this.unreliableTopicPredicate = resolveTopicPredicate(options.unreliableTopics)
 
         const resolvedAdapters: RTCAdapters = {
@@ -393,7 +410,13 @@ class RTCTransport extends Transport {
                 this.channels.set(aid, channel)
                 this.peerToActor.set(peerId, aid)
                 this.outboundSeq.set(aid, 0)
-                this.inboundReassembler.set(aid, new ChunkReassembler())
+                this.inboundReassembler.set(aid, new ChunkReassembler({
+                    partialTimeoutMs: this.partialFrameTimeoutMs,
+                    onTimeout: () => layer.logger.warning(
+                        `rtc: incomplete inbound chunk frame evicted after ` +
+                        `${this.partialFrameTimeoutMs}ms for actor=${aid}`
+                    ),
+                }))
 
                 // Wire up any unreliable channel that arrived before grantAccess completed.
                 const pendingUnreliable = this.pendingUnreliableByPeer.get(peerId)

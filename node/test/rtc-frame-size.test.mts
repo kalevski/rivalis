@@ -12,6 +12,10 @@
  *  - RTCClient.send() chunks large peer→host frames
  *  - Oversized frame (> 255 chunks) logged and dropped — never silently truncated
  *  - ChunkReassembler: accumulates, resets on new seq, ignores duplicates
+ *  - ChunkReassembler: evicts an incomplete partial frame after the timeout, clears
+ *    the timer on completion/clear()/superseding seq, arms none for single-chunk frames
+ *  - RTCTransport: a single chunk of a multi-chunk frame is evicted (and logged) after
+ *    partialFrameTimeoutMs; a frame completing before the window is delivered, never evicted
  *  - isChunkFrame: correct prefix detection without decoding
  *  - chunkFrame: correct split and seq/total/index encoding
  *  - Broadcast (> RTC ceiling) to multiple actors — each receives all chunk messages
@@ -37,8 +41,9 @@ import {
     chunkFrame,
     decodeChunkPayload,
     ChunkReassembler,
+    DEFAULT_PARTIAL_FRAME_TIMEOUT_MS,
 } from '../lib/main.js'
-import type { RTCAdapters } from '../lib/main.js'
+import type { RTCAdapters, RTCTransportOptions } from '../lib/main.js'
 import type { RTCPeerLike, RTCDataChannelLike } from '../lib/main.js'
 
 // ---------------------------------------------------------------------------
@@ -204,7 +209,7 @@ class MockTLayer {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTLayer = any
 
-function makeTransport() {
+function makeTransport(extraOptions: Partial<RTCTransportOptions> = {}) {
     const signalClient = new MockSignalClient()
     const peers: MockPeer[] = Array.from({ length: 4 }, () => new MockPeer())
     let peerIdx = 0
@@ -212,9 +217,43 @@ function makeTransport() {
         createPeerConnection() { return (peers[peerIdx++] ?? new MockPeer()) as RTCPeerLike },
         createSignalingClient() { return signalClient as AnyTLayer },
     }
-    const transport = new RTCTransport({ signalUrl: 'ws://signal:9000', ticket: 'host-ticket', adapters })
+    const transport = new RTCTransport({
+        signalUrl: 'ws://signal:9000',
+        ticket: 'host-ticket',
+        adapters,
+        ...extraOptions,
+    })
     const layer = new MockTLayer()
     return { transport, layer, signalClient, peers }
+}
+
+/** Deterministic timer hooks for ChunkReassembler tests — no real time elapses. */
+function makeFakeClock() {
+    let nextId = 1
+    let now = 0
+    const timers = new Map<number, { fireAt: number; cb: () => void }>()
+    return {
+        timers: {
+            setTimer(cb: () => void, ms: number): unknown {
+                const id = nextId++
+                timers.set(id, { fireAt: now + ms, cb })
+                return id
+            },
+            clearTimer(handle: unknown): void {
+                timers.delete(handle as number)
+            },
+        },
+        advance(ms: number): void {
+            now += ms
+            for (const [id, t] of [...timers.entries()]) {
+                if (t.fireAt <= now) {
+                    timers.delete(id)
+                    t.cb()
+                }
+            }
+        },
+        get pending(): number { return timers.size },
+    }
 }
 
 async function openChannel(
@@ -506,6 +545,185 @@ suite('ChunkReassembler', () => {
         const result = r.feed(0, 1, 0, new Uint8Array([99]))
         // second feed for same seq/index is a duplicate — but the first completes
         assert.ok(true, 'clear and refeed does not throw')
+    })
+
+})
+
+// ---------------------------------------------------------------------------
+// ChunkReassembler — partial-frame timeout & eviction (task 038)
+// ---------------------------------------------------------------------------
+
+suite('ChunkReassembler — partial-frame timeout (task 038)', () => {
+
+    test('an incomplete multi-chunk frame is evicted after the timeout window', () => {
+        const clock = makeFakeClock()
+        let evictions = 0
+        const r = new ChunkReassembler({
+            partialTimeoutMs: 3000,
+            timers: clock.timers,
+            onTimeout: () => { evictions++ },
+        })
+
+        // Feed only the first chunk of a 3-chunk frame — partial state is now pinned.
+        assert.strictEqual(r.feed(0, 3, 0, new Uint8Array([1])), null)
+        assert.strictEqual(clock.pending, 1, 'a timer must be armed for the in-flight frame')
+
+        // Before the window elapses the partial state is still held.
+        clock.advance(2999)
+        assert.strictEqual(evictions, 0, 'must not evict before the timeout window elapses')
+
+        // Crossing the window drops the partial frame.
+        clock.advance(1)
+        assert.strictEqual(evictions, 1, 'must evict once the timeout window elapses')
+        assert.strictEqual(clock.pending, 0, 'the timer must not re-arm itself')
+
+        // Proof the bytes were released: the remaining chunks can no longer complete
+        // the original frame — index 0 is gone, so reception never reaches total.
+        assert.strictEqual(r.feed(0, 3, 1, new Uint8Array([2])), null)
+        assert.strictEqual(r.feed(0, 3, 2, new Uint8Array([3])), null,
+            'a dropped partial frame must not be completable by its late chunks')
+    })
+
+    test('completing a frame cancels the timer (no eviction afterwards)', () => {
+        const clock = makeFakeClock()
+        let evictions = 0
+        const r = new ChunkReassembler({
+            partialTimeoutMs: 3000,
+            timers: clock.timers,
+            onTimeout: () => { evictions++ },
+        })
+
+        r.feed(0, 2, 0, new Uint8Array([1]))
+        const result = r.feed(0, 2, 1, new Uint8Array([2]))
+        assert.deepStrictEqual(result, new Uint8Array([1, 2]), 'frame must complete')
+        assert.strictEqual(clock.pending, 0, 'completion must cancel the partial-frame timer')
+
+        clock.advance(10_000)
+        assert.strictEqual(evictions, 0, 'a completed frame must never be evicted')
+    })
+
+    test('clear() cancels a pending eviction timer', () => {
+        const clock = makeFakeClock()
+        let evictions = 0
+        const r = new ChunkReassembler({
+            partialTimeoutMs: 3000,
+            timers: clock.timers,
+            onTimeout: () => { evictions++ },
+        })
+
+        r.feed(0, 4, 0, new Uint8Array([1]))
+        assert.strictEqual(clock.pending, 1)
+        r.clear()
+        assert.strictEqual(clock.pending, 0, 'clear() must cancel the timer so it cannot leak')
+
+        clock.advance(10_000)
+        assert.strictEqual(evictions, 0, 'no eviction must fire after clear()')
+    })
+
+    test('a superseding seq re-arms the timer rather than leaking the old one', () => {
+        const clock = makeFakeClock()
+        let evictions = 0
+        const r = new ChunkReassembler({
+            partialTimeoutMs: 3000,
+            timers: clock.timers,
+            onTimeout: () => { evictions++ },
+        })
+
+        r.feed(0, 3, 0, new Uint8Array([1]))   // arms timer for seq 0
+        r.feed(1, 3, 0, new Uint8Array([2]))   // new seq supersedes — old timer cancelled
+        assert.strictEqual(clock.pending, 1, 'exactly one timer must be pending after a superseding seq')
+
+        clock.advance(3000)
+        assert.strictEqual(evictions, 1, 'the surviving (latest) partial frame must still be evicted')
+    })
+
+    test('single-chunk frames arm no timer (nothing to pin between feeds)', () => {
+        const clock = makeFakeClock()
+        const r = new ChunkReassembler({ partialTimeoutMs: 3000, timers: clock.timers })
+
+        const result = r.feed(0, 1, 0, new Uint8Array([7]))
+        assert.deepStrictEqual(result, new Uint8Array([7]), 'single-chunk frame completes immediately')
+        assert.strictEqual(clock.pending, 0, 'a single-chunk frame must not arm a timer')
+    })
+
+    test('partialTimeoutMs <= 0 disables the timeout', () => {
+        const clock = makeFakeClock()
+        let evictions = 0
+        const r = new ChunkReassembler({
+            partialTimeoutMs: 0,
+            timers: clock.timers,
+            onTimeout: () => { evictions++ },
+        })
+
+        r.feed(0, 3, 0, new Uint8Array([1]))
+        assert.strictEqual(clock.pending, 0, 'no timer is armed when the timeout is disabled')
+        clock.advance(1_000_000)
+        assert.strictEqual(evictions, 0, 'a disabled timeout never evicts')
+    })
+
+    test('default timeout is exported and applied when no option is given', () => {
+        assert.strictEqual(DEFAULT_PARTIAL_FRAME_TIMEOUT_MS, 5000)
+        // Default construction uses real (unref'd) timers; just assert it does not throw
+        // and that feeding a partial chunk returns null as usual.
+        const r = new ChunkReassembler()
+        assert.strictEqual(r.feed(0, 2, 0, new Uint8Array([1])), null)
+        r.clear()  // cancel the real timer so it cannot keep the test process alive
+    })
+
+})
+
+// ---------------------------------------------------------------------------
+// RTCTransport — inbound partial-frame eviction (task 038)
+// ---------------------------------------------------------------------------
+
+suite('RTCTransport — inbound partial-frame eviction (task 038)', () => {
+
+    test('a single chunk of a multi-chunk frame is evicted after the timeout', async () => {
+        // Short real timeout so the eviction fires within the test.
+        const { transport, layer, signalClient, peers } = makeTransport({ partialFrameTimeoutMs: 20 })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+
+        // Build a 3-chunk frame and feed ONLY its first chunk from the peer.
+        const originalFrame = handshakeEncode('peer:big', new Uint8Array(CHUNK_DATA_BYTES * 2 + 100).fill(0xAB))
+        const chunks = chunkFrame(originalFrame, 0)
+        assert.strictEqual(chunks.length, 3, 'pre-condition: must produce 3 chunks')
+
+        dc.receive(chunks[0]!)
+        await new Promise(resolve => setTimeout(resolve, 0))
+        assert.strictEqual(layer.handled.length, 0, 'an incomplete frame must not be delivered')
+
+        // Wait past the eviction window.
+        await new Promise(resolve => setTimeout(resolve, 40))
+
+        // The partial state was released and the eviction was logged.
+        const evictLogs = layer.warningLogs.filter(m => m.includes('evicted'))
+        assert.ok(evictLogs.length > 0, 'eviction must be logged')
+        assert.ok(evictLogs[0]!.includes(layer.grantResult), 'eviction log must name the actor')
+
+        // Proof of release: the late remaining chunks can no longer complete the frame.
+        dc.receive(chunks[1]!)
+        dc.receive(chunks[2]!)
+        await new Promise(resolve => setTimeout(resolve, 0))
+        assert.strictEqual(layer.handled.length, 0,
+            'a frame whose partial state was evicted must not complete from its late chunks')
+    })
+
+    test('a frame completing before the timeout is delivered and never evicted', async () => {
+        const { transport, layer, signalClient, peers } = makeTransport({ partialFrameTimeoutMs: 50 })
+        const dc = await openChannel(transport, layer, signalClient, peers)
+
+        const originalFrame = handshakeEncode('peer:big', new Uint8Array(CHUNK_DATA_BYTES * 2 + 100).fill(0xCD))
+        const chunks = chunkFrame(originalFrame, 0)
+        for (const chunk of chunks) dc.receive(chunk)
+        await new Promise(resolve => setTimeout(resolve, 0))
+
+        assert.strictEqual(layer.handled.length, 1, 'the complete frame must be delivered')
+        assert.deepStrictEqual(layer.handled[0]!.buf, originalFrame)
+
+        // Wait well past the window — no eviction should fire for the completed frame.
+        await new Promise(resolve => setTimeout(resolve, 80))
+        assert.strictEqual(layer.warningLogs.filter(m => m.includes('evicted')).length, 0,
+            'a completed frame must not be evicted')
     })
 
 })

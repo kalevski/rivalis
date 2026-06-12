@@ -119,11 +119,70 @@ export function decodeChunkPayload(
 // ── ChunkReassembler ──────────────────────────────────────────────────────────
 
 /**
+ * Default partial-frame timeout (ms): an in-flight multi-chunk frame that is not
+ * completed within this window is dropped and its partial state released.
+ *
+ * A multi-chunk frame holds up to 255 × CHUNK_DATA_BYTES ≈ 4 MiB until it
+ * completes. Without a timeout, a malicious peer can send a single chunk of a
+ * 255-chunk frame and then go silent, pinning ~4 MiB indefinitely; across many
+ * admitted peers this is a memory-exhaustion DoS (task 038). The timeout caps
+ * how long any single partial frame can pin memory.
+ */
+export const DEFAULT_PARTIAL_FRAME_TIMEOUT_MS = 5000
+
+/** Injectable timer hooks so the timeout is deterministically testable. */
+export type ChunkReassemblerTimers = {
+    setTimer: (callback: () => void, ms: number) => unknown
+    clearTimer: (handle: unknown) => void
+}
+
+export type ChunkReassemblerOptions = {
+    /**
+     * Drop an in-flight multi-chunk frame if it is not completed within this
+     * window (ms). Defaults to {@link DEFAULT_PARTIAL_FRAME_TIMEOUT_MS}.
+     * A value `<= 0` disables the timeout entirely.
+     */
+    partialTimeoutMs?: number
+    /**
+     * Timer hooks. Defaults to an `unref`'d `setTimeout`/`clearTimeout` so a
+     * pending eviction never keeps the process alive on its own. Tests inject
+     * a fake clock here to advance time deterministically.
+     */
+    timers?: ChunkReassemblerTimers
+    /**
+     * Invoked when a partial frame is evicted because it exceeded
+     * `partialTimeoutMs`. Lets the caller log / meter the eviction.
+     */
+    onTimeout?: () => void
+}
+
+/** Default timers: a real `setTimeout` that does not pin the event loop open. */
+const defaultTimers: ChunkReassemblerTimers = {
+    setTimer(callback: () => void, ms: number): unknown {
+        const handle = setTimeout(callback, ms)
+        // node returns a Timeout with unref(); browsers return a number. Guard both.
+        if (typeof (handle as { unref?: () => void }).unref === 'function') {
+            (handle as { unref: () => void }).unref()
+        }
+        return handle
+    },
+    clearTimer(handle: unknown): void {
+        clearTimeout(handle as ReturnType<typeof setTimeout>)
+    },
+}
+
+/**
  * Per-channel stateful chunk reassembler.
  *
  * Ordered channel guarantee: at most one chunked message is in flight at a time.
  * A new seq that differs from the active one resets state; any in-flight partial
  * message is silently discarded (the sender dropped the connection mid-message).
+ *
+ * Partial-frame timeout (task 038): when a multi-chunk frame begins, a timer is
+ * armed. If the frame does not complete within `partialTimeoutMs`, the partial
+ * state is dropped so a silent/dripping peer cannot pin ~4 MiB indefinitely. The
+ * timer is cleared on completion, on a superseding seq, and on `clear()` (called
+ * by the transport on actor/channel close) so it never leaks.
  */
 export class ChunkReassembler {
     private activeSeq    = -1
@@ -131,16 +190,31 @@ export class ChunkReassembler {
     private received     = 0
     private chunks: (Uint8Array | null)[] = []
 
+    private readonly partialTimeoutMs: number
+    private readonly timers: ChunkReassemblerTimers
+    private readonly onTimeout: (() => void) | null
+    private timer: unknown = null
+
+    constructor(options: ChunkReassemblerOptions = {}) {
+        this.partialTimeoutMs = options.partialTimeoutMs ?? DEFAULT_PARTIAL_FRAME_TIMEOUT_MS
+        this.timers           = options.timers ?? defaultTimers
+        this.onTimeout        = options.onTimeout ?? null
+    }
+
     /**
      * Feed one decoded chunk into the assembler.
      * Returns the complete reassembled frame once all chunks arrive; null otherwise.
      */
     feed(seq: number, total: number, index: number, data: Uint8Array): Uint8Array | null {
         if (seq !== this.activeSeq) {
+            // New message supersedes any partial in flight — cancel its timer first.
+            this.cancelTimer()
             this.activeSeq   = seq
             this.totalChunks = total
             this.chunks      = new Array<Uint8Array | null>(total).fill(null)
             this.received    = 0
+            // Only multi-chunk frames hold state between feeds; arm the eviction timer.
+            if (total > 1) this.armTimer()
         }
         if (index >= this.totalChunks || total !== this.totalChunks) return null
         if (this.chunks[index] !== null) return null  // duplicate
@@ -157,18 +231,38 @@ export class ChunkReassembler {
         for (const c of this.chunks) {
             if (c) { result.set(c, offset); offset += c.byteLength }
         }
-        // Reset for the next message
-        this.activeSeq   = -1
-        this.totalChunks = 0
-        this.chunks      = []
-        this.received    = 0
+        // Reset for the next message (also clears the eviction timer).
+        this.clear()
         return result
     }
 
     clear(): void {
+        this.cancelTimer()
+        this.resetState()
+    }
+
+    private resetState(): void {
         this.activeSeq   = -1
         this.totalChunks = 0
         this.chunks      = []
         this.received    = 0
+    }
+
+    private armTimer(): void {
+        if (this.partialTimeoutMs <= 0) return
+        this.cancelTimer()
+        this.timer = this.timers.setTimer(() => {
+            // Partial frame exceeded its window — release the pinned bytes.
+            this.timer = null
+            this.resetState()
+            this.onTimeout?.()
+        }, this.partialTimeoutMs)
+    }
+
+    private cancelTimer(): void {
+        if (this.timer !== null) {
+            this.timers.clearTimer(this.timer)
+            this.timer = null
+        }
     }
 }
