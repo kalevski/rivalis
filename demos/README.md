@@ -18,7 +18,19 @@ links them locally — no publish step or version pinning is required.
 | [Orchestrator chat](./orchestrator-chat) | Multiple chat rooms created, routed to, and disposed on demand by a Rivalis orchestrator. ✅ available |
 | [Pac-Man](./pacman) | A real-time multiplayer Pac-Man game demonstrating authoritative server state and client rendering. ✅ available |
 | [Peer-to-peer chat](./p2p-chat) | A peer-to-peer chat mesh (max 10) that uses Rivalis only for peer handshake/signalling — chat flows directly between peers. ✅ available |
-| [Guided tutorial series](./guided) | A six-level, read-in-order tutorial that introduces the Rivalis API one capability at a time, from a minimal hello-room up to a full real-time application. 🚧 in progress |
+
+A six-level, read-in-order guided tutorial introduces the Rivalis API one
+capability at a time, from a minimal hello-room up to a full real-time
+application. Read the levels in order:
+
+| Level | Description |
+| --- | --- |
+| [01 — hello-room](./01-hello-room) | The smallest complete program: one server, one room, one client, one message. |
+| [02 — topics and broadcast](./02-topics-and-broadcast) | Routing messages by topic and broadcasting to a room. |
+| [03 — auth and limits](./03-auth-and-limits) | Ticket auth, rate limiting, and the other security defaults. |
+| [04 — shared state (TLayer)](./04-shared-state-tlayer) | Authoritative shared state synchronised through the TLayer. |
+| [05 — multi-room manager](./05-multi-room-manager) | Creating, routing to, and disposing rooms on demand. |
+| [06 — capstone real-time](./06-capstone-realtime) | A full real-time application tying the previous levels together. |
 
 > Each demo lives under `demos/<demo-name>/` as its own workspace package.
 > All four demos — the client/server and orchestrator chats, Pac-Man, and the

@@ -101,21 +101,22 @@ Read on for full options:
 | [`@rivalis/browser`](./browser) | Browser WebSocket client | ✅ |
 | [`@rivalis/fleet`](./fleet) | Cluster orchestration (discovery, placement, REST/SSE, binary) | ✅ |
 | `@rivalis/handshake` | Wire-format primitives shared by `core` + `browser` | private (bundled) |
-| `@rivalis/demo` | End-to-end example: Express + Vite + React | private |
 
-## 🚀 Run the demo
+## 🚀 Run the demos
 
-The demo ships a tiny app with three rooms — chat lobby, shared counter, two-player tic-tac-toe — to exercise every feature end-to-end.
+Runnable example projects live under [`demos/`](./demos) — each is its own
+workspace package, and a single install from the repo root bootstraps them all.
+See [`demos/README.md`](./demos/README.md) for the full list, including the
+six-level [guided tutorial series](./demos) that introduces the Rivalis API one
+capability at a time.
 
 ```bash
 git clone git@github.com:kalevski/rivalis.git
 cd rivalis
 npm install
 npm run build
-npm run demo
+npm run dev -w @rivalis/demo-<name>
 ```
-
-Then open <http://localhost:5173> (Vite client) which talks to the WebSocket server on `:2334`.
 
 ## 🧠 How it works
 

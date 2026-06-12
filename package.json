@@ -2,8 +2,7 @@
     "name": "@rivalis/root",
     "private": true,
     "scripts": {
-        "build": "npm run build --workspaces --if-present",
-        "demo": "npm run dev -w @rivalis/demo"
+        "build": "npm run build --workspaces --if-present"
     },
     "workspaces": [
         "handshake",
@@ -12,10 +11,8 @@
         "node",
         "fleet",
         "signal",
-        "demo",
         "landing-page",
-        "demos/*",
-        "demos/guided/*"
+        "demos/*"
     ],
     "devDependencies": {
         "@types/express": "^5.0.6",

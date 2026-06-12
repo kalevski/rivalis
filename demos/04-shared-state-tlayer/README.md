@@ -181,8 +181,8 @@ it sees every counter change without sending anything itself.
 You can use any name and connect multiple instances simultaneously:
 
 ```sh
-npx ts-node demos/guided/04-shared-state-tlayer/src/client.ts Alice watch
-npx ts-node demos/guided/04-shared-state-tlayer/src/client.ts Bob   mutate
+npx ts-node demos/04-shared-state-tlayer/src/client.ts Alice watch
+npx ts-node demos/04-shared-state-tlayer/src/client.ts Bob   mutate
 ```
 
 ---
