@@ -4,6 +4,7 @@ import { QuickStartSection } from './sections/QuickStartSection'
 import { FeaturesSection } from './sections/FeaturesSection'
 import { UseCasesSection } from './sections/UseCasesSection'
 import { FleetSection } from './sections/FleetSection'
+import { P2pSection } from './sections/P2pSection'
 import { DemoSection } from './sections/DemoSection'
 import { ComparisonSection } from './sections/ComparisonSection'
 import { SkillSection } from './sections/SkillSection'
@@ -20,6 +21,7 @@ export default function Page() {
             <FeaturesSection />
             <UseCasesSection />
             <FleetSection />
+            <P2pSection />
             <DemoSection />
             <ComparisonSection />
             <SkillSection />
