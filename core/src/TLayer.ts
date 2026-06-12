@@ -50,6 +50,8 @@ class TLayer<TActorData = Record<string, unknown>> {
 
     private maxTopicLength: number
 
+    private maxPayloadBytes: number
+
     /**
      * Outbound frames emitted before a transport has subscribed for a
      * given actor (e.g. the `actor.send` inside `Room.onJoin`, which
@@ -78,7 +80,8 @@ class TLayer<TActorData = Record<string, unknown>> {
         getRoomFn: GetRoomFn<TActorData>,
         rateLimiter: RateLimiter | null = null,
         logging: LoggerFactory = CustomLoggerFactory.Instance,
-        maxTopicLength: number = 256
+        maxTopicLength: number = 256,
+        maxPayloadBytes: number = 65536
     ) {
         this.authMiddleware = authMiddleware
         this.getRoom = getRoomFn
@@ -87,6 +90,7 @@ class TLayer<TActorData = Record<string, unknown>> {
         this.logging = logging
         this.logger = logging.getLogger('transport layer')
         this.maxTopicLength = maxTopicLength
+        this.maxPayloadBytes = maxPayloadBytes
     }
 
     get connections(): number {
@@ -250,12 +254,25 @@ class TLayer<TActorData = Record<string, unknown>> {
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error)
             this.logger.error(`actor id=${actorId} sent malformed frame, kicking. reason=${reason}`)
-            this.roomIds.delete(actorId)
+            // Do NOT delete the roomIds entry here. The kick closes the socket,
+            // which drives `handleClose` — the single authoritative cleanup path
+            // that runs `room.handleLeave` (firing onLeave/presence-leave and
+            // restoring actorCount) plus map/rate-limiter teardown. Deleting the
+            // entry first would make `handleClose` take its "room already
+            // destroyed" branch and leak a ghost actor in `Room.actors`. Mirror
+            // the rate-limited branch below, which also leaves cleanup to handleClose.
             return this.kick(actorId, textEncoder.encode(KickReason.INVALID_MESSAGE))
         }
         if (data.topic.length > this.maxTopicLength) {
             this.logger.warning(`actor id=${actorId} sent topic exceeding maxTopicLength=${this.maxTopicLength}, kicking`)
-            this.roomIds.delete(actorId)
+            // See the decode-failure branch above: leave roomIds intact so the
+            // kick-driven `handleClose` performs handleLeave + cleanup.
+            return this.kick(actorId, textEncoder.encode(KickReason.INVALID_MESSAGE))
+        }
+        if (data.payload.byteLength > this.maxPayloadBytes) {
+            this.logger.warning(`actor id=${actorId} sent payload exceeding maxPayloadBytes=${this.maxPayloadBytes}, kicking`)
+            // See the decode-failure branch above: leave roomIds intact so the
+            // kick-driven `handleClose` performs handleLeave + cleanup.
             return this.kick(actorId, textEncoder.encode(KickReason.INVALID_MESSAGE))
         }
         const actorTransport = this.actorTransports.get(actorId)

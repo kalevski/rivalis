@@ -26,7 +26,8 @@ class Rivalis<TActorData = Record<string, unknown>> {
             this.getRoomByID,
             this.config.rateLimiter,
             this.logging,
-            this.config.maxTopicLength
+            this.config.maxTopicLength,
+            this.config.maxPayloadBytes
         )
         this.rooms = new RoomManager<TActorData>(this.transportLayer, this.logging)
 

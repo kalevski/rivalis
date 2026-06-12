@@ -91,7 +91,8 @@ const rivalis = new Rivalis<TActorData>({
     authMiddleware: new MyAuth(),
     rateLimiter: undefined,  // omit → default token bucket; null → opt out
     logging: undefined,      // omit → built-in console reporter
-    maxTopicLength: 256      // default
+    maxTopicLength: 256,     // default
+    maxPayloadBytes: 65536   // default 64 KiB — core-level inbound payload ceiling
 })
 
 rivalis.connections   // joined actors
