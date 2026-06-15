@@ -28,6 +28,18 @@ const features = [
         description: 'A typed { topic, payload } format keeps clients and servers in lockstep.'
     },
     {
+        eyebrow: 'Transport',
+        icon: <Icon name={'diagram-3' as never} />,
+        title: 'WebRTC P2P transport',
+        description: 'The same room code runs over a direct peer-to-peer connection — players connect to each other while your server just helps them find one another. Lower latency, near-zero hosting cost for casual and co-op.'
+    },
+    {
+        eyebrow: 'Scale',
+        icon: <Icon name={'hdd-stack' as never} />,
+        title: 'Fleet orchestration',
+        description: 'Tie many Rivalis servers into one cluster and place rooms on the least-loaded one — a live in-memory view of the fleet, with no database to run.'
+    },
+    {
         eyebrow: 'Developer experience',
         icon: <Icon name={'code-square' as never} />,
         title: 'TypeScript-first',

@@ -7,39 +7,29 @@ import ConnectionLimiter from './ConnectionLimiter'
 import KickReason from './KickReason'
 import Room from './Room'
 import Actor from './Actor'
+import RoomManager from './RoomManager'
+import TLayer from './TLayer'
+import Config from './Config'
+import Transport from './Transport'
+import Client from './Client'
 import CustomLoggerFactory from './CustomLoggerFactory'
-
-import WSTransport from './transports/WSTransport'
-
-import WSClient from './clients/WSClient'
 
 const logging = CustomLoggerFactory.Instance
 
-const Transports = {
-    WSTransport
-}
+export type { BackpressureDropFn } from './transports/backpressure'
+export { checkBackpressure, DEFAULT_MAX_BUFFERED_BYTES } from './transports/backpressure'
 
-const Clients = {
-    WSClient
-}
-
-export type { TopicListener, ForEachFn, GetRoomFn, EventFn, EventType } from './types'
+export type { TopicListener, ForEachFn, GetRoomFn, EventFn, EventType, ConnectionContext, TransportCapability } from './types'
 export type { AuthResult } from './AuthMiddleware'
+export { timingSafeCompare } from './AuthMiddleware'
 export type { UnknownTopicPolicy } from './Room'
 export type { TokenBucketOptions } from './TokenBucketRateLimiter'
 export type { ConfigOptions } from './Config'
-export type {
-    WSTransportOptions,
-    AllowedOrigins,
-    TicketSource,
-    BackpressureDropFn
-} from './transports/WSTransport'
 export type { Message } from '@rivalis/handshake'
+export type { ClientEvent, ClientKickedEvent } from './Client'
 
 export {
     Rivalis,
-    Transports,
-    Clients,
     logging,
     AuthMiddleware,
     LegacyAuthMiddleware,
@@ -49,5 +39,10 @@ export {
     TokenBucketRateLimiter,
     ConnectionLimiter,
     Room,
-    Actor
+    Actor,
+    RoomManager,
+    TLayer,
+    Config,
+    Transport,
+    Client
 }

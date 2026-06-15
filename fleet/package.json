@@ -1,0 +1,78 @@
+{
+    "name": "@rivalis/fleet",
+    "version": "8.0.0",
+    "description": "Fleet orchestration for Rivalis: instance discovery, room placement, cluster control",
+    "source": "src/main.ts",
+    "main": "lib/main.js",
+    "module": "lib/module.js",
+    "types": "lib/main.d.ts",
+    "exports": {
+        ".": {
+            "types": "./lib/main.d.ts",
+            "import": "./lib/module.js",
+            "require": "./lib/main.js"
+        }
+    },
+    "bin": {
+        "rivalis-fleet": "bin/rivalis-fleet.js"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "dev": "tsup --watch",
+        "build": "tsup",
+        "test": "npm run build && node --test \"test/**/*.test.mts\""
+    },
+    "dependencies": {
+        "@fastify/cors": "^11.2.0",
+        "@toolcase/node": "^4.0.0",
+        "@toolcase/serializer": "3.x",
+        "commander": "^12.1.0",
+        "fastify": "^5.8.5",
+        "redis": "^5.12.1"
+    },
+    "peerDependencies": {
+        "@rivalis/core": ">=8 <9",
+        "@rivalis/node": ">=8 <9",
+        "@toolcase/base": "3.x",
+        "@toolcase/logging": "3.x",
+        "ws": "8.x"
+    },
+    "devDependencies": {
+        "@rivalis/core": "*",
+        "@rivalis/node": "*"
+    },
+    "keywords": [
+        "realtime",
+        "websockets",
+        "orchestration",
+        "fleet",
+        "cluster",
+        "multiplayer",
+        "rivalis"
+    ],
+    "directories": {
+        "lib": "lib"
+    },
+    "files": [
+        "lib",
+        "bin"
+    ],
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme"
+}

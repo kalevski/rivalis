@@ -1,0 +1,27 @@
+{
+    "name": "@rivalis/demo-p2p-chat",
+    "private": true,
+    "description": "Peer-to-peer chat mesh — Rivalis is used only for signalling; chat flows directly between peers (max 10)",
+    "scripts": {
+        "signaling": "ts-node src/signaling/index.ts",
+        "start": "ts-node src/signaling/index.ts",
+        "dev": "nodemon -w src/signaling -w src/protocol.ts -w src/constants.ts -e ts --exec \"ts-node src/signaling/index.ts\"",
+        "peer": "ts-node src/peer/index.ts"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme",
+    "dependencies": {
+        "@rivalis/core": "*",
+        "ws": "8.x"
+    }
+}

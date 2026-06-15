@@ -1,0 +1,25 @@
+{
+    "name": "@rivalis/demo-orchestrator-chat",
+    "private": true,
+    "description": "Orchestrated multi-room chat — rooms created and disposed on demand",
+    "scripts": {
+        "start": "ts-node src/server/index.ts",
+        "dev": "nodemon -w src/server -w src/protocol.ts -e ts --exec \"ts-node src/server/index.ts\"",
+        "client": "ts-node src/client/index.ts"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme",
+    "dependencies": {
+        "@rivalis/core": "*"
+    }
+}

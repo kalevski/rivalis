@@ -11,6 +11,7 @@ export type ConfigOptions<TActorData = Record<string, unknown>> = {
     rateLimiter?: RateLimiter | null
     logging?: LoggerFactory
     maxTopicLength?: number
+    maxPayloadBytes?: number
 }
 
 class Config<TActorData = Record<string, unknown>> {
@@ -24,6 +25,8 @@ class Config<TActorData = Record<string, unknown>> {
     logging: LoggerFactory
 
     maxTopicLength: number
+
+    maxPayloadBytes: number
 
     constructor(config: ConfigOptions<TActorData>) {
 
@@ -59,6 +62,12 @@ class Config<TActorData = Record<string, unknown>> {
             }
         }
 
+        if (config.maxPayloadBytes !== undefined) {
+            if (typeof config.maxPayloadBytes !== 'number' || !Number.isInteger(config.maxPayloadBytes) || config.maxPayloadBytes <= 0) {
+                throw new Error('config error: maxPayloadBytes must be a positive integer')
+            }
+        }
+
         this.transports = config.transports
         this.authMiddleware = config.authMiddleware
         // Opt-out semantics: omitting `rateLimiter` (undefined) gets a
@@ -75,6 +84,12 @@ class Config<TActorData = Record<string, unknown>> {
         }
         this.logging = config.logging ?? CustomLoggerFactory.Instance
         this.maxTopicLength = config.maxTopicLength ?? 256
+        // Core-level inbound ceiling on the decoded payload, independent of
+        // any transport's advisory `maxFrameBytes`/`maxPayload`. Defaults to
+        // 64 KiB to match the documented frame cap; a transport without a
+        // payload cap (or a custom/stub one) cannot push larger payloads into
+        // room handlers.
+        this.maxPayloadBytes = config.maxPayloadBytes ?? 65536
     }
 
 }

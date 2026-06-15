@@ -3,7 +3,7 @@ import Actor from './Actor'
 import KickReason from './KickReason'
 import type RoomManager from './RoomManager'
 import type TLayer from './TLayer'
-import type { ForEachFn, TopicListener } from './types'
+import type { ForEachFn, TopicListener, TransportCapability } from './types'
 
 const PRESENCE_JOIN_TOPIC = '__presence:join'
 const PRESENCE_LEAVE_TOPIC = '__presence:leave'
@@ -14,6 +14,8 @@ const PRESENCE_LEAVE_TOPIC = '__presence:leave'
  * cannot `bind` / `unbind` them — see `Room.bind`.
  */
 const RESERVED_TOPIC_PREFIX = '__'
+
+const textEncoder = new TextEncoder()
 
 /**
  * The single magic topic name used internally for the wildcard fallback.
@@ -36,6 +38,15 @@ export type UnknownTopicPolicy = 'drop' | 'kick'
 abstract class Room<TActorData = Record<string, unknown>> {
 
     readonly id: string
+
+    /**
+     * The definition key this room was created from (the first argument
+     * to `rooms.define` / `rooms.create`). Stamped by `RoomManager.create`
+     * and passed through the constructor, so it is available even for
+     * rooms that existed before an observer attached — `@rivalis/fleet`'s
+     * `FleetAgent` relies on this to report room types in its snapshots.
+     */
+    readonly type: string
 
     /**
      * Opt-in: when `true`, the room auto-broadcasts `__presence:join`
@@ -67,6 +78,28 @@ abstract class Room<TActorData = Record<string, unknown>> {
      */
     joinable: boolean = true
 
+    /**
+     * Opt-in lifecycle: when `true`, the room schedules its own destruction
+     * (via `RoomManager.destroy`) as soon as the last actor leaves and
+     * `actorCount` returns to zero. Useful for ephemeral per-match /
+     * per-lobby rooms created with server-generated ids, which would
+     * otherwise linger in `RoomManager.rooms` forever unless app code
+     * remembers to `destroy()` them — an unbounded-growth footgun.
+     *
+     * Default `false`, preserving the historical **manual-lifecycle**
+     * contract: a room lives until an explicit `destroy()` call (or
+     * `Rivalis.shutdown`), no matter how many actors it holds. Long-lived
+     * lobbies, persistent hubs, and rooms you pre-create and reuse should
+     * keep this off.
+     *
+     * Enable per-room with `protected override destroyOnEmpty = true`.
+     * Teardown is deferred to a microtask that re-checks `actorCount`
+     * first, so a new actor that joins in the window between the last leave
+     * and the scheduled teardown cancels the destruction — the room is torn
+     * down only if it is still empty (and not already manually destroyed).
+     */
+    protected destroyOnEmpty: boolean = false
+
     protected logger: Logger | null = null
 
     private manager: RoomManager<TActorData> | null = null
@@ -79,8 +112,11 @@ abstract class Room<TActorData = Record<string, unknown>> {
 
     private actors: Map<string, Actor<TActorData>> = new Map()
 
-    constructor(roomId: string, manager: RoomManager<TActorData>, transportLayer: TLayer<TActorData>) {
+    private emptyDestroyScheduled: boolean = false
+
+    constructor(roomId: string, manager: RoomManager<TActorData>, transportLayer: TLayer<TActorData>, type: string = '') {
         this.id = roomId
+        this.type = type
         this.logger = manager.logging.getLogger(`room=${roomId}`)
         this.manager = manager
         this.transportLayer = transportLayer
@@ -92,6 +128,36 @@ abstract class Room<TActorData = Record<string, unknown>> {
         return this.actors.size
     }
 
+    /**
+     * Capability descriptor of the transport(s) attached to this room (p2p.md §7, §12 Phase 4).
+     *
+     * Returns `null` when no transport has registered capabilities yet (rare — only possible
+     * if a `StubTransport` that skips `registerCapabilities` is the sole transport). Otherwise
+     * returns the merged descriptor across all configured transports:
+     *
+     * - `ordered` — `true` when every transport delivers frames in send order.
+     * - `reliable` — `true` when every transport guarantees delivery.
+     * - `maxFrameBytes` — the smallest per-frame ceiling across transports; `null` = no limit.
+     *
+     * Typical values: WS → `{ ordered:true, reliable:true, maxFrameBytes:65536 }`; RTC primary
+     * channel → `{ ordered:true, reliable:true, maxFrameBytes:16384 }`.
+     */
+    protected get transportCapabilities(): TransportCapability | null {
+        return this.transportLayer?.capabilities ?? null
+    }
+
+    /**
+     * Look up a joined actor by id. Returns `null` when no actor with that
+     * id is currently in the room. Visibility is `protected` — the intended
+     * caller is a `Room` subclass (e.g. a signaling relay that must route a
+     * message to one specific peer). App code that needs cross-actor lookups
+     * should go through `each` or a subclass-maintained index; `getActor`
+     * is a targeted primitive, not a general query API.
+     */
+    protected getActor(actorId: string): Actor<TActorData> | null {
+        return this.actors.get(actorId) ?? null
+    }
+
     protected onCreate(): void {}
 
     protected onJoin(_actor: Actor<TActorData>): void {}
@@ -99,6 +165,70 @@ abstract class Room<TActorData = Record<string, unknown>> {
     protected onLeave(_actor: Actor<TActorData>): void {}
 
     protected onDestroy(): void {}
+
+    /**
+     * Opt-in state serialization for host handoff (p2p.md §12 Phase 3).
+     *
+     * Override to return a `Uint8Array` snapshot of the room's authoritative
+     * state.  The framework calls this when the host is transferring control to
+     * a newly-elected host; the bytes are forwarded via the signal layer and
+     * delivered to the new host, which receives them through `hydrate`.
+     *
+     * The default returns `null`, which opts the room out of state transfer —
+     * rooms that do not override this are completely unaffected by the handoff
+     * mechanism.
+     *
+     * Keep the snapshot compact: it is sent as a binary payload over the signal
+     * WebSocket.  Prefer encoding with `@rivalis/handshake` or a similar
+     * framing discipline so the new host can version-check before applying.
+     */
+    protected serialize(): Uint8Array | null {
+        return null
+    }
+
+    /**
+     * Opt-in state restoration for host handoff (p2p.md §12 Phase 3).
+     *
+     * Called on the newly-elected host's room with the bytes that the outgoing
+     * host produced via `serialize`.  Override to restore room state so the new
+     * host resumes where the old host left off.
+     *
+     * Only called when the outgoing host had previously pushed a non-null
+     * snapshot via `signal:host_state`.  Rooms that do not override `serialize`
+     * will never have `hydrate` called on them.
+     */
+    protected hydrate(_bytes: Uint8Array): void {}
+
+    /**
+     * @internal
+     * Called by the framework to safely invoke `serialize`. Catches and logs
+     * any exception thrown by user-supplied code so a bad serialize
+     * implementation cannot crash the handoff flow.
+     */
+    trySerialize(): Uint8Array | null {
+        try {
+            return this.serialize()
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error)
+            this.logger?.error(`serialize threw: ${reason}`)
+            return null
+        }
+    }
+
+    /**
+     * @internal
+     * Called by the framework to safely invoke `hydrate`. Catches and logs
+     * any exception thrown by user-supplied code so a bad hydrate
+     * implementation cannot crash the room startup path.
+     */
+    tryHydrate(bytes: Uint8Array): void {
+        try {
+            this.hydrate(bytes)
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error)
+            this.logger?.error(`hydrate threw: ${reason}`)
+        }
+    }
 
     /**
      * Hook for the presence broadcast payload. Default returns
@@ -191,9 +321,9 @@ abstract class Room<TActorData = Record<string, unknown>> {
             return this.transportLayer.send(actor.id, topic, payload)
         }
         if (typeof payload === 'string') {
-            return this.transportLayer.send(actor.id, topic, Buffer.from(payload, 'utf-8'))
+            return this.transportLayer.send(actor.id, topic, textEncoder.encode(payload))
         }
-        throw new Error(`send error: invalid payload=${payload}, must be a string or Buffer`)
+        throw new Error(`send error: invalid payload=${payload}, must be a string or Uint8Array`)
     }
 
     broadcast(topic: string, payload: Uint8Array | string): void {
@@ -212,9 +342,9 @@ abstract class Room<TActorData = Record<string, unknown>> {
             return this.transportLayer.kick(actor.id, payload)
         }
         if (typeof payload === 'string') {
-            return this.transportLayer.kick(actor.id, Buffer.from(payload, 'utf-8'))
+            return this.transportLayer.kick(actor.id, textEncoder.encode(payload))
         }
-        throw new Error(`kick error: invalid payload=${payload}, must be a string or Buffer`)
+        throw new Error(`kick error: invalid payload=${payload}, must be a string or Uint8Array`)
     }
 
     destroy(): void {
@@ -330,6 +460,39 @@ abstract class Room<TActorData = Record<string, unknown>> {
                 this.logger?.error(`presence:leave broadcast failed for actor id=${actorId}: ${reason}`)
             }
         }
+        if (this.destroyOnEmpty && this.actors.size === 0) {
+            this.scheduleDestroyOnEmpty()
+        }
+    }
+
+    /**
+     * Defer destruction of a now-empty `destroyOnEmpty` room to a microtask,
+     * guarding the join-before-teardown race. Between the last leave and the
+     * scheduled callback, a new actor may join (restoring `actorCount`) or a
+     * manual `destroy()` may have already torn the room down. The callback
+     * re-checks both and only destroys a room that is still registered with
+     * the manager and still empty. The `emptyDestroyScheduled` latch coalesces
+     * repeated empties within the same turn into a single scheduled teardown.
+     */
+    private scheduleDestroyOnEmpty(): void {
+        if (this.emptyDestroyScheduled) {
+            return
+        }
+        this.emptyDestroyScheduled = true
+        queueMicrotask(() => {
+            this.emptyDestroyScheduled = false
+            // manager === null  → a manual destroy() / shutdown already ran.
+            // actors.size !== 0  → a new actor won the race; room is live again.
+            if (this.manager === null || this.actors.size !== 0) {
+                return
+            }
+            try {
+                this.manager.destroy(this.id)
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error)
+                this.logger?.error(`destroyOnEmpty teardown failed: ${reason}`)
+            }
+        })
     }
 }
 

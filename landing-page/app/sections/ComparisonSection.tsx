@@ -23,6 +23,14 @@ const comparisons: Comparison[] = [
             'Origin allow-lists for CSWSH protection on by default',
             'TypeScript-native, zero hidden runtime dependencies — ship in days, not months'
         ]
+    },
+    {
+        versus: 'Which setup do I pick?',
+        bullets: [
+            'P2P (WebRTC): cheapest, lowest latency for casual/co-op — your server only does discovery, but a peer host can’t be trusted for competitive play.',
+            'One dedicated server: server-authoritative and simple — the right default until you outgrow a single process.',
+            'Fleet: many servers in one cluster, each room placed on the least-loaded box — for more players, regions, or rooms than one server should hold.'
+        ]
     }
 ]
 

@@ -365,6 +365,7 @@ class GameRoom extends Room<{ name: string }> {
     override joinable = true            // flip false to refuse joins (`room_not_joinable`)
     protected override presence = true  // auto __presence:join / __presence:leave
     protected override unknownTopicPolicy = 'drop'   // 'kick' (default) | 'drop'
+    protected override destroyOnEmpty = true   // auto-destroy when the last actor leaves (default false)
 
     protected override onCreate() {
         this.bind('move', this.onMove)
@@ -617,6 +618,8 @@ rivalis.rooms.destroy('lobby-1')                // kicks remaining actors with `
 rivalis.rooms.on('create', (id) => { /* ... */ })
 rivalis.rooms.on('destroy', (id) => { /* ... */ })
 ```
+
+**Room lifecycle is manual by default.** A room lives until you call `rooms.destroy(id)` (or `room.destroy()`, or `shutdown`) — it is *not* removed when its last actor leaves. For ephemeral per-match / per-lobby rooms created with server-generated ids, this means abandoned rooms accumulate in the manager unless you clean them up yourself. Opt into automatic cleanup with `protected override destroyOnEmpty = true` on the room class: the room then destroys itself (via `RoomManager.destroy`, firing `onDestroy` and the `destroy` event) once `actorCount` returns to zero. Teardown is deferred to a microtask and re-checks the count, so a player who reconnects in the same tick keeps the room alive.
 
 ## Graceful shutdown
 

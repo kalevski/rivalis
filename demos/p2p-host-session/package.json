@@ -1,0 +1,27 @@
+{
+    "name": "@rivalis/demo-p2p-host-session",
+    "private": true,
+    "description": "P2P host-authoritative session — one node host owns shared state and syncs it to many peers via WebRTC",
+    "scripts": {
+        "signal": "ts-node src/signal/index.ts",
+        "host": "ts-node src/host/index.ts",
+        "peer": "ts-node src/peer/index.ts"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme",
+    "dependencies": {
+        "@rivalis/core": "*",
+        "@rivalis/node": "*",
+        "@rivalis/signal": "*"
+    }
+}

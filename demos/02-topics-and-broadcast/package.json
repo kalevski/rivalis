@@ -1,0 +1,28 @@
+{
+    "name": "@rivalis/guided-02-topics-and-broadcast",
+    "private": true,
+    "description": "Guided level 02 — topics, broadcast, and join/leave events",
+    "scripts": {
+        "start": "ts-node src/server.ts",
+        "dev": "nodemon -w src -e ts --exec \"ts-node src/server.ts\"",
+        "client": "ts-node src/client.ts",
+        "build": "tsc --noEmit"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme",
+    "dependencies": {
+        "@rivalis/core": "*",
+        "@rivalis/node": "*",
+        "ws": "8.x"
+    }
+}

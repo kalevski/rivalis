@@ -1,0 +1,27 @@
+{
+    "name": "@rivalis/guided-01-hello-room",
+    "private": true,
+    "description": "Guided level 01 — the smallest runnable Rivalis program",
+    "scripts": {
+        "start": "ts-node src/index.ts",
+        "dev": "nodemon -w src -e ts --exec \"ts-node src/index.ts\"",
+        "build": "tsc --noEmit"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme",
+    "dependencies": {
+        "@rivalis/core": "*",
+        "@rivalis/node": "*",
+        "ws": "8.x"
+    }
+}

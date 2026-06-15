@@ -10,7 +10,7 @@
  * without UTF-8 truncation surprises.
  */
 const KickReason = Object.freeze({
-    /** Inbound frame was malformed, exceeded `maxTopicLength`, or hit an unbound topic with `unknownTopicPolicy='kick'`. */
+    /** Inbound frame was malformed, exceeded `maxTopicLength` or `maxPayloadBytes`, or hit an unbound topic with `unknownTopicPolicy='kick'`. */
     INVALID_MESSAGE: 'invalid_message',
     /** The room the actor was in was destroyed (e.g. `Rivalis.shutdown`, `RoomManager.destroy`). */
     ROOM_DESTROYED: 'room_destroyed',

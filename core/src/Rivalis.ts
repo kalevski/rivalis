@@ -26,7 +26,8 @@ class Rivalis<TActorData = Record<string, unknown>> {
             this.getRoomByID,
             this.config.rateLimiter,
             this.logging,
-            this.config.maxTopicLength
+            this.config.maxTopicLength,
+            this.config.maxPayloadBytes
         )
         this.rooms = new RoomManager<TActorData>(this.transportLayer, this.logging)
 
@@ -74,13 +75,23 @@ class Rivalis<TActorData = Record<string, unknown>> {
             }
         }
 
-        const disposals = this.config.transports.map((transport) => {
-            try {
-                return Promise.resolve(transport.dispose())
-            } catch (error) {
-                return Promise.reject(error)
-            }
-        })
+        const transports = this.config.transports
+        // Transports carry no explicit id, so identify them by class name +
+        // configured position — enough to tell which one hung or failed.
+        const labels = transports.map((transport, index) => `${transport.constructor.name}[${index}]`)
+
+        // Track which disposals have settled so the timeout path can report
+        // exactly which transports were still hanging when the clock ran out.
+        const settled: boolean[] = transports.map(() => false)
+        const disposals = transports.map((transport, index) =>
+            (async () => {
+                try {
+                    await transport.dispose()
+                } finally {
+                    settled[index] = true
+                }
+            })()
+        )
 
         // B-9: hoist the timer id so the success path can clear it.
         // Without this, a successful disposal still leaves a timer
@@ -94,11 +105,22 @@ class Rivalis<TActorData = Record<string, unknown>> {
         })
 
         try {
-            await Promise.race([Promise.allSettled(disposals), timeout])
+            const results = await Promise.race([Promise.allSettled(disposals), timeout])
+            for (const [index, result] of results.entries()) {
+                if (result.status === 'rejected') {
+                    const reason = result.reason instanceof Error ? result.reason.message : String(result.reason)
+                    logger.error(`transport ${labels[index]} failed to dispose during shutdown: ${reason}`)
+                }
+            }
             logger.info('shutdown complete')
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error)
-            logger.warning(`shutdown finished with error: ${reason}`)
+            const pending = labels.filter((_, index) => !settled[index])
+            if (pending.length > 0) {
+                logger.warning(`shutdown finished with error: ${reason}; transports still disposing: ${pending.join(', ')}`)
+            } else {
+                logger.warning(`shutdown finished with error: ${reason}`)
+            }
         } finally {
             if (timeoutTimer !== null) {
                 clearTimeout(timeoutTimer)

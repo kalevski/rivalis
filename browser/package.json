@@ -1,7 +1,7 @@
 {
     "name": "@rivalis/browser",
-    "version": "6.0.0",
-    "description": "🔗 Browser client for rivalis server",
+    "version": "8.0.0",
+    "description": "\ud83d\udd17 Browser client for rivalis server",
     "source": "src/main.ts",
     "main": "lib/main.js",
     "module": "lib/module.js",
@@ -15,17 +15,29 @@
     },
     "scripts": {
         "dev": "tsup --watch",
-        "build": "tsup"
+        "build": "tsup",
+        "test": "npm run build && node --test \"test/**/*.test.mts\""
     },
     "peerDependencies": {
-        "@toolcase/base": "2.x",
-        "@toolcase/logging": "2.x",
-        "@toolcase/serializer": "2.x"
+        "@rivalis/core": ">=8 <9",
+        "@toolcase/base": "3.x",
+        "@toolcase/logging": "3.x",
+        "@toolcase/serializer": "3.x"
     },
     "devDependencies": {
+        "@rivalis/core": "*",
         "@rivalis/handshake": "*"
     },
-    "keywords": ["realtime", "websockets", "networking", "multiplayer", "netcode", "toolcase", "borwser", "rivalis"],
+    "keywords": [
+        "realtime",
+        "websockets",
+        "networking",
+        "multiplayer",
+        "netcode",
+        "toolcase",
+        "borwser",
+        "rivalis"
+    ],
     "directories": {
         "lib": "lib"
     },

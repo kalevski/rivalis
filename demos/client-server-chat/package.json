@@ -1,0 +1,25 @@
+{
+    "name": "@rivalis/demo-client-server-chat",
+    "private": true,
+    "description": "Minimal client/server chat — the \"hello world\" of Rivalis",
+    "scripts": {
+        "start": "ts-node src/server/index.ts",
+        "dev": "nodemon -w src/server -w src/protocol.ts -e ts --exec \"ts-node src/server/index.ts\"",
+        "client": "ts-node src/client/index.ts"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalevski/rivalis.git"
+    },
+    "author": {
+        "name": "kalevski"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kalevski/rivalis/issues"
+    },
+    "homepage": "https://github.com/kalevski/rivalis#readme",
+    "dependencies": {
+        "@rivalis/core": "*"
+    }
+}
