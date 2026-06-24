@@ -12,33 +12,19 @@
  *  - NodeDataChannelPeer: createDataChannel, onDataChannel, onStateChange,
  *    onLocalDescription, onLocalCandidate, setLocalDescription,
  *    setRemoteDescription, addRemoteCandidate, close
- *  - createPeerConnection factory: werift selection, missing-module error messages
+ *  - createPeerConnection factory: missing-module error messages
  *  - ICE server URL mapping: stun/turn/turns with explicit and default ports,
  *    query param, multi-url per server, username/credential
  */
 
 import { test, suite } from 'node:test'
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
 import {
     createPeerConnection,
     NodeDataChannelPeer,
     NodeDCDataChannel,
 } from '../lib/main.js'
 import type { RTCDataChannelLike, RTCPeerLike } from '../lib/main.js'
-
-// ---------------------------------------------------------------------------
-// werift availability check — used by §5 factory test
-// ---------------------------------------------------------------------------
-
-const req = createRequire(import.meta.url)
-let weriftAvailable = false
-try {
-    req('werift')
-    weriftAvailable = true
-} catch {
-    // werift optional dep not installed
-}
 
 // ---------------------------------------------------------------------------
 // Mock node-datachannel primitives
@@ -472,41 +458,6 @@ suite('createPeerConnection factory', () => {
                 err.message.includes('node-datachannel'),
                 `Error must mention 'node-datachannel', got: ${err.message}`
             )
-        }
-    })
-
-    test('RIVALIS_WEBRTC_BACKEND=werift returns WeriftPeer when installed, or throws "not installed"', () => {
-        const saved = process.env['RIVALIS_WEBRTC_BACKEND']
-        process.env['RIVALIS_WEBRTC_BACKEND'] = 'werift'
-        try {
-            if (weriftAvailable) {
-                // werift is installed — createPeerConnection must succeed and return an RTCPeerLike
-                const peer = createPeerConnection({})
-                assert.ok(typeof peer.close === 'function', 'WeriftPeer must satisfy RTCPeerLike')
-                assert.ok(typeof peer.createDataChannel === 'function')
-                assert.ok(typeof peer.onStateChange === 'function')
-                peer.close()
-            } else {
-                // werift is not installed — expect a descriptive error mentioning 'werift'
-                assert.throws(
-                    () => createPeerConnection({}),
-                    (err: unknown) => {
-                        assert.ok(err instanceof Error)
-                        const msg = err.message
-                        assert.ok(
-                            msg.includes('werift') || msg.includes('not installed'),
-                            `Error must mention werift or not-installed: ${msg}`
-                        )
-                        return true
-                    }
-                )
-            }
-        } finally {
-            if (saved === undefined) {
-                delete process.env['RIVALIS_WEBRTC_BACKEND']
-            } else {
-                process.env['RIVALIS_WEBRTC_BACKEND'] = saved
-            }
         }
     })
 

@@ -35,8 +35,7 @@ Peer dependencies (must be installed by the host application):
 "ws": "8.x"
 ```
 
-`node-datachannel` is a direct dependency (prebuilt native binary). `werift` (pure TypeScript,
-no native build) is an optional dev/CI fallback selected via `RIVALIS_WEBRTC_BACKEND=werift`.
+`node-datachannel` is a direct dependency (prebuilt native binary) and provides the WebRTC backend.
 
 ## Quick start — host
 
@@ -165,16 +164,11 @@ an unordered channel.
 
 ## WebRTC backend
 
-The default backend is `node-datachannel` (libdatachannel, prebuilt native binary). For
-dev/CI environments without native builds, set:
-
-```sh
-RIVALIS_WEBRTC_BACKEND=werift
-```
-
-`werift` is a pure-TypeScript WebRTC implementation installed as an optional dependency. Both
-backends implement the same `RTCPeerLike` / `RTCDataChannelLike` adapter interfaces, so
-`RTCTransport` and `RTCClient` are backend-agnostic.
+The WebRTC backend is `node-datachannel` (libdatachannel, prebuilt native binary).
+`RTCTransport` and `RTCClient` are backend-agnostic — they program against the
+`RTCPeerLike` / `RTCDataChannelLike` adapter interfaces and never import a library
+name directly, so an alternative backend can be supplied through the
+`createPeerConnection` factory without touching the transport layer.
 
 ## Security
 
@@ -183,7 +177,7 @@ backends implement the same `RTCPeerLike` / `RTCDataChannelLike` adapter interfa
 WebRTC data channels are **DTLS-encrypted by default**. Every byte of game traffic between
 a peer and the host is encrypted end-to-end at the transport layer — no configuration required,
 no certificates to provision on your side. DTLS is part of the WebRTC specification and is
-enforced by both `node-datachannel` and `werift`.
+enforced by `node-datachannel`.
 
 This applies to both legs:
 

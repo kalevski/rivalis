@@ -24,9 +24,6 @@
     "dependencies": {
         "node-datachannel": "^0.10.0"
     },
-    "optionalDependencies": {
-        "werift": "^0.19.0"
-    },
     "peerDependencies": {
         "@rivalis/core": ">=8 <9",
         "@rivalis/handshake": ">=8 <9",

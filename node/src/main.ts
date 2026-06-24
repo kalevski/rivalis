@@ -1,5 +1,5 @@
 export type { RTCDataChannelLike, RTCPeerLike, ChannelReliability } from './peer/RTCPeer'
-export { createPeerConnection, NodeDataChannelPeer, NodeDCDataChannel, WeriftPeer, WeriftDataChannel } from './peer/RTCPeer'
+export { createPeerConnection, NodeDataChannelPeer, NodeDCDataChannel } from './peer/RTCPeer'
 
 export type { RTCAdapters, PeerNegotiatorCallbacks, HostNegotiatorCallbacks, HostNegotiationGuardOptions } from './peer/NegotiationCore'
 export {
