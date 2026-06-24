@@ -20,8 +20,7 @@
     },
     "peerDependencies": {
         "@toolcase/base": "3.x",
-        "@toolcase/logging": "3.x",
-        "@toolcase/serializer": "3.x"
+        "@toolcase/logging": "3.x"
     },
     "devDependencies": {
         "@rivalis/handshake": "*"

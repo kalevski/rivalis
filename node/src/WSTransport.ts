@@ -213,7 +213,7 @@ class WSTransport extends Transport {
 
         const connectionCtx: ConnectionContext = {
             kind: 'ws',
-            remoteId: request.socket.remoteAddress,
+            ...(request.socket.remoteAddress !== undefined ? { remoteId: request.socket.remoteAddress } : {}),
             meta: { origin: request.headers.origin }
         }
 

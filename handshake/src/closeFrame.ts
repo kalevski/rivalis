@@ -25,7 +25,7 @@
  * behaviour identical regardless of transport.
  */
 
-import { createRequire } from 'node:module'
+import { Serializer } from './wire/serializer'
 
 /**
  * The handshake topic reserved for transport-agnostic close/kick frames.
@@ -47,37 +47,13 @@ export type CloseFrame = {
     reason: string
 }
 
-// ── Lazy serializer loader (F5 fix, p2p.md §3.3a) ───────────────────────────
-// @toolcase/serializer's ESM entry does `import … from "protobufjs/light"` (no
-// .js extension), which Node strict-ESM rejects. Loading via require targets the
-// working CJS entry in both build outputs: the CJS bundle has a native `require`;
-// the ESM bundle derives one from import.meta.url.
-
-interface FieldDef {
-    key: string
-    type: string
-    rule: 'optional' | 'required' | 'repeated'
-}
-
-interface SerializerInstance {
-    define(key: string, fields?: FieldDef[]): void
-    encode(key: string, message: Record<string, unknown>): Uint8Array
-    decode(key: string, buffer: Uint8Array): unknown
-}
-
-interface SerializerCtor {
-    new (id?: string | null): SerializerInstance
-}
+// ── Serializer ───────────────────────────────────────────────────────────────
 
 const CLOSE_FRAME_MODEL = 'rivalis_close_frame'
-let serializer: SerializerInstance | null = null
+let serializer: Serializer | null = null
 
-function getSerializer(): SerializerInstance {
+function getSerializer(): Serializer {
     if (serializer !== null) return serializer
-    const metaUrl = import.meta.url
-    const req = metaUrl ? createRequire(metaUrl) : require
-    const mod = req('@toolcase/serializer') as { Serializer?: SerializerCtor; default?: SerializerCtor }
-    const Serializer = (mod.Serializer ?? mod.default) as SerializerCtor
     const s = new Serializer('@rivalis/close-frame')
     // APPEND-ONLY: tag 1 = code, tag 2 = reason — never reorder or remove.
     s.define(CLOSE_FRAME_MODEL, [
@@ -85,7 +61,7 @@ function getSerializer(): SerializerInstance {
         { key: 'reason', type: 'string', rule: 'required' },
     ])
     serializer = s
-    return serializer
+    return s
 }
 
 // ── UTF-8 boundary-safe truncation ───────────────────────────────────────────
@@ -96,8 +72,11 @@ function getSerializer(): SerializerInstance {
  * it already fits. Uses a forward walk so a complete multi-byte sequence that
  * lands exactly at the byte limit is included, not dropped.
  */
+const utf8Encoder = new TextEncoder()
+const utf8Decoder = new TextDecoder()
+
 function truncateUtf8(s: string, maxBytes: number): string {
-    const buf = Buffer.from(s, 'utf-8')
+    const buf = utf8Encoder.encode(s)
     if (buf.length <= maxBytes) return s
     let i = 0
     while (i < maxBytes) {
@@ -112,7 +91,7 @@ function truncateUtf8(s: string, maxBytes: number): string {
         if (i + seqLen > maxBytes) break           // this codepoint would overflow
         i += seqLen
     }
-    return buf.subarray(0, i).toString('utf-8')
+    return utf8Decoder.decode(buf.subarray(0, i))
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────

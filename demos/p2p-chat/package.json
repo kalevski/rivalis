@@ -22,6 +22,7 @@
     "homepage": "https://github.com/kalevski/rivalis#readme",
     "dependencies": {
         "@rivalis/core": "*",
+        "@rivalis/node": "*",
         "ws": "8.x"
     }
 }

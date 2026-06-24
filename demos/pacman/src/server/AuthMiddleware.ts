@@ -6,11 +6,7 @@ export type ActorData = {
     color: string
 }
 
-/**
- * The ticket a client passes to `connect()` is `name|color` — its display
- * name plus the hex colour of its Pac-Man. We validate both and drop every
- * player into the single `pacman` room.
- */
+// The ticket is `name|color`: a display name plus a hex colour.
 class PacmanAuthMiddleware extends BaseAuthMiddleware<ActorData> {
 
     override async authenticate(ticket: string): Promise<AuthResult<ActorData> | null> {

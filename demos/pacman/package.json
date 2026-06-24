@@ -23,6 +23,7 @@
     "homepage": "https://github.com/kalevski/rivalis#readme",
     "dependencies": {
         "@rivalis/browser": "*",
-        "@rivalis/core": "*"
+        "@rivalis/core": "*",
+        "@rivalis/node": "*"
     }
 }

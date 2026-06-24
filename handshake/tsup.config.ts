@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup'
 
-const external = ['@toolcase/serializer']
-
+// Zero runtime dependencies — the binary codec is native (see src/binary.ts), so
+// nothing is externalized and the bundle is platform-agnostic (node + browser).
 export default defineConfig([
     {
         entry: { main: 'src/main.ts' },
@@ -11,8 +11,7 @@ export default defineConfig([
         clean: true,
         sourcemap: false,
         dts: true,
-        outExtension: () => ({ js: '.js' }),
-        external
+        outExtension: () => ({ js: '.js' })
     },
     {
         entry: { module: 'src/main.ts' },
@@ -22,7 +21,6 @@ export default defineConfig([
         clean: false,
         sourcemap: false,
         dts: false,
-        outExtension: () => ({ js: '.js' }),
-        external
+        outExtension: () => ({ js: '.js' })
     }
 ])

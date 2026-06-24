@@ -1,18 +1,4 @@
-/**
- * Host process for the p2p-host-chat demo.
- *
- * Creates a Rivalis game server over RTCTransport (WebRTC). The host:
- *   1. Connects to the signal server as the first actor, which makes it the
- *      WebRTC negotiation host in SignalRoom (p2p.md §4.3).
- *   2. Accepts peer connections via WebRTC DataChannels (HostNegotiator).
- *   3. Runs a ChatRoom that relays messages to all connected peers.
- *
- * Auth: the peer's ticket ("chat:<name>") is the first binary message on the
- * DataChannel (RTCTransport §4.2). ChatAuthMiddleware extracts the name and
- * routes the actor into the "chat" room.
- *
- * Start order: signal server → host → peers.
- */
+// Host process: connects to the signal server first (becoming the WebRTC host) and runs ChatRoom.
 
 import { Rivalis, AuthMiddleware } from '@rivalis/core'
 import type { AuthResult } from '@rivalis/core'
@@ -21,12 +7,9 @@ import { SIGNAL_URL, HOST_SIGNAL_TICKET, ROOM_ID } from '../constants'
 import ChatRoom from './ChatRoom'
 import type { ActorData } from './ChatRoom'
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
 class ChatAuthMiddleware extends AuthMiddleware<ActorData> {
     override async authenticate(ticket: string): Promise<AuthResult<ActorData> | null> {
-        // Ticket format (same as signal auth): "<roomId>:<name>"
-        const sep = ticket.indexOf(':')
+        const sep = ticket.indexOf('.')
         if (sep <= 0) return null
         const roomId = ticket.slice(0, sep)
         const name = ticket.slice(sep + 1).trim()
@@ -34,8 +17,6 @@ class ChatAuthMiddleware extends AuthMiddleware<ActorData> {
         return { data: { name }, roomId }
     }
 }
-
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 const signalUrl = process.env['SIGNAL_URL'] ?? SIGNAL_URL
 

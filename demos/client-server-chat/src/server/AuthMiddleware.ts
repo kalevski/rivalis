@@ -5,10 +5,7 @@ export type ActorData = {
     name: string
 }
 
-/**
- * The ticket a client passes to `connect()` is simply its display name.
- * We validate it and drop everyone into the single `chat` room.
- */
+// The ticket is just the client's display name.
 class ChatAuthMiddleware extends BaseAuthMiddleware<ActorData> {
 
     override async authenticate(ticket: string): Promise<AuthResult<ActorData> | null> {

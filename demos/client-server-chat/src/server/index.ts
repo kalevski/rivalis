@@ -1,6 +1,7 @@
 import http from 'http'
 
-import { Rivalis, Transports } from '@rivalis/core'
+import { Rivalis } from '@rivalis/core'
+import { WSTransport } from '@rivalis/node'
 import ChatAuthMiddleware, { type ActorData } from './AuthMiddleware'
 import ChatRoom from './ChatRoom'
 import { ROOM_ID } from '../protocol'
@@ -11,7 +12,7 @@ const server = http.createServer()
 
 const rivalis = new Rivalis<ActorData>({
     transports: [
-        new Transports.WSTransport({ server })
+        new WSTransport({ server })
     ],
     authMiddleware: new ChatAuthMiddleware()
 })

@@ -12,21 +12,11 @@ import {
 } from '../protocol'
 import type { ActorData } from './AuthMiddleware'
 
-/**
- * The rendezvous room. Its only job is to let peers find each other; chat
- * never passes through here. Everything about the mesh's direct links is
- * negotiated peer-to-peer once discovery is done.
- *
- * The 10-participant cap is enforced with Rivalis' built-in `maxActors`: the
- * framework's `TLayer.grantAccess` rejects the 11th join with reason
- * `room_full` *before* the actor ever enters the room, so the limit is a real
- * framework guarantee, not something this demo polices by hand.
- */
+// Rendezvous room: peers find each other here, but chat never passes through it.
 class SignalingRoom extends Room<ActorData> {
 
     override maxActors: number = MAX_PEERS
 
-    /** Announced peers, keyed by signalling actor id. */
     private peers: Map<string, PeerInfo> = new Map()
 
     protected override onCreate(): void {
@@ -34,8 +24,7 @@ class SignalingRoom extends Room<ActorData> {
     }
 
     protected override onJoin(actor: Actor<ActorData>): void {
-        // Tell the newcomer its own id; it echoes this back inside every
-        // direct-link hello so peers can apply a stable dial ordering.
+        // Tell the newcomer its own id; it echoes this in every hello so peers can agree on who dials.
         const welcome: WelcomeEvent = { youId: actor.id }
         actor.send(TOPIC.WELCOME, encode(welcome))
     }
@@ -51,12 +40,10 @@ class SignalingRoom extends Room<ActorData> {
         const { name } = actor.data as ActorData
         const info: PeerInfo = { id: actor.id, name, host, port }
 
-        // 1. Hand the newcomer the peers already in the mesh (excludes itself —
-        //    it is not in `this.peers` yet).
+        // Send the newcomer the existing roster (excludes itself — not registered yet).
         const roster: RosterEvent = { peers: [...this.peers.values()] }
         actor.send(TOPIC.ROSTER, encode(roster))
 
-        // 2. Register it, then announce it to everyone else.
         this.peers.set(actor.id, info)
         this.each(other => {
             if (other.id === actor.id) return
@@ -67,8 +54,8 @@ class SignalingRoom extends Room<ActorData> {
     }
 
     protected override onLeave(actor: Actor<ActorData>): void {
+        // Joined but never announced — nobody was told about it.
         if (!this.peers.delete(actor.id)) {
-            // Joined but never finished announcing — nobody was told about it.
             return
         }
         const event: PeerLeaveEvent = { id: actor.id }

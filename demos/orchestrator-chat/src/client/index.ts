@@ -1,6 +1,6 @@
 import readline from 'readline'
 
-import { Clients } from '@rivalis/core'
+import { WSClient } from '@rivalis/node'
 import {
     encode,
     decode,
@@ -21,14 +21,13 @@ const rl = readline.createInterface({
     prompt: '> '
 })
 
-/** Print an incoming line above the prompt without clobbering the input. */
+// Print an incoming line above the prompt without clobbering the input.
 const print = (line: string): void => {
     process.stdout.write(`\r\x1b[K${line}\n`)
     rl.prompt(true)
 }
 
-// The Node WebSocket client ships inside `@rivalis/core` as `Clients.WSClient`.
-const client = new Clients.WSClient(URL)
+const client = new WSClient(URL)
 
 let youId = ''
 
@@ -61,8 +60,7 @@ client.on('__presence:leave', (payload: Uint8Array) => {
 
 client.on('client:disconnect', (payload: Uint8Array) => {
     const reason = new TextDecoder().decode(payload)
-    // An invalid ticket (bad name/room) is closed by the server before join —
-    // surface a hint rather than a bare disconnect.
+    // An invalid ticket is closed before join — show a hint instead.
     if (reason === 'invalid ticket' || reason === '') {
         print('disconnected — check your name (1-20 chars) and room (1-32 chars), letters/digits/_/- only')
     } else {
@@ -71,7 +69,7 @@ client.on('client:disconnect', (payload: Uint8Array) => {
     process.exit(0)
 }, null)
 
-// The ticket carries both the display name and the room — see ChatAuthMiddleware.
+// The ticket carries both the display name and the room.
 client.connect(buildTicket(name, room))
 rl.prompt()
 
