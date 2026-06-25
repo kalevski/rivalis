@@ -24,7 +24,6 @@
     "peerDependencies": {
         "@rivalis/core": ">=8 <9",
         "@rivalis/node": ">=8 <9",
-        "@rivalis/handshake": ">=8 <9",
         "@toolcase/base": "3.x",
         "@toolcase/logging": "3.x",
         "ws": "8.x"

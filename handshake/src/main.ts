@@ -1,11 +1,11 @@
-export { encode, decode } from './serializer'
-export type { Message } from './serializer'
+export { encode, decode } from './message'
+export type { Message } from './message'
 
-export { default as CloseCode } from './CloseCode'
-export type { CloseCode as CloseCodeType } from './CloseCode'
+export { default as CloseCode } from './closeCodes'
+export type { CloseCode as CloseCodeType } from './closeCodes'
 
-export { createCodec, WireVersionError, present, FieldType } from './codec/index'
-export type { FieldDef, Schema, CodecOptions, Codec } from './codec/index'
+export { createCodec, WireVersionError, present, FieldType } from './codec'
+export type { FieldDef, Schema, CodecOptions, Codec } from './codec'
 
 export {
     CLOSE_CONTROL_TOPIC,

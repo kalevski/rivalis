@@ -1,6 +1,6 @@
 import readline from 'readline'
 
-import { Clients } from '@rivalis/core'
+import { WSClient } from '@rivalis/node'
 import {
     encode,
     decode,
@@ -19,14 +19,13 @@ const rl = readline.createInterface({
     prompt: '> '
 })
 
-/** Print an incoming line above the prompt without clobbering the input. */
+// Print an incoming line above the prompt without clobbering the input.
 const print = (line: string): void => {
     process.stdout.write(`\r\x1b[K${line}\n`)
     rl.prompt(true)
 }
 
-// The Node WebSocket client ships inside `@rivalis/core` as `Clients.WSClient`.
-const client = new Clients.WSClient(URL)
+const client = new WSClient(URL)
 
 let youId = ''
 
@@ -61,7 +60,7 @@ client.on('client:disconnect', (payload: Uint8Array) => {
     process.exit(0)
 }, null)
 
-// The ticket is just the display name — see ChatAuthMiddleware.
+// The ticket is just the display name.
 client.connect(name)
 rl.prompt()
 

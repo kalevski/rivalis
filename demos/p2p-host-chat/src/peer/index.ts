@@ -1,17 +1,5 @@
-/**
- * Peer process for the p2p-host-chat demo.
- *
- * Uses RTCClient to establish a WebRTC DataChannel to the host via the
- * signal server, then exchanges chat messages directly with the host over
- * that channel. The signal server sees zero game traffic after the channel
- * opens (p2p.md §4.1).
- *
- * Ticket: "<roomId>:<name>" (e.g. "chat:alice") — the same string is used
- * for signal server auth (roomId routing) and game room auth (name extraction).
- *
- * Usage:  npm run peer -- <name>
- *         NAME=alice npm run peer
- */
+// Peer process: connects to the host over a WebRTC DataChannel and exchanges chat messages.
+// Usage:  npm run peer -- <name>   (or  NAME=alice npm run peer)
 
 import readline from 'readline'
 import { RTCClient } from '@rivalis/node'
@@ -19,14 +7,10 @@ import { encode, decode, TOPIC } from '../protocol'
 import type { ChatBroadcast, ChatRoster, ChatJoin, ChatLeave } from '../protocol'
 import { SIGNAL_URL, ROOM_ID } from '../constants'
 
-// ── Config ────────────────────────────────────────────────────────────────────
-
 const rawName = (process.argv[2] ?? process.env['NAME'] ?? '').trim()
 const name = rawName || `peer-${Math.floor(Math.random() * 9000) + 1000}`
 const signalUrl = process.env['SIGNAL_URL'] ?? SIGNAL_URL
-const ticket = `${ROOM_ID}:${name}`
-
-// ── UI helpers ────────────────────────────────────────────────────────────────
+const ticket = `${ROOM_ID}.${name}`
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -34,13 +18,11 @@ const rl = readline.createInterface({
     prompt: `${name}> `,
 })
 
-/** Print a status/incoming line above the prompt without clobbering input. */
+// Print a line above the prompt without clobbering pending input.
 const print = (line: string): void => {
     process.stdout.write(`\r\x1b[K${line}\n`)
     rl.prompt(true)
 }
-
-// ── Client ────────────────────────────────────────────────────────────────────
 
 const client = new RTCClient(signalUrl)
 
@@ -97,8 +79,6 @@ client.on(TOPIC.BROADCAST, (payload: Uint8Array) => {
     print(`${from}: ${text}`)
 }, null)
 
-// ── Input loop ────────────────────────────────────────────────────────────────
-
 rl.on('line', (line: string) => {
     const text = line.trim()
     if (text) {
@@ -113,8 +93,6 @@ rl.on('line', (line: string) => {
 
 rl.on('close', () => shutdown(0))
 process.on('SIGINT', () => shutdown(0))
-
-// ── Connect ───────────────────────────────────────────────────────────────────
 
 print(`connecting to signal server at ${signalUrl}...`)
 client.connect(ticket)

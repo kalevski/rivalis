@@ -19,9 +19,6 @@
         "build": "tsup",
         "test": "npm run build && node --test \"test/**/*.test.mts\" && node --input-type=module -e \"import '@rivalis/handshake'\""
     },
-    "peerDependencies": {
-        "@toolcase/serializer": "3.x"
-    },
     "files": [
         "lib"
     ]

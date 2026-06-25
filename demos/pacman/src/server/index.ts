@@ -2,7 +2,8 @@ import path from 'path'
 import http from 'http'
 import express from 'express'
 
-import { Rivalis, Transports } from '@rivalis/core'
+import { Rivalis } from '@rivalis/core'
+import { WSTransport } from '@rivalis/node'
 import PacmanAuthMiddleware, { type ActorData } from './AuthMiddleware'
 import PacmanRoom from './PacmanRoom'
 import { ROOM_ID } from '../protocol'
@@ -13,17 +14,14 @@ const BUILD_DIR = path.join(process.cwd(), './build')
 const app = express()
 const server = http.createServer(app)
 
-// Serve the built client (after `npm run build`). In dev you'd use the Vite
-// dev server on :5173 instead; either way the WebSocket lives on this server.
 app.use('/', express.static(BUILD_DIR))
 
 const rivalis = new Rivalis<ActorData>({
     transports: [
-        new Transports.WSTransport({ server })
+        new WSTransport({ server })
     ],
     authMiddleware: new PacmanAuthMiddleware(),
-    // A real-time game legitimately produces bursts of input frames; opt out
-    // of the default token-bucket limiter so a key-masher is never kicked.
+    // A real-time game produces bursts of input frames, so opt out of the default rate limiter.
     rateLimiter: null
 })
 

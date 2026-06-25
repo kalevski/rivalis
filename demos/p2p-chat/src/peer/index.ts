@@ -1,6 +1,7 @@
 import readline from 'readline'
 
-import { Clients, KickReason } from '@rivalis/core'
+import { KickReason } from '@rivalis/core'
+import { WSClient } from '@rivalis/node'
 import Mesh from './Mesh'
 import {
     encode,
@@ -30,14 +31,13 @@ const rl = readline.createInterface({
     prompt: '> '
 })
 
-/** Print an incoming line above the prompt without clobbering the input. */
+// Print an incoming line above the prompt without clobbering the input.
 const print = (line: string): void => {
     process.stdout.write(`\r\x1b[K${line}\n`)
     rl.prompt(true)
 }
 
-// The mesh carries the actual chat — directly between peers, never through the
-// signalling server below.
+// The mesh carries the actual chat, directly between peers.
 const mesh = new Mesh(
     name,
     host,
@@ -47,7 +47,7 @@ const mesh = new Mesh(
 )
 
 // The signalling client is only used to discover peers and learn join/leave.
-const client = new Clients.WSClient(signalingUrl)
+const client = new WSClient(signalingUrl)
 
 let stopped = false
 const shutdown = (code: number): void => {
@@ -106,7 +106,7 @@ client.on('client:disconnect', (payload: Uint8Array) => {
 mesh.start()
     .then(() => {
         print(`direct-link endpoint listening on ws://${host}:${port}`)
-        // The ticket is just the display name — see SignalingAuthMiddleware.
+        // The ticket is just the display name.
         client.connect(name)
         rl.prompt()
     })

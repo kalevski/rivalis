@@ -1,6 +1,9 @@
 import { defineConfig } from 'tsup'
 
-const external = ['@rivalis/handshake', '@toolcase/base', '@toolcase/logging', '@toolcase/serializer']
+// @rivalis/handshake is an internal (unpublished) package — inline it so the
+// wire codec ships inside this bundle rather than as an unresolvable runtime dep.
+// It has zero runtime deps (native binary codec), so nothing else is pulled in.
+const external = ['@toolcase/base', '@toolcase/logging']
 
 export default defineConfig([
     {

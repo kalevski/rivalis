@@ -1,12 +1,12 @@
 import { defineConfig } from 'tsup'
 
+// @rivalis/handshake is internal (unpublished) — inline it; it has zero runtime
+// deps (native binary codec), so nothing else is pulled in.
 const external = [
     '@rivalis/core',
     '@rivalis/node',
-    '@rivalis/handshake',
     '@toolcase/base',
     '@toolcase/logging',
-    '@toolcase/serializer',
     'ws',
 ]
 
@@ -19,7 +19,7 @@ export default defineConfig([
         platform: 'node',
         clean: true,
         sourcemap: false,
-        dts: true,
+        dts: { resolve: ['@rivalis/handshake'] },
         outExtension: () => ({ js: '.js' }),
         external,
     },

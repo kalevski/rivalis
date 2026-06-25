@@ -1,70 +1,42 @@
 /**
- * Shared typed-codec toolkit over @toolcase/serializer (p2p.md §3.5, D7).
+ * Versioned binary codec toolkit over the native serializer (p2p.md §3.5, D7).
  *
  * Provides the common framing discipline used by all control/negotiation wires
- * (fleet, signal). The game-frame codec (serializer.ts) is unchanged — it is the
- * hot path and its frame shape is fixed.
+ * (fleet, signal). The realtime game-frame codec (message.ts) is the hot path and
+ * its frame shape is fixed.
  *
  * ── 2-byte version header ────────────────────────────────────────────────────
- * Every frame is [major, minor] followed by the protobuf body. A major mismatch
+ * Every frame is [major, minor] followed by the binary body. A major mismatch
  * (including a legacy JSON frame whose first byte '{' = 123 can never be a valid
  * major) throws WireVersionError. The minor byte is reserved for additive
  * evolution within a major.
  *
  * ── APPEND-ONLY TAG RULE (load-bearing — read before editing) ───────────────
- * @toolcase/serializer assigns protobuf field tags positionally from the
- * insertion order of each define(...) field list (tag = index + 1). Tags are the
- * on-wire identity of a field, so:
+ * The serializer assigns field tags positionally from the insertion order of
+ * each define(...) field list (tag = index + 1). Tags are the on-wire identity
+ * of a field, so:
  *   • NEVER reorder fields within a message.
  *   • NEVER remove a field (leave it; stop populating it).
  *   • Only ever APPEND new fields at the end of a message's field list.
  * Breaking this silently corrupts decoding against any peer built before the
  * change. A genuinely breaking layout change requires bumping the codec major.
- *
- * ── Lazy serializer loader ───────────────────────────────────────────────────
- * @toolcase/serializer's ESM entry does `import … from "protobufjs/light"` (no
- * .js extension), which Node strict-ESM rejects (F5, p2p.md §1). The loader
- * uses createRequire(import.meta.url) in the ESM build and native require in
- * the CJS build, both resolving the working CJS entry — same pattern as
- * fleet/src/wire/serializer.ts:132-142.
  */
 
-import { createRequire } from 'node:module'
+import { Serializer } from './wire/serializer'
+import { FieldType } from './wire/types'
+import type { FieldDef } from './wire/types'
 
-// ── FieldType constants ───────────────────────────────────────────────────────
-
-/**
- * Scalar field type names accepted by @toolcase/serializer. Use these in
- * FieldDef.type for scalar fields; use a message type name for nested messages.
- */
-export const FieldType = {
-    STRING: 'string',
-    UINT32: 'uint32',
-    INT32: 'int32',
-    BOOL: 'bool',
-    BYTES: 'bytes',
-} as const
+// Scalar type constants and the field-definition shape live in the wire layer
+// (single source of truth); re-exported here as part of the public codec surface.
+export { FieldType }
+export type { FieldDef }
 
 // ── Schema definition types ──────────────────────────────────────────────────
 
-/** A single field in a message type definition. */
-export interface FieldDef {
-    /** Field name on the encoded/decoded object. */
-    key: string
-    /**
-     * Field type — a FieldType constant for scalars, or a message type name for
-     * nested messages. Position within the parent define() list is the on-wire
-     * tag — APPEND ONLY.
-     */
-    type: string
-    rule: 'optional' | 'required' | 'repeated'
-    default?: unknown
-}
-
 /**
  * Message type schema. Keys are type names; values are ordered field lists.
- * Define nested types before the types that reference them. Field order within
- * each type is the on-wire tag order — APPEND ONLY per the rule above.
+ * Field order within each type is the on-wire tag order — APPEND ONLY per the
+ * rule above. Types resolve by name, so define order is irrelevant.
  */
 export type Schema = Record<string, FieldDef[]>
 
@@ -106,18 +78,6 @@ export function present(obj: unknown, key: string): boolean {
         Object.prototype.hasOwnProperty.call(obj, key)
 }
 
-// ── @toolcase/serializer minimal type surface (loaded lazily) ─────────────────
-
-interface SerializerInstance {
-    define(key: string, fields?: FieldDef[]): void
-    encode(key: string, message: Record<string, unknown>): Uint8Array
-    decode(key: string, buffer: Uint8Array): unknown
-}
-
-interface SerializerCtor {
-    new (id?: string | null): SerializerInstance
-}
-
 // ── Codec factory ─────────────────────────────────────────────────────────────
 
 /** Options for createCodec. */
@@ -146,7 +106,7 @@ export interface CodecOptions {
 export interface Codec {
     /**
      * Encode a message into a versioned binary frame: [major, minor] header +
-     * protobuf body. The type name must match a key in the codec's schema.
+     * binary body. The type name must match a key in the codec's schema.
      */
     encode(type: string, message: Record<string, unknown>): Uint8Array
     /**
@@ -161,27 +121,17 @@ export interface Codec {
 const HEADER_BYTES = 2
 
 /**
- * Create a versioned binary codec over @toolcase/serializer.
+ * Create a versioned binary codec over the native serializer.
  *
- * The serializer is lazily initialized on first encode/decode call via
- * createRequire(import.meta.url), ensuring the working CJS entry is always
- * loaded regardless of whether the caller is ESM or CJS (F5 fix, p2p.md §3.5).
- *
- * Each returned codec is a self-contained singleton; create at module scope.
+ * The serializer is built lazily on first encode/decode call. Each returned
+ * codec is a self-contained singleton; create at module scope.
  */
 export function createCodec(options: CodecOptions): Codec {
     const { major, minor = 0, namespace, schema } = options
-    let serializer: SerializerInstance | null = null
+    let serializer: Serializer | null = null
 
-    function getSerializer(): SerializerInstance {
+    function getSerializer(): Serializer {
         if (serializer !== null) return serializer
-        const metaUrl = import.meta.url
-        const req = metaUrl ? createRequire(metaUrl) : require
-        const mod = req('@toolcase/serializer') as {
-            Serializer?: SerializerCtor
-            default?: SerializerCtor
-        }
-        const Serializer = (mod.Serializer ?? mod.default) as SerializerCtor
         const s = new Serializer(namespace)
         for (const [typeName, fields] of Object.entries(schema)) {
             s.define(typeName, fields)

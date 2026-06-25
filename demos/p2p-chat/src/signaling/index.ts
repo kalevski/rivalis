@@ -1,6 +1,7 @@
 import http from 'http'
 
-import { Rivalis, Transports } from '@rivalis/core'
+import { Rivalis } from '@rivalis/core'
+import { WSTransport } from '@rivalis/node'
 import SignalingAuthMiddleware, { type ActorData } from './AuthMiddleware'
 import SignalingRoom from './SignalingRoom'
 import { MAX_PEERS, SIGNALING_ROOM_ID, DEFAULT_SIGNALING_PORT } from '../constants'
@@ -11,7 +12,7 @@ const server = http.createServer()
 
 const rivalis = new Rivalis<ActorData>({
     transports: [
-        new Transports.WSTransport({ server })
+        new WSTransport({ server })
     ],
     authMiddleware: new SignalingAuthMiddleware()
 })

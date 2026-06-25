@@ -70,7 +70,7 @@ export class NativeBrowserDataChannel implements RTCDataChannelLike {
     }
 
     sendBinary(buf: Uint8Array): void {
-        this.dc.send(buf)
+        this.dc.send(buf as Uint8Array<ArrayBuffer>)
     }
 
     close(): void {

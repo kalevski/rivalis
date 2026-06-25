@@ -58,7 +58,7 @@ class SignalClient extends Client<SignalTopic> {
         super()
         this.ws = ws ?? new WSClient(signalUrl, {
             ticketSource: 'protocol',
-            subprotocols: options.subprotocols,
+            ...(options.subprotocols !== undefined ? { subprotocols: options.subprotocols } : {}),
         })
         this.ws.on('client:connect', () => this.emit('client:connect'))
         this.ws.on('client:disconnect', (payload: Uint8Array) => this.emit('client:disconnect', payload))

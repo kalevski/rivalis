@@ -1,6 +1,7 @@
 import http from 'http'
 
-import { Rivalis, Transports } from '@rivalis/core'
+import { Rivalis } from '@rivalis/core'
+import { WSTransport } from '@rivalis/node'
 import ChatAuthMiddleware, { type ActorData } from './AuthMiddleware'
 import ChatRoom from './ChatRoom'
 import Orchestrator, { setActiveOrchestrator } from './Orchestrator'
@@ -12,21 +13,17 @@ const server = http.createServer()
 
 const rivalis = new Rivalis<ActorData>({
     transports: [
-        new Transports.WSTransport({ server })
+        new WSTransport({ server })
     ],
     authMiddleware: new ChatAuthMiddleware()
 })
 
 rivalis.logging.level = 'info'
 
-// Wire up the orchestrator and make it reachable from the auth middleware and
-// the rooms (both go through the module singleton — see Orchestrator.ts).
 const orchestrator = new Orchestrator(rivalis.rooms)
 setActiveOrchestrator(orchestrator)
 
-// Register the room *class* only. Unlike the simple chat demo we do NOT
-// `rooms.create(...)` here: the orchestrator spins instances up on demand as
-// clients ask for room names, and disposes them when they empty.
+// Register the room class only; the orchestrator creates instances on demand.
 rivalis.rooms.define(ROOM_TYPE, ChatRoom)
 
 server.listen(PORT, () => {

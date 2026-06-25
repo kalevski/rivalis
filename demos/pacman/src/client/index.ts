@@ -18,8 +18,6 @@ import {
     type DeathEvent
 } from '../protocol'
 
-// ---- dom ---------------------------------------------------------------
-
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
 
 const loginForm = $<HTMLFormElement>('login')
@@ -33,26 +31,19 @@ const ctx = canvas.getContext('2d')!
 canvas.width = COLS * TILE
 canvas.height = ROWS * TILE
 
-// ---- local mirror of the authoritative state ---------------------------
-
 let youId = ''
 let players: PlayerState[] = []
 let ghosts: GhostState[] = []
 let pellets = new Set<number>(allPelletIndices())
 
-// Eased render positions so 30 Hz server updates look smooth at 60 fps.
-// Ghosts are keyed by `g<id>`, players by their actor id.
+// Eased render positions so 30 Hz server updates look smooth at 60 fps. Ghosts keyed by `g<id>`.
 type RenderPos = { x: number; y: number }
 const renderPos = new Map<string, RenderPos>()
 const ghostKey = (id: number): string => `g${id}`
 
-// Brief red flash on a Pac-Man that was just caught.
 const deathFlash = new Map<string, number>()
 
-// ---- networking --------------------------------------------------------
-
-// The WebSocket server always listens on :2335 (the game server), whether the
-// page itself is served by Vite on :5173 (dev) or by the game server (built).
+// The WebSocket server always listens on :2335, even when Vite serves the page on :5173.
 const WS_URL = `ws://${location.hostname}:2335`
 
 let client: WSClient | null = null
@@ -74,7 +65,7 @@ function join(name: string, color: string): void {
     ws.on('welcome', (payload: Uint8Array) => {
         const welcome = decode<WelcomeEvent>(payload)
         youId = welcome.youId
-        // Reconcile our freshly-built full board with pellets already eaten.
+        // Reconcile our full board with pellets already eaten.
         pellets = new Set<number>(allPelletIndices())
         for (const index of welcome.eaten) pellets.delete(index)
     }, null)
@@ -105,7 +96,6 @@ function join(name: string, color: string): void {
     ws.connect(`${name}|${color}`)
 }
 
-/** Drop render-position entries for entities that have left. */
 function syncRenderTargets(): void {
     const live = new Set<string>()
     for (const p of players) live.add(p.id)
@@ -114,8 +104,6 @@ function syncRenderTargets(): void {
         if (!live.has(key)) renderPos.delete(key)
     }
 }
-
-// ---- input -------------------------------------------------------------
 
 const KEY_DIRS: Record<string, Dir> = {
     ArrowUp: 'up', KeyW: 'up',
@@ -134,14 +122,11 @@ window.addEventListener('keydown', (e) => {
     client?.send('input', encode(cmd))
 })
 
-// ---- rendering ---------------------------------------------------------
-
 const WALL = '#2121de'
 const WALL_EDGE = '#4a4aff'
 const PELLET = '#ffd9a0'
 
-/** Move a render position a fraction of the way toward its target, snapping
- *  on big jumps (tunnel wrap) so entities don't streak across the board. */
+// Ease toward the target, but snap on big jumps (tunnel wrap) so entities don't streak across the board.
 function ease(key: string, tx: number, ty: number): RenderPos {
     let pos = renderPos.get(key)
     if (pos === undefined) {
@@ -195,7 +180,6 @@ function drawPac(p: PlayerState, t: number): void {
     const cy = (pos.y + 0.5) * TILE
     const r = TILE * 0.42
 
-    // Animated mouth; angle of opening keyed to direction.
     const open = (Math.sin(t / 90) * 0.5 + 0.5) * 0.32 + 0.04
     const base: Record<Dir, number> = {
         right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2, none: 0
@@ -210,7 +194,6 @@ function drawPac(p: PlayerState, t: number): void {
     ctx.closePath()
     ctx.fill()
 
-    // Name tag + "you" marker.
     ctx.fillStyle = p.id === youId ? '#ffffff' : '#c7ccdd'
     ctx.font = '11px system-ui, sans-serif'
     ctx.textAlign = 'center'
@@ -226,7 +209,6 @@ function drawGhost(g: GhostState): void {
     ctx.fillStyle = g.color
     ctx.beginPath()
     ctx.arc(cx, cy - r * 0.1, r, Math.PI, 0)
-    // Wavy skirt.
     const bottom = cy + r * 0.9
     ctx.lineTo(cx + r, bottom)
     const feet = 3
@@ -239,7 +221,7 @@ function drawGhost(g: GhostState): void {
     ctx.closePath()
     ctx.fill()
 
-    // Eyes, looking in the travel direction.
+    // Eyes look in the travel direction.
     const look: Record<Dir, { x: number; y: number }> = {
         up: { x: 0, y: -1 }, down: { x: 0, y: 1 },
         left: { x: -1, y: 0 }, right: { x: 1, y: 0 }, none: { x: 0, y: 0 }
@@ -283,8 +265,6 @@ function frame(t: number): void {
 }
 
 requestAnimationFrame(frame)
-
-// ---- bootstrap ---------------------------------------------------------
 
 const PALETTE = ['#ffe14d', '#7cf6a0', '#7cc4ff', '#ff9ad5', '#ffae5c', '#c79bff']
 

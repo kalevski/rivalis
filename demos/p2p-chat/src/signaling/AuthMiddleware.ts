@@ -5,11 +5,7 @@ export type ActorData = {
     name: string
 }
 
-/**
- * The ticket a peer passes to `connect()` is simply its display name. We
- * validate it and route every peer into the single signalling room, whose
- * `maxActors` cap is what enforces the 10-participant limit.
- */
+// The ticket is just the peer's display name; every peer is routed into the one signalling room.
 class SignalingAuthMiddleware extends BaseAuthMiddleware<ActorData> {
 
     override async authenticate(ticket: string): Promise<AuthResult<ActorData> | null> {

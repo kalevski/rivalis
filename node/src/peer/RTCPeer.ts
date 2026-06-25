@@ -108,8 +108,15 @@ export class NodeDataChannelPeer implements RTCPeerLike {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     constructor(config: RTCConfiguration, ndc?: any) {
         const lib = ndc ?? requireNodeDataChannel()
+        // disableAutoNegotiation: NegotiationCore drives negotiation explicitly
+        // (createDataChannel / setRemoteDescription followed by an explicit
+        // setLocalDescription, browser-RTCPeerConnection style). Without this,
+        // node-datachannel auto-generates the offer inside createDataChannel and the
+        // answer inside setRemoteDescription, which both races the onLocalDescription
+        // handler registration and makes the later explicit setLocalDescription throw
+        // ("Unexpected local description type ... in signaling state stable").
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const options: Record<string, any> = { iceServers: mapIceServers(config) }
+        const options: Record<string, any> = { iceServers: mapIceServers(config), disableAutoNegotiation: true }
         if (config.iceTransportPolicy) options['iceTransportPolicy'] = config.iceTransportPolicy
         this.pc = new lib.PeerConnection('', options)
     }
@@ -127,7 +134,7 @@ export class NodeDataChannelPeer implements RTCPeerLike {
     }
 
     onStateChange(cb: (state: string) => void): void {
-        this.pc.onConnectionStateChange(cb)
+        this.pc.onStateChange(cb)
     }
 
     onLocalDescription(cb: (sdp: string, type: string) => void): void {
@@ -174,7 +181,7 @@ function requireNodeDataChannel(): any {
 // ICE server mapping helper
 // ---------------------------------------------------------------------------
 
-function mapIceServers(config: RTCConfiguration): Array<{ hostname: string; port: number; username?: string; password?: string; relayType?: string }> {
+function mapIceServers(config: RTCConfiguration): Array<{ hostname: string; port: number; username?: string | undefined; password?: string | undefined; relayType?: string | undefined }> {
     return (config.iceServers ?? []).flatMap((s) => {
         const urls = Array.isArray(s.urls) ? s.urls : [s.urls]
         return urls.map((url) => ({

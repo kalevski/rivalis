@@ -25,19 +25,17 @@ import type { ActorData } from './AuthMiddleware'
 const TICK_MS = Math.round(1000 / TICK_HZ)
 
 const PAC_SPEED = 6.0 // tiles / second
-const GHOST_SPEED = 4.8 // tiles / second — a touch slower so players can escape
+const GHOST_SPEED = 4.8 // tiles / second — slower so players can escape
 
-const CATCH_DISTANCE = 0.5 // tiles; ghost-vs-pac proximity that counts as a catch
+const CATCH_DISTANCE = 0.5 // tiles; proximity that counts as a catch
 const NODE_EPS = 1e-6
 
-/** Open corridor tiles where a fresh player's Pac-Man appears (cycled). */
 const PLAYER_SPAWNS: ReadonlyArray<{ x: number; y: number }> = [
     { x: 9, y: 17 }, { x: 5, y: 17 }, { x: 13, y: 17 },
     { x: 7, y: 17 }, { x: 11, y: 17 }, { x: 3, y: 17 },
     { x: 15, y: 17 }, { x: 1, y: 17 }, { x: 17, y: 17 }
 ]
 
-/** The four ghosts: fixed colours and central spawn tiles. */
 const GHOST_DEFS: ReadonlyArray<{ color: string; x: number; y: number }> = [
     { color: '#ff0000', x: 9, y: 9 },
     { color: '#ffb8ff', x: 7, y: 9 },
@@ -69,33 +67,27 @@ type Ghost = Entity & {
     color: string
 }
 
-/**
- * The authoritative Pac-Man simulation.
- *
- * The server owns the entire game state: pellet board, every player's
- * Pac-Man, and four ghosts. It ticks a fixed-rate simulation, moving
- * entities tile-by-tile through the shared `MAZE`, resolving pellet eating
- * and ghost collisions, and broadcasting a `state` snapshot each tick.
- * Clients send only *intent* — their latest desired direction — and render
- * whatever authoritative state they receive.
- */
+// The authoritative simulation: the server owns the board, players, and ghosts, and broadcasts a snapshot each tick.
 class PacmanRoom extends Room<ActorData> {
 
     private pacs: Map<string, Pac> = new Map()
 
-    private ghosts: Ghost[] = []
+    // ghosts / pellets / tickHandle / lastTickAt have no initialisers: onCreate
+    // runs inside the base Room constructor, before field initialisers would, so
+    // an initialiser here would clobber what onCreate set.
+    private ghosts!: Ghost[]
 
-    /** Remaining pellet tile indices. */
-    private pellets: Set<number> = new Set()
+    private pellets!: Set<number>
 
     private spawnCursor = 0
 
-    private tickHandle: NodeJS.Timeout | null = null
+    private tickHandle!: NodeJS.Timeout | null
 
-    private lastTickAt = 0
+    private lastTickAt!: number
 
     protected override onCreate(): void {
         this.bind('input', this.onInput)
+        this.ghosts = []
         this.resetPellets()
         for (const def of GHOST_DEFS) {
             this.ghosts.push({
@@ -125,14 +117,11 @@ class PacmanRoom extends Room<ActorData> {
             spawnIndex: (this.spawnCursor - 1) % PLAYER_SPAWNS.length
         })
 
-        // Tell the joiner its own id plus which pellets are already gone, so a
-        // late joiner reconciles its locally-derived board to the live one.
+        // Tell the joiner its id and which pellets are already gone, so it can reconcile its board.
         const eaten = this.eatenIndices()
         const welcome: WelcomeEvent = { youId: actor.id, eaten }
         actor.send('welcome', encode(welcome))
 
-        // Push a fresh snapshot immediately so the new player sees everyone
-        // without waiting for the next tick.
         this.broadcastState()
     }
 
@@ -168,8 +157,7 @@ class PacmanRoom extends Room<ActorData> {
         const dt = Math.max(0, (now - this.lastTickAt) / 1000)
         this.lastTickAt = now
         if (dt <= 0) return
-        // Guard against a long pause (e.g. the process was suspended) hurling
-        // every entity across the board in a single step.
+        // Clamp dt so a long pause can't hurl entities across the board in one step.
         const step = Math.min(dt, 0.1)
 
         for (const [id, pac] of this.pacs) {
@@ -181,15 +169,13 @@ class PacmanRoom extends Room<ActorData> {
         this.resolveCollisions()
 
         if (this.pellets.size === 0) {
-            // Board cleared — refill so the level keeps going. Scores persist.
+            // Board cleared — refill so play continues; scores persist.
             this.resetPellets()
             this.broadcast('reset', encode({}))
         }
 
         this.broadcastState()
     }
-
-    // ---- movement -------------------------------------------------------
 
     private movePac(actorId: string, pac: Pac, dt: number): void {
         let remaining = pac.speed * dt
@@ -231,8 +217,7 @@ class PacmanRoom extends Room<ActorData> {
         }
     }
 
-    /** At a node: switch to the wanted direction if it's open, else keep
-     *  going straight if possible, else stop. */
+    // At a node: take the wanted direction if open, else go straight if possible, else stop.
     private decidePac(pac: Pac): void {
         const tx = Math.round(pac.x)
         const ty = Math.round(pac.y)
@@ -246,8 +231,7 @@ class PacmanRoom extends Room<ActorData> {
         pac.dir = chosen
     }
 
-    /** At a node: pick a direction. Ghosts don't reverse unless trapped, and
-     *  chase the nearest Pac-Man most of the time, wandering otherwise. */
+    // At a node: ghosts avoid reversing unless trapped, and chase the nearest player most of the time.
     private decideGhost(ghost: Ghost): void {
         const tx = Math.round(ghost.x)
         const ty = Math.round(ghost.y)
@@ -262,7 +246,6 @@ class PacmanRoom extends Room<ActorData> {
 
         const target = this.nearestPac(tx, ty)
         if (target !== null && Math.random() < 0.65) {
-            // Chase: greedily step toward the nearest player.
             let best = options[0]!
             let bestDist = Infinity
             for (const dir of options) {
@@ -276,11 +259,9 @@ class PacmanRoom extends Room<ActorData> {
             ghost.dir = best
             return
         }
-        // Wander: random open branch, for unpredictability.
         ghost.dir = options[Math.floor(Math.random() * options.length)]!
     }
 
-    /** Can an entity standing at (tx, ty) step one tile in `dir`? */
     private canEnter(tx: number, ty: number, dir: Dir): boolean {
         const v = DIR_VECTORS[dir]
         if (v.x === 0 && v.y === 0) return false
@@ -299,8 +280,6 @@ class PacmanRoom extends Room<ActorData> {
         }
         return best
     }
-
-    // ---- pellets & collisions ------------------------------------------
 
     private eatAt(actorId: string, pac: Pac): void {
         const index = pelletIndex(Math.round(pac.x), Math.round(pac.y))
@@ -345,8 +324,6 @@ class PacmanRoom extends Room<ActorData> {
         return out
     }
 
-    // ---- broadcast ------------------------------------------------------
-
     private broadcastState(): void {
         const players: PlayerState[] = []
         this.each((actor) => {
@@ -375,8 +352,6 @@ class PacmanRoom extends Room<ActorData> {
     }
 }
 
-// ---- grid-movement helpers ---------------------------------------------
-
 const atNode = (e: Entity): boolean =>
     Math.abs(e.x - Math.round(e.x)) < 1e-4 && Math.abs(e.y - Math.round(e.y)) < 1e-4
 
@@ -385,7 +360,7 @@ const snap = (e: Entity): void => {
     e.y = Math.round(e.y)
 }
 
-/** Distance (in tiles) from the entity to the next tile centre along `dir`. */
+// Distance (in tiles) from the entity to the next tile centre along its direction.
 const distToNextNode = (e: Entity): number => {
     const v = DIR_VECTORS[e.dir]
     if (v.x > 0) return Math.floor(e.x + NODE_EPS) + 1 - e.x
@@ -401,7 +376,7 @@ const advance = (e: Entity, step: number): void => {
     e.y += v.y * step
 }
 
-/** Wrap horizontally through the side tunnels. */
+// Wrap horizontally through the side tunnels.
 const wrap = (e: Entity): void => {
     if (e.x < 0) e.x += COLS
     else if (e.x > COLS - 1) e.x -= COLS
