@@ -97,7 +97,7 @@ async function main(): Promise<void> {
         rateLimiter: null,
     })
 
-    rivalis.logging.level = 'warn'
+    rivalis.logging.level = 'warning'
 
     rivalis.rooms.define(ROOM_TYPE, EchoRoom)
 

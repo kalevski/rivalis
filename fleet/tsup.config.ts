@@ -26,7 +26,16 @@ export default defineConfig([
         sourcemap: false,
         dts: { entry: { main: 'src/main.ts' } },
         outExtension: () => ({ js: '.js' }),
-        external
+        external,
+        // `loadCore`/`serializer` read `import.meta.url` on purpose: in the CJS
+        // bundle esbuild empties it, and the `metaUrl ? createRequire(metaUrl) : require`
+        // fallback relies on that emptiness to fall back to the native `require`
+        // (see those files' headers). esbuild's empty-import-meta warning is therefore
+        // expected here — silence it so the CJS build stays clean. The ESM bundle below
+        // keeps a real `import.meta.url`, so it never trips this warning.
+        esbuildOptions(options) {
+            options.logOverride = { ...options.logOverride, 'empty-import-meta': 'silent' }
+        }
     },
     {
         entry: { module: 'src/main.ts' },

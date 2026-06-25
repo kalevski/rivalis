@@ -147,7 +147,7 @@ const rivalis = new Rivalis<ActorData>({
     rateLimiter,
 })
 
-rivalis.logging.level = 'warn'
+rivalis.logging.level = 'warning'
 
 rivalis.rooms.define(ROOM_ID, GateRoom)
 rivalis.rooms.create(ROOM_ID, ROOM_ID)

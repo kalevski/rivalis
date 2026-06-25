@@ -10,7 +10,7 @@ const TOPIC = 'greeting'
 const SERVER_URL = `ws://localhost:${PORT}`
 
 class HelloAuth extends AuthMiddleware {
-    override async authenticate(ticket: string): Promise<AuthResult | null> {
+    override async authenticate(ticket: string): Promise<AuthResult<Record<string, unknown>> | null> {
         if (!ticket.trim()) {
             return null
         }

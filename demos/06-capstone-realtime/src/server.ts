@@ -453,7 +453,7 @@ async function main(): Promise<void> {
         rateLimiter,
     })
 
-    rivalis.logging.level = 'warn'
+    rivalis.logging.level = 'warning'
 
     // define() registers a class; instances are created later via create().
     rivalis.rooms.define(LOBBY_ROOM_TYPE, LobbyRoom)

@@ -142,7 +142,7 @@ async function main(): Promise<void> {
         rateLimiter: null,
     })
 
-    rivalis.logging.level = 'warn'
+    rivalis.logging.level = 'warning'
 
     rivalis.rooms.define(ROOM_ID, StateRoom)
     rivalis.rooms.create(ROOM_ID, ROOM_ID)
